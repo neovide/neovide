@@ -527,6 +527,7 @@ impl WinitWindowWrapper {
             input_ime,
             theme,
             opacity,
+            normal_opacity,
             window_blurred,
             fullscreen,
             #[cfg(target_os = "macos")]
@@ -625,12 +626,12 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
+        self.apply_blur(window_blurred && opacity.min(normal_opacity) < 1.0, None);
+
         #[cfg(target_os = "windows")]
         if window_blurred {
             window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
         }
-
-        self.apply_blur(window_blurred && opacity < 1.0, None);
 
         if fullscreen {
             let handle = window.current_monitor();

@@ -1,4 +1,6 @@
 use crate::error_msg;
+
+#[cfg(target_os = "macos")]
 pub use crate::platform::macos::settings::*;
 use crate::settings::*;
 
@@ -29,6 +31,7 @@ pub struct WindowSettings {
     pub touch_deadzone: f32,
     pub touch_drag_timeout: f32,
     pub window_blurred: bool,
+
     #[cfg(target_os = "macos")]
     pub window_blurred_radius: i64,
 
@@ -55,32 +58,33 @@ pub struct WindowSettings {
 impl Default for WindowSettings {
     fn default() -> Self {
         Self {
-            #[cfg(target_os = "macos")]
-            window_blurred_radius: ACRYLIC_DEFAULT_RADIUS,
-            scale_factor: 1.0,
-            fullscreen: false,
-            iso_layout: false,
-            refresh_rate: 60,
-            refresh_rate_idle: 5,
-            remember_window_size: true,
-            remember_window_position: true,
-            hide_mouse_when_typing: false,
-            touch_deadzone: 6.0,
-            touch_drag_timeout: 0.17,
             background_color: "".to_string(),
             confirm_quit: true,
             cursor_hack: true,
+            fullscreen: false,
             has_mouse_grid_detection: false,
+            hide_mouse_when_typing: false,
             input_ime: true,
+            iso_layout: false,
             normal_opacity: 1.0,
             opacity: 1.0,
             padding_bottom: 0,
             padding_left: 0,
             padding_right: 0,
             padding_top: 0,
+            refresh_rate: 60,
+            refresh_rate_idle: 5,
+            remember_window_position: true,
+            remember_window_size: true,
+            scale_factor: 1.0,
             show_border: false,
             theme: "".to_string(),
+            touch_deadzone: 6.0,
+            touch_drag_timeout: 0.17,
             window_blurred: false,
+
+            #[cfg(target_os = "macos")]
+            window_blurred_radius: ACRYLIC_DEFAULT_RADIUS,
 
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
