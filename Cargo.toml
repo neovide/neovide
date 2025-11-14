@@ -175,7 +175,7 @@ csscolorparser = "0.7.0"
 shlex = "1.3.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-rustix = "1.0.8"
+rustix = { version = "1.0.8", features = ["fs"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
