@@ -186,16 +186,28 @@ impl NeovimInstance {
 
     #[cfg(not(target_os = "windows"))]
     fn forward_stdin(&self) -> Option<rustix::fd::OwnedFd> {
-        use std::io::IsTerminal;
-        // stdin should be forwarded only in embedded mode when stdio is piped
+        use rustix::fs::{fstat, FileType};
+        use std::os::fd::AsFd;
+
+        // stdin should be forwarded only in embedded mode when stdio is piped or redirected
         match self {
             Self::Embedded(..) => {
                 let stdin = std::io::stdin();
-                let is_pipe = !stdin.is_terminal();
+                let should_forward = fstat(stdin.as_fd())
+                    .map(|stat| match FileType::from_raw_mode(stat.st_mode) {
+                        FileType::RegularFile => true,
+                        #[cfg(not(target_os = "wasi"))]
+                        FileType::Fifo | FileType::Socket => true,
+                        _ => false,
+                    })
+                    .unwrap_or(false);
+
                 // We have to use rustix here, since the Rust standard library currently sets O_CLOEXEC
                 // on all file handles. And there's no way to pass file handles to subprocesses.
                 // See [Tracking Issue for std::os::fd::CommandExt::fd](https://github.com/rust-lang/rust/issues/144989)
-                is_pipe.then(|| rustix::io::dup(stdin).ok()).flatten()
+                should_forward
+                    .then(|| rustix::io::dup(stdin).ok())
+                    .flatten()
             }
             Self::Server { .. } => None,
         }
