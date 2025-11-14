@@ -1,3 +1,4 @@
+pub mod renderer;
 pub mod settings;
 
 use std::sync::Arc;
