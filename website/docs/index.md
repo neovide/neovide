@@ -4,7 +4,7 @@
         Neovide
     </h1>
     <a href="https://discord.gg/SjFpZdQys6">
-        <img src="https://badgen.net/badge/icon/discord?icon=discord&label" alt="Discord">
+        <img src="https://img.shields.io/discord/896132176091955261?style=flat&logo=discord" alt="Discord">
     </a>
     <a href="https://matrix.to/#/#neovide:matrix.org">
         <img src="https://matrix.to/img/matrix-badge.svg" alt="Chat On Matrix">
@@ -17,7 +17,7 @@
 <div class="hide-mobile">
     <h1>Neovide
         <a href="https://discord.gg/SjFpZdQys6">
-            <img src="https://badgen.net/badge/icon/discord?icon=discord&label" alt="Discord">
+            <img src="https://img.shields.io/discord/896132176091955261?style=flat&logo=discord" alt="Discord">
         </a>
         <a href="https://matrix.to/#/#neovide:matrix.org">
             <img src="https://matrix.to/img/matrix-badge.svg" alt="Chat On Matrix">
