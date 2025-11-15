@@ -3,6 +3,8 @@ use rmpv::Value;
 
 use crate::settings::*;
 
+pub const ACRYLIC_DEFAULT_RADIUS: i64 = 80;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionAsMeta {
     OnlyLeft,
