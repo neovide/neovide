@@ -19,7 +19,7 @@ pub struct ViewportMargins {
     pub bottom: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
