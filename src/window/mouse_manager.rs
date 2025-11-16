@@ -67,6 +67,11 @@ pub struct MouseManager {
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
 
     mouse_hidden: bool,
+    // tracks whether we need to force a cursor visibility resync once focus returns.
+    // on macos, alt-tabbing while hidden keeps appkit in a cursor hidden mode that ignores
+    // redundant show requests https://github.com/rust-windowing/winit/issues/1295 so we
+    // remember to toggle visibility once we regain focus.
+    cursor_resync_needed: bool,
     pub enabled: bool,
 
     settings: Arc<Settings>,
@@ -82,8 +87,57 @@ impl MouseManager {
             scroll_position: GridPos::default(),
             touch_position: HashMap::new(),
             mouse_hidden: false,
+            cursor_resync_needed: false,
             enabled: true,
             settings,
+        }
+    }
+
+    fn request_cursor_visible(&mut self, window: &Window) {
+        window.set_cursor_visible(true);
+        self.mouse_hidden = false;
+        // remember to reapply on focus regain if we changed visibility while unfocused.
+        self.cursor_resync_needed = !window.has_focus();
+    }
+
+    fn force_cursor_visible(&mut self, window: &Window) {
+        #[cfg(target_os = "macos")]
+        {
+            // winit short-circuits duplicate visibility requests and AppKit won't repaint when the
+            // window is unfocused https://github.com/rust-windowing/winit/issues/1295 so flip to
+            // false first to ensure the following true call is seen.
+            // TODO: move this workaround into winit so visibility resyncs automatically.
+            window.set_cursor_visible(false);
+        }
+        window.set_cursor_visible(true);
+        self.mouse_hidden = false;
+        self.cursor_resync_needed = false;
+    }
+
+    fn hide_cursor(&mut self, window: &Window) {
+        window.set_cursor_visible(false);
+        self.mouse_hidden = true;
+        self.cursor_resync_needed = false;
+    }
+
+    fn handle_focus_gain(&mut self, window: &Window) {
+        if self.cursor_resync_needed {
+            self.force_cursor_visible(window);
+        }
+    }
+
+    fn handle_focus_loss(&mut self, window: &Window) {
+        if self.mouse_hidden {
+            self.request_cursor_visible(window);
+            self.cursor_resync_needed = true;
+        }
+    }
+
+    fn handle_focus_change(&mut self, window: &Window, focused: bool) {
+        if focused {
+            self.handle_focus_gain(window);
+        } else {
+            self.handle_focus_loss(window);
         }
     }
 
@@ -413,6 +467,7 @@ impl MouseManager {
             window,
             keyboard_manager,
         };
+        let hide_mouse_when_typing = self.settings.get::<WindowSettings>().hide_mouse_when_typing;
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.handle_pointer_motion(
@@ -420,8 +475,16 @@ impl MouseManager {
                     &editor_state,
                 );
                 if self.mouse_hidden && window.has_focus() {
-                    window.set_cursor_visible(true);
-                    self.mouse_hidden = false;
+                    self.request_cursor_visible(window);
+                } else if self.cursor_resync_needed && window.has_focus() {
+                    self.force_cursor_visible(window);
+                }
+            }
+            WindowEvent::CursorEntered { .. } => {
+                if self.mouse_hidden {
+                    self.request_cursor_visible(window);
+                } else if self.cursor_resync_needed && window.has_focus() {
+                    self.force_cursor_visible(window);
                 }
             }
             WindowEvent::MouseWheel {
@@ -452,24 +515,15 @@ impl MouseManager {
 
             WindowEvent::KeyboardInput {
                 event: key_event, ..
-            } => {
-                if key_event.state == ElementState::Pressed {
-                    let window_settings = self.settings.get::<WindowSettings>();
-                    if window_settings.hide_mouse_when_typing
-                        && !self.mouse_hidden
-                        && window.has_focus()
-                    {
-                        window.set_cursor_visible(false);
-                        self.mouse_hidden = true;
-                    }
-                }
+            } if hide_mouse_when_typing
+                && key_event.state == ElementState::Pressed
+                && !self.mouse_hidden
+                && window.has_focus() =>
+            {
+                self.hide_cursor(window);
             }
-            WindowEvent::Focused(false) => {
-                let window_settings = self.settings.get::<WindowSettings>();
-                if window_settings.hide_mouse_when_typing && self.mouse_hidden {
-                    window.set_cursor_visible(true);
-                    self.mouse_hidden = false;
-                }
+            WindowEvent::Focused(focused_event) if hide_mouse_when_typing => {
+                self.handle_focus_change(window, *focused_event);
             }
             _ => {}
         }
