@@ -6,7 +6,7 @@ use std::sync::{
 
 use winit::{event_loop::EventLoopProxy, window::Window};
 
-use crate::window::UserEvent;
+use crate::window::{EventPayload, UserEvent};
 
 use std::{ffi::c_void, marker::PhantomPinned, pin::Pin, ptr::NonNull};
 
@@ -42,8 +42,9 @@ pub fn get_display_id_of_window(window: &Window) -> Option<CGDirectDisplayID> {
 }
 
 struct MacosDisplayLinkCallbackContext {
-    proxy: EventLoopProxy<UserEvent>,
+    proxy: EventLoopProxy<EventPayload>,
     redraw_requested: Arc<AtomicBool>,
+    window_id: winit::window::WindowId,
     _pin: PhantomPinned,
 }
 
@@ -62,7 +63,10 @@ unsafe extern "C-unwind" fn display_link_callback(
     let context = unsafe { &mut *(displayLinkContext as *mut MacosDisplayLinkCallbackContext) };
 
     if context.redraw_requested.swap(false, Ordering::Relaxed) {
-        let _ = context.proxy.send_event(UserEvent::RedrawRequested);
+        let _ = context.proxy.send_event(EventPayload::new(
+            UserEvent::RedrawRequested,
+            context.window_id,
+        ));
     }
 
     kCVReturnSuccess
@@ -76,12 +80,13 @@ pub struct VSyncMacosDisplayLink {
 }
 
 impl VSyncMacosDisplayLink {
-    pub fn new(window: &Window, proxy: EventLoopProxy<UserEvent>) -> VSyncMacosDisplayLink {
+    pub fn new(window: &Window, proxy: EventLoopProxy<EventPayload>) -> VSyncMacosDisplayLink {
         let redraw_requested = Arc::new(AtomicBool::new(false));
 
         let context = Box::pin(MacosDisplayLinkCallbackContext {
             proxy,
             redraw_requested: redraw_requested.clone(),
+            window_id: window.id(),
             _pin: PhantomPinned,
         });
 

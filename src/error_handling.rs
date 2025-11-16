@@ -14,9 +14,9 @@ use winit::event_loop::EventLoop;
 use crate::windows_attach_to_console;
 
 use crate::{
-    bridge::{send_ui, ParallelCommand},
+    bridge::{send_ui, ParallelCommand, HANDLER_REGISTRY},
     settings::Settings,
-    window::{show_error_window, UserEvent},
+    window::{show_error_window, EventPayload},
 };
 
 fn show_error(explanation: &str) -> ! {
@@ -25,9 +25,19 @@ fn show_error(explanation: &str) -> ! {
 }
 
 pub fn show_nvim_error(msg: &str) {
-    send_ui(ParallelCommand::ShowError {
-        lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
-    });
+    let handler = {
+        let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+        handler_lock
+            .clone()
+            .expect("NeovimHandler has not been initialized")
+    };
+    println!("show_nvim_error: {}", msg);
+    send_ui(
+        ParallelCommand::ShowError {
+            lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+        },
+        &handler,
+    );
 }
 
 /// Formats, logs and displays the given message.
@@ -68,7 +78,7 @@ This is the error that caused the crash. In case you don't know what to do with 
 
 pub fn handle_startup_errors(
     err: Error,
-    event_loop: EventLoop<UserEvent>,
+    event_loop: EventLoop<EventPayload>,
     settings: Arc<Settings>,
 ) -> ExitCode {
     // Command line output is always printed to the stdout/stderr
