@@ -3,31 +3,39 @@ use std::{
     time::{Duration, Instant},
 };
 
+use glamour::Size2;
+use rustc_hash::FxHashMap;
 use winit::{
     application::ApplicationHandler,
+    error::EventLoopError,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
+    window::WindowId,
 };
 
-use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
+use super::{
+    save_window_size, CmdLineSettings, EventPayload, EventTarget, WindowSettings,
+    WinitWindowWrapper,
+};
 use crate::{
-    bridge::{NeovimRuntime, RestartDetails},
-    clipboard,
+    clipboard::{Clipboard, ClipboardHandle},
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
-    settings::{Config, Settings},
-    units::GridSize,
+    running_tracker::RunningTracker,
+    settings::{font::FontSettings, Settings},
+    units::Grid,
+    window::UserEvent,
     WindowSize,
 };
-use log::error;
 
+#[derive(Clone, Copy)]
 enum FocusedState {
     Focused,
     UnfocusedNotDrawn,
     Unfocused,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ShouldRender {
     Immediately,
     Wait,
@@ -78,184 +86,274 @@ impl ShouldRender {
 
 const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
-#[derive(Clone)]
-struct RestartRequest {
-    details: RestartDetails,
-    grid_size: GridSize<u32>,
-}
-
-pub struct Application {
-    idle: bool,
+struct RenderState {
     previous_frame_start: Instant,
     last_dt: f32,
     should_render: ShouldRender,
     num_consecutive_rendered: u32,
     focused: FocusedState,
-    pending_render: bool, // We should render as soon as the compositor/vsync allows
+    pending_render: bool, // we should render as soon as the compositor/vsync allows
     pending_draw_commands: Vec<Vec<DrawCommand>>,
-    animation_start: Instant, // When the last animation started (went from idle to animating)
-    animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
+    animation_start: Instant, // when the last animation started (went from idle to animating)
+    animation_time: Duration, // how long the current animation has been simulated, will usually be in the future
+}
 
-    window_wrapper: WinitWindowWrapper,
-    create_window_allowed: bool,
-    proxy: EventLoopProxy<UserEvent>,
+impl RenderState {
+    fn new(focused: FocusedState) -> Self {
+        let now = Instant::now();
+        Self {
+            previous_frame_start: now,
+            last_dt: 0.0,
+            should_render: ShouldRender::Immediately,
+            num_consecutive_rendered: 0,
+            focused,
+            pending_render: false,
+            pending_draw_commands: Vec::new(),
+            animation_start: now,
+            animation_time: Duration::from_millis(0),
+        }
+    }
+}
+
+pub struct Application {
+    idle: bool,
+    #[allow(dead_code)]
+    initial_grid_size: Option<Size2<Grid<u32>>>,
+    render_states: FxHashMap<WindowId, RenderState>,
+
+    pub window_wrapper: WinitWindowWrapper,
+    proxy: EventLoopProxy<EventPayload>,
+    pub runtime_tracker: RunningTracker,
 
     settings: Arc<Settings>,
-    runtime: Option<NeovimRuntime>,
-    clipboard: Option<Arc<Mutex<clipboard::Clipboard>>>,
-    pending_restart: Option<RestartRequest>,
+    clipboard: Option<Arc<Mutex<Clipboard>>>,
 }
 
 impl Application {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
-        initial_window_size: WindowSize,
-        initial_config: Config,
-        proxy: EventLoopProxy<UserEvent>,
+        _initial_window_size: WindowSize,
+        initial_grid_size: Option<Size2<Grid<u32>>>,
+        initial_font_settings: Option<FontSettings>,
+        proxy: EventLoopProxy<EventPayload>,
         settings: Arc<Settings>,
-        runtime: NeovimRuntime,
-        clipboard: Arc<Mutex<clipboard::Clipboard>>,
+        colorscheme_stream: mundy::PreferencesStream,
+        clipboard: Arc<Mutex<Clipboard>>,
+        clipboard_handle: ClipboardHandle,
     ) -> Self {
-        let previous_frame_start = Instant::now();
-        let last_dt = 0.0;
-        let should_render = ShouldRender::Immediately;
-        let num_consecutive_rendered = 0;
-        let focused = FocusedState::Focused;
-        let pending_render = false;
-        let pending_draw_commands = Vec::new();
-        let animation_start = Instant::now();
-        let animation_time = Duration::from_millis(0);
-
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
-        let window_wrapper =
-            WinitWindowWrapper::new(initial_window_size, initial_config, settings.clone());
+        let runtime_tracker = RunningTracker::new();
+
+        let mut window_wrapper = WinitWindowWrapper::new(
+            initial_font_settings,
+            settings.clone(),
+            runtime_tracker.clone(),
+            colorscheme_stream,
+            clipboard_handle,
+        );
+
+        window_wrapper.request_window_creation();
 
         Self {
             idle,
-            previous_frame_start,
-            last_dt,
-            should_render,
-            num_consecutive_rendered,
-            focused,
-            pending_render,
-            pending_draw_commands,
-            animation_start,
-            animation_time,
+            initial_grid_size,
+            render_states: FxHashMap::default(),
 
             window_wrapper,
-            create_window_allowed: false,
             proxy,
+            runtime_tracker,
 
             settings,
-            runtime: Some(runtime),
             clipboard: Some(clipboard),
-            pending_restart: None,
         }
     }
 
-    fn queue_restart(&mut self, details: RestartDetails) {
-        let grid_size = self.window_wrapper.get_grid_size();
-        self.pending_restart = Some(RestartRequest { details, grid_size });
-        self.pending_draw_commands.clear();
-        self.window_wrapper.clear_renderer();
-        self.should_render = ShouldRender::Immediately;
+    pub fn run(&mut self, event_loop: EventLoop<EventPayload>) -> Result<(), EventLoopError> {
+        event_loop.run_app(self)
     }
 
-    fn exit_application(&mut self, event_loop: &ActiveEventLoop) {
-        save_window_size(&self.window_wrapper, &self.settings);
-        event_loop.exit();
-    }
+    fn sync_render_states(&mut self) {
+        let window_ids: Vec<WindowId> = self.window_wrapper.routes.keys().copied().collect();
+        self.render_states.retain(|id, _| window_ids.contains(id));
+        for window_id in window_ids {
+            if self.render_states.contains_key(&window_id) {
+                continue;
+            }
 
-    fn handle_neovim_exit(&mut self, event_loop: &ActiveEventLoop) {
-        match self.pending_restart.take() {
-            Some(restart) => self.restart_or_exit(restart, event_loop),
-            None => self.exit_application(event_loop),
+            let focused = self
+                .window_wrapper
+                .routes
+                .get(&window_id)
+                .map(|route| {
+                    if route.window.winit_window.has_focus() {
+                        FocusedState::Focused
+                    } else {
+                        FocusedState::UnfocusedNotDrawn
+                    }
+                })
+                .unwrap_or(FocusedState::Focused);
+            self.render_states
+                .insert(window_id, RenderState::new(focused));
         }
     }
 
-    fn restart_or_exit(&mut self, restart: RestartRequest, event_loop: &ActiveEventLoop) {
-        if self.restart(restart).is_err() {
-            self.exit_application(event_loop);
+    fn ensure_render_state(&mut self, window_id: WindowId) {
+        if self.render_states.contains_key(&window_id) {
+            return;
         }
-    }
-
-    fn restart(&mut self, restart: RestartRequest) -> Result<(), ()> {
-        let Some(runtime) = self.runtime.as_mut() else {
-            return Err(());
+        if !self.window_wrapper.routes.contains_key(&window_id) {
+            return;
+        }
+        let focused = if self
+            .window_wrapper
+            .routes
+            .get(&window_id)
+            .map(|route| route.window.winit_window.has_focus())
+            .unwrap_or(false)
+        {
+            FocusedState::Focused
+        } else {
+            FocusedState::UnfocusedNotDrawn
         };
-
-        runtime
-            .restart(
-                self.proxy.clone(),
-                restart.grid_size,
-                self.settings.clone(),
-                restart.details,
-            )
-            .map_err(|error| {
-                error!("Failed to restart Neovim: {error:?}");
-            })
+        self.render_states
+            .insert(window_id, RenderState::new(focused));
     }
 
-    fn get_refresh_rate(&self) -> f32 {
-        match self.focused {
+    fn mark_should_render_for_window(&mut self, window_id: WindowId) {
+        self.ensure_render_state(window_id);
+        if let Some(state) = self.render_states.get_mut(&window_id) {
+            state.should_render = ShouldRender::Immediately;
+        }
+    }
+
+    fn mark_should_render_all(&mut self) {
+        self.sync_render_states();
+        let window_ids: Vec<WindowId> = self.render_states.keys().copied().collect();
+        for window_id in window_ids {
+            if let Some(state) = self.render_states.get_mut(&window_id) {
+                state.should_render = ShouldRender::Immediately;
+            }
+        }
+    }
+
+    #[cfg(feature = "profiling")]
+    fn aggregate_should_render(&self) -> ShouldRender {
+        let mut aggregate = ShouldRender::Wait;
+        for state in self.render_states.values() {
+            aggregate.update(state.should_render);
+        }
+        aggregate
+    }
+
+    fn get_refresh_rate(&self, state: &RenderState) -> f32 {
+        match state.focused {
             // NOTE: Always wait for the idle refresh rate when winit throttling is used to avoid waking up too early
             // The winit redraw request will likely happen much before that and wake it up anyway
             FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
                 self.settings.get::<WindowSettings>().refresh_rate as f32
             }
-            _ => self.settings.get::<WindowSettings>().refresh_rate_idle as f32,
+            FocusedState::Unfocused => {
+                self.settings.get::<WindowSettings>().refresh_rate_idle as f32
+            }
         }
         .max(1.0)
     }
 
-    fn get_frame_deadline(&self) -> Instant {
-        let refresh_rate = self.get_refresh_rate();
+    fn get_frame_deadline(&self, state: &RenderState) -> Instant {
+        let refresh_rate = self.get_refresh_rate(state);
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        self.previous_frame_start + expected_frame_duration
+        state.previous_frame_start + expected_frame_duration
+    }
+
+    fn get_event_deadline_for(&self, state: &RenderState) -> Instant {
+        // When there's a pending render we don't need to wait for anything else than the render event
+        if state.pending_render {
+            return state.animation_start + state.animation_time;
+        }
+
+        match state.should_render {
+            ShouldRender::Immediately => Instant::now(),
+            ShouldRender::Deadline(old_deadline) => {
+                old_deadline.min(self.get_frame_deadline(state))
+            }
+            ShouldRender::Wait => self.get_frame_deadline(state),
+        }
     }
 
     fn get_event_deadline(&self) -> Instant {
-        // When there's a pending render we don't need to wait for anything else than the render event
-        if self.pending_render {
-            return self.animation_start + self.animation_time;
-        }
-
-        match self.should_render {
-            ShouldRender::Immediately => Instant::now(),
-            ShouldRender::Deadline(old_deadline) => old_deadline.min(self.get_frame_deadline()),
-            _ => self.get_frame_deadline(),
-        }
+        let now = Instant::now();
+        self.render_states
+            .values()
+            .map(|state| self.get_event_deadline_for(state))
+            .min()
+            .unwrap_or(now)
     }
 
     fn schedule_next_event(&mut self, event_loop: &ActiveEventLoop) {
+        self.sync_render_states();
         #[cfg(feature = "profiling")]
-        self.should_render.plot_tracy();
-        if self.create_window_allowed {
-            self.window_wrapper
-                .try_create_window(event_loop, &self.proxy);
-        }
+        self.aggregate_should_render().plot_tracy();
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
 
-    fn animate(&mut self) {
-        if self.window_wrapper.skia_renderer.is_none() {
+    fn teardown(&mut self) {
+        // Drop the clipboard while the event loop is still alive so Wayland handles are released
+        // safely. see https://github.com/neovide/neovide/issues/3311
+        self.clipboard.take();
+
+        // Wait a little bit more and force Nevovim to exit after that.
+        // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+        // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+        // read will hang forever, waiting for more data to read.
+        // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+        if let Some(runtime) = self.window_wrapper.runtime.take() {
+            runtime.shutdown(std::time::Duration::from_millis(500));
+        }
+    }
+
+    fn handle_animation_steps(&mut self, window_id: WindowId, dt: Duration) {
+        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
+        let step = dt / num_steps;
+        for _ in 0..num_steps {
+            if self
+                .window_wrapper
+                .animate_frame(window_id, step.as_secs_f32())
+            {
+                if let Some(state) = self.render_states.get_mut(&window_id) {
+                    state.should_render = ShouldRender::Immediately;
+                }
+            }
+        }
+    }
+
+    fn animate(&mut self, window_id: WindowId) {
+        if self.window_wrapper.routes.is_empty() {
             return;
         }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_ref().unwrap();
 
-        let dt =
-            Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings));
+        let dt = match self
+            .window_wrapper
+            .refresh_rate_for_window(window_id, &self.settings)
+        {
+            Some(rate) => Duration::from_secs_f32(rate),
+            None => return,
+        };
 
         let now = Instant::now();
-        let target_animation_time = now - self.animation_start;
-        let mut delta = target_animation_time.saturating_sub(self.animation_time);
+        let (mut animation_start, mut animation_time) = match self.render_states.get(&window_id) {
+            Some(state) => (state.animation_start, state.animation_time),
+            None => return,
+        };
+        let target_animation_time = now - animation_start;
+        let mut delta = target_animation_time.saturating_sub(animation_time);
+
         // Don't try to animate way too big deltas
         // Instead reset the animation times, and simulate a single frame
         if delta > Duration::from_millis(1000) {
-            self.animation_start = now;
-            self.animation_time = Duration::ZERO;
+            animation_start = now;
+            animation_time = Duration::ZERO;
             delta = dt;
         }
         // Catchup immediately if the delta is more than one frame, otherwise smooth it over 10 frames
@@ -267,226 +365,354 @@ impl Application {
 
         let dt = dt + catchup;
         tracy_plot!("Simulation dt", dt.as_secs_f64());
-        self.animation_time += dt;
+        animation_time += dt;
 
-        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
-        let step = dt / num_steps;
-        for _ in 0..num_steps {
-            if self.window_wrapper.animate_frame(step.as_secs_f32()) {
-                self.should_render = ShouldRender::Immediately;
+        if let Some(state) = self.render_states.get_mut(&window_id) {
+            state.animation_start = animation_start;
+            state.animation_time = animation_time;
+        }
+
+        self.handle_animation_steps(window_id, dt);
+    }
+
+    fn render(&mut self, window_id: WindowId) {
+        let (last_dt, was_unfocused_not_drawn) = match self.render_states.get_mut(&window_id) {
+            Some(state) => {
+                state.pending_render = false;
+                tracy_plot!("pending_render", state.pending_render as u8 as f64);
+                (
+                    state.last_dt,
+                    matches!(state.focused, FocusedState::UnfocusedNotDrawn),
+                )
+            }
+            None => return,
+        };
+
+        self.window_wrapper.draw_frame(window_id, last_dt);
+
+        if let Some(state) = self.render_states.get_mut(&window_id) {
+            if was_unfocused_not_drawn {
+                state.focused = FocusedState::Unfocused;
+            }
+
+            state.num_consecutive_rendered += 1;
+            tracy_plot!(
+                "num_consecutive_rendered",
+                state.num_consecutive_rendered as f64
+            );
+            state.last_dt = state.previous_frame_start.elapsed().as_secs_f32();
+            state.previous_frame_start = Instant::now();
+        }
+    }
+
+    fn process_buffered_draw_commands(&mut self, window_id: WindowId) {
+        let pending_batches = match self.render_states.get_mut(&window_id) {
+            Some(state) => state.pending_draw_commands.drain(..).collect::<Vec<_>>(),
+            None => return,
+        };
+        if !pending_batches.is_empty() {
+            for batch in pending_batches {
+                self.window_wrapper.handle_draw_commands(window_id, batch);
+            }
+            if let Some(state) = self.render_states.get_mut(&window_id) {
+                state.should_render = ShouldRender::Immediately;
             }
         }
     }
 
-    fn render(&mut self) {
-        self.pending_render = false;
-        tracy_plot!("pending_render", self.pending_render as u8 as f64);
-        self.window_wrapper.draw_frame(self.last_dt);
-
-        if let FocusedState::UnfocusedNotDrawn = self.focused {
-            self.focused = FocusedState::Unfocused;
-        }
-
-        self.num_consecutive_rendered += 1;
-        tracy_plot!(
-            "num_consecutive_rendered",
-            self.num_consecutive_rendered as f64
-        );
-        self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
-        self.previous_frame_start = Instant::now();
-    }
-
-    fn process_buffered_draw_commands(&mut self) {
-        if !self.pending_draw_commands.is_empty() {
-            self.pending_draw_commands
-                .drain(..)
-                .for_each(|b| self.window_wrapper.handle_draw_commands(b));
-            self.should_render = ShouldRender::Immediately;
+    fn reset_animation_period(&mut self, window_id: WindowId) {
+        let state = match self.render_states.get_mut(&window_id) {
+            Some(state) => state,
+            None => return,
+        };
+        state.should_render = ShouldRender::Wait;
+        if state.num_consecutive_rendered == 0 {
+            state.animation_start = Instant::now();
+            state.animation_time = Duration::ZERO;
         }
     }
 
-    fn reset_animation_period(&mut self) {
-        self.should_render = ShouldRender::Wait;
-        if self.num_consecutive_rendered == 0 {
-            self.animation_start = Instant::now();
-            self.animation_time = Duration::ZERO;
-        }
-    }
-
-    fn schedule_render(&mut self, skipped_frame: bool) {
-        if self.window_wrapper.skia_renderer.is_none() {
-            return;
-        }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_mut().unwrap();
-
+    fn schedule_render(&mut self, window_id: WindowId, skipped_frame: bool) {
         // There's really no point in trying to render if the frame is skipped
         // (most likely due to the compositor being busy). The animated frame will
         // be rendered at an appropriate time anyway.
-        if !skipped_frame {
-            // When winit throttling is used, request a redraw and wait for the render event
-            // Otherwise render immediately
-            if vsync.uses_winit_throttling() {
-                vsync.request_redraw(skia_renderer.window());
-                self.pending_render = true;
-                tracy_plot!("pending_render", self.pending_render as u8 as f64);
-            } else {
-                self.render();
+        if self.window_wrapper.routes.is_empty() && !skipped_frame {
+            return;
+        }
+
+        let Some(throttled) = self.window_wrapper.request_redraw_for_window(window_id) else {
+            return;
+        };
+
+        // When winit throttling is used, request a redraw and wait for the render event
+        // Otherwise, render immediately
+        if throttled {
+            if let Some(state) = self.render_states.get_mut(&window_id) {
+                state.pending_render = true;
+                tracy_plot!("pending_render", state.pending_render as u8 as f64);
             }
+        } else {
+            self.render(window_id);
         }
     }
 
     fn prepare_and_animate(&mut self) {
+        self.sync_render_states();
         // We will also animate, but not render when frames are skipped or a bit late, to reduce visual artifacts
-        let skipped_frame =
-            self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
-        let should_prepare = !self.pending_render || skipped_frame;
-        if !should_prepare {
-            return;
-        }
+        let window_ids: Vec<WindowId> = self.window_wrapper.routes.keys().copied().collect();
+        let now = Instant::now();
 
-        let res = self.window_wrapper.prepare_frame();
-        self.should_render.update(res);
-
-        let should_animate =
-            self.should_render == ShouldRender::Immediately || !self.idle || skipped_frame;
-
-        if should_animate {
-            self.reset_animation_period();
-            self.animate();
-            self.schedule_render(skipped_frame);
-        } else {
-            // Cache purging should only happen once we become idle; doing it while throttling for
-            // vsync caused Skia to evict glyphs mid-animation and re-upload them every frame.
-            // See https://github.com/neovide/neovide/pull/3324
-            if self.num_consecutive_rendered > 0 {
-                self.window_wrapper
-                    .renderer
-                    .grid_renderer
-                    .shaper
-                    .cleanup_font_cache();
+        for window_id in window_ids {
+            let skipped_frame = self
+                .render_states
+                .get(&window_id)
+                .map(|state| {
+                    state.pending_render && now > (state.animation_start + state.animation_time)
+                })
+                .unwrap_or(false);
+            let should_prepare = self
+                .render_states
+                .get(&window_id)
+                .map(|state| !state.pending_render || skipped_frame)
+                .unwrap_or(true);
+            if !should_prepare {
+                if let Some(route) = self.window_wrapper.routes.get(&window_id) {
+                    let renderer = &route.window.renderer.borrow_mut();
+                    renderer.grid_renderer.shaper.cleanup_font_cache();
+                }
+                continue;
             }
-            self.num_consecutive_rendered = 0;
-            tracy_plot!(
-                "num_consecutive_rendered",
-                self.num_consecutive_rendered as f64
-            );
-            self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
-            self.previous_frame_start = Instant::now();
+
+            let res = self.window_wrapper.prepare_frame(window_id);
+            if let Some(state) = self.render_states.get_mut(&window_id) {
+                state.should_render.update(res);
+            }
+
+            let should_animate = self
+                .render_states
+                .get(&window_id)
+                .map(|state| {
+                    state.should_render == ShouldRender::Immediately || !self.idle || skipped_frame
+                })
+                .unwrap_or(false);
+
+            if should_animate {
+                self.reset_animation_period(window_id);
+                self.animate(window_id);
+                self.schedule_render(window_id, skipped_frame);
+            } else if let Some(state) = self.render_states.get_mut(&window_id) {
+                state.num_consecutive_rendered = 0;
+                tracy_plot!(
+                    "num_consecutive_rendered",
+                    state.num_consecutive_rendered as f64
+                );
+                state.last_dt = state.previous_frame_start.elapsed().as_secs_f32();
+                state.previous_frame_start = Instant::now();
+            }
         }
     }
 
-    fn redraw_requested(&mut self) {
-        if self.pending_render {
+    fn redraw_requested(&mut self, window_id: WindowId) {
+        self.ensure_render_state(window_id);
+        let pending_render = self
+            .render_states
+            .get(&window_id)
+            .map(|state| state.pending_render)
+            .unwrap_or(false);
+        if pending_render {
             tracy_zone!("render (redraw requested)");
-            self.render();
+            self.render(window_id);
             // We should process all buffered draw commands as soon as the rendering has finished
-            self.process_buffered_draw_commands();
+            self.process_buffered_draw_commands(window_id);
         } else {
             tracy_zone!("redraw requested");
             // The OS itself asks us to redraw, so we need to prepare first
-            self.should_render = ShouldRender::Immediately;
-        }
-    }
-
-    fn teardown(&mut self) {
-        // Drop the clipboard while the event loop is still alive soWayland handles are released
-        // safely. see https://github.com/neovide/neovide/issues/3311
-        self.clipboard.take();
-
-        if let Some(runtime) = self.runtime.take() {
-            // Wait a little bit more and force Neovim to exit after that.
-            // This should not be required, but Neovim through libuv spawns child processes that inherit all the handles.
-            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-            // read will hang forever, waiting for more data to read.
-            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+            if let Some(state) = self.render_states.get_mut(&window_id) {
+                state.should_render = ShouldRender::Immediately;
+            }
         }
     }
 }
 
-impl Drop for Application {
-    fn drop(&mut self) {
-        self.teardown();
-    }
-}
-
-impl ApplicationHandler<UserEvent> for Application {
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        event: winit::event::WindowEvent,
-    ) {
-        tracy_zone!("window_event");
-        match event {
-            WindowEvent::RedrawRequested => {
-                self.redraw_requested();
-            }
-            WindowEvent::Focused(focused_event) => {
-                self.focused = if focused_event {
-                    FocusedState::Focused
-                } else {
-                    FocusedState::UnfocusedNotDrawn
-                };
-                #[cfg(target_os = "macos")]
-                self.window_wrapper
-                    .macos_feature
-                    .as_mut()
-                    .expect("MacosWindowFeature should already be created here.")
-                    .ensure_app_initialized();
-            }
-            _ => {}
-        }
-
-        if self.window_wrapper.handle_window_event(event) {
-            self.should_render = ShouldRender::Immediately;
-        }
-        self.schedule_next_event(event_loop);
-    }
-
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
-        tracy_zone!("user_event");
-        match event {
-            UserEvent::NeovimExited => {
-                self.handle_neovim_exit(event_loop);
-            }
-            UserEvent::RedrawRequested => {
-                self.redraw_requested();
-            }
-            UserEvent::DrawCommandBatch(batch) if self.pending_render => {
-                // Buffer the draw commands if we have a pending render, we have already decided what to
-                // draw, so it's not a good idea to process them now.
-                // They will be processed immediately after the rendering.
-                self.pending_draw_commands.push(batch);
-            }
-            UserEvent::NeovimRestart(details) => {
-                self.queue_restart(details);
-            }
-            _ => {
-                self.window_wrapper.handle_user_event(event);
-                self.should_render = ShouldRender::Immediately;
-            }
-        }
-        self.schedule_next_event(event_loop);
-    }
-
+impl ApplicationHandler<EventPayload> for Application {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("about_to_wait");
         self.prepare_and_animate();
         self.schedule_next_event(event_loop);
     }
 
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        match cause {
+            winit::event::StartCause::Init => {
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::ResumeTimeReached { .. } => {
+                self.prepare_and_animate();
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::WaitCancelled { .. } => {
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::Poll => {
+                self.schedule_next_event(event_loop);
+            }
+        }
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        tracy_zone!("window_event");
+        self.ensure_render_state(window_id);
+        match event {
+            WindowEvent::RedrawRequested => {
+                self.redraw_requested(window_id);
+            }
+            WindowEvent::Focused(focused_event) => {
+                if let Some(state) = self.render_states.get_mut(&window_id) {
+                    state.focused = if focused_event {
+                        FocusedState::Focused
+                    } else {
+                        FocusedState::UnfocusedNotDrawn
+                    };
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    if let Some(route) = self.window_wrapper.routes.get(&window_id) {
+                        if let Some(macos_feature) = route.window.macos_feature.as_ref() {
+                            macos_feature.borrow_mut().ensure_app_initialized();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        if self.window_wrapper.handle_window_event(window_id, event) {
+            self.mark_should_render_for_window(window_id);
+        }
+        self.schedule_next_event(event_loop);
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
+        tracy_zone!("user_event");
+        let EventPayload { payload, target } = event;
+        match payload {
+            UserEvent::NeovimExited => {
+                let EventTarget::Window(window_id) = target else {
+                    log::warn!("NeovimExited event missing window target");
+                    return;
+                };
+                let remaining_before = self.window_wrapper.routes.len();
+                if remaining_before <= 1 {
+                    save_window_size(&self.window_wrapper, &self.settings);
+                }
+                self.window_wrapper
+                    .handle_neovim_exit(window_id, &self.proxy);
+                self.render_states.remove(&window_id);
+                if self.window_wrapper.routes.is_empty() {
+                    event_loop.exit();
+                }
+            }
+            UserEvent::RedrawRequested => match target {
+                EventTarget::Window(window_id) => {
+                    self.redraw_requested(window_id);
+                }
+                EventTarget::Focused => {
+                    if let Some(window_id) = self.window_wrapper.get_focused_route() {
+                        self.redraw_requested(window_id);
+                    }
+                }
+                EventTarget::All => {
+                    let window_ids: Vec<WindowId> =
+                        self.window_wrapper.routes.keys().copied().collect();
+                    for window_id in window_ids {
+                        self.redraw_requested(window_id);
+                    }
+                }
+            },
+            UserEvent::DrawCommandBatch(batch) => {
+                let EventTarget::Window(window_id) = target else {
+                    log::warn!("DrawCommandBatch event missing window target");
+                    return;
+                };
+                self.ensure_render_state(window_id);
+                let pending_render = self
+                    .render_states
+                    .get(&window_id)
+                    .map(|state| state.pending_render)
+                    .unwrap_or(false);
+                if pending_render {
+                    // Buffer the draw commands if we have a pending render, we have already decided what to
+                    // draw, so it's not a good idea to process them now.
+                    // They will be processed immediately after the rendering.
+                    if let Some(state) = self.render_states.get_mut(&window_id) {
+                        state.pending_draw_commands.push(batch);
+                    }
+                } else {
+                    self.window_wrapper.handle_draw_commands(window_id, batch);
+                    self.mark_should_render_for_window(window_id);
+                }
+            }
+            #[cfg(target_os = "macos")]
+            UserEvent::CreateWindow => {
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.sync_render_states();
+                self.mark_should_render_all();
+            }
+            #[cfg(target_os = "macos")]
+            UserEvent::MacShortcut(command) => {
+                self.window_wrapper.handle_mac_shortcut(command);
+                self.mark_should_render_all();
+            }
+            UserEvent::NeovimRestart(details) => {
+                let EventTarget::Window(window_id) = target else {
+                    log::warn!("NeovimRestart event missing window target");
+                    return;
+                };
+                self.window_wrapper.queue_restart(window_id, details);
+                if let Some(state) = self.render_states.get_mut(&window_id) {
+                    state.pending_draw_commands.clear();
+                    state.should_render = ShouldRender::Immediately;
+                }
+            }
+            payload => {
+                self.window_wrapper
+                    .handle_user_event(EventPayload { payload, target });
+                match target {
+                    EventTarget::Window(window_id) => self.mark_should_render_for_window(window_id),
+                    EventTarget::Focused => {
+                        if let Some(window_id) = self.window_wrapper.get_focused_route() {
+                            self.mark_should_render_for_window(window_id);
+                        }
+                    }
+                    EventTarget::All => self.mark_should_render_all(),
+                }
+            }
+        }
+        self.schedule_next_event(event_loop);
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("resumed");
-        self.create_window_allowed = true;
         self.schedule_next_event(event_loop);
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
-        self.teardown();
         self.window_wrapper.exit();
         self.schedule_next_event(event_loop);
+    }
+}
+
+impl Drop for Application {
+    fn drop(&mut self) {
+        self.teardown();
     }
 }
