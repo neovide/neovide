@@ -15,7 +15,7 @@ use winit::event_loop::EventLoopProxy;
 
 use crate::{
     profiling::{tracy_plot, tracy_zone},
-    window::UserEvent,
+    window::{EventPayload, UserEvent},
 };
 
 pub struct VSyncWinDwm {
@@ -45,7 +45,7 @@ fn vblank_wait_time(delay: f64, period: f64, offset: f64) -> f64 {
 impl VSyncWinDwm {
     // On Windows the fake vsync is always enabled
     // Everything else is very jerky
-    pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
+    pub fn new(proxy: EventLoopProxy<EventPayload>) -> Self {
         let should_exit = Arc::new(AtomicBool::new(false));
         let redraw_requested = Arc::new(AtomicBool::new(false));
 
@@ -90,7 +90,9 @@ impl VSyncWinDwm {
                     tracy_plot!("sleep_time", _sleep_time);
 
                     if redraw_requested.swap(false, Ordering::Relaxed) {
-                        proxy.send_event(UserEvent::RedrawRequested).ok();
+                        proxy
+                            .send_event(EventPayload::all(UserEvent::RedrawRequested))
+                            .ok();
                     }
                 }
             }))

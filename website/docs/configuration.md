@@ -817,6 +817,50 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 })
 ```
 
+#### macOS Global Activation Shortcuts
+
+Neovide registers system-wide shortcuts on macOS:
+
+- **Pinned** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd> toggles the most recently used Neovide
+  window. If that window is already active, the shortcut hides it; otherwise it brings the window
+  to the front.
+- **Editors** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
+  you can pick another Neovide window. This shortcut is only available when
+  `macos-native-tabs = true` and if only one window exists, it behaves the same as the pinned
+  shortcut.
+
+Customize them by setting the environment variables:
+
+```bash
+launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY "ctrl+space"
+launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY "cmd+shift+space"
+```
+
+Use `cmd`, `ctrl`, `alt`, and `shift` for modifiers and a single character for the key.
+
+To disable a shortcut entirely, set the corresponding variable to `off`, `none`, `disabled`
+or leave it empty.
+
+You can also configure them inside `config.toml`
+
+```toml
+macos-pinned-hotkey = "ctrl+shift+z"
+macos-switcher-hotkey = "ctrl+shift+n"
+```
+
+When `macos-native-tabs` is enabled, you can also customize the in-app tab navigation shortcuts:
+
+```toml
+macos-tab-prev-hotkey = "cmd+shift+["
+macos-tab-next-hotkey = "cmd+shift+]"
+```
+
+These work only while Neovide is focused so the keypress never reaches Neovim, mirroring the native
+macOS tab cycling workflow.
+
+macOS may prompt you to grant Neovide Accessibility/Input Monitoring permissions the first time you
+use this feature so the shortcut can be detected outside the app.
+
 #### Touch Deadzone
 
 VimScript:

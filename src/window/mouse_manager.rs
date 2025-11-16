@@ -14,12 +14,11 @@ use winit::{
 use glamour::{Contains, Point2};
 
 use crate::{
-    bridge::{send_ui, SerialCommand},
+    bridge::{send_ui, NeovimHandler, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::Settings,
     units::{GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
-    window::keyboard_manager::KeyboardManager,
-    window::WindowSettings,
+    window::{keyboard_manager::KeyboardManager, WindowSettings},
 };
 
 fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
@@ -179,7 +178,12 @@ impl MouseManager {
             ))
     }
 
-    fn handle_pointer_motion(&mut self, position: PixelPos<f32>, editor_state: &EditorState) {
+    fn handle_pointer_motion(
+        &mut self,
+        position: PixelPos<f32>,
+        editor_state: &EditorState,
+        neovim_handler: &NeovimHandler,
+    ) {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
@@ -218,25 +222,31 @@ impl MouseManager {
 
             if has_moved {
                 if let Some(drag_details) = &self.drag_details {
-                    send_ui(SerialCommand::Drag {
-                        button: mouse_button_to_button_text(drag_details.button).unwrap(),
-                        grid_id: window_details.event_grid_id(&self.settings),
-                        position: self.grid_position.to_tuple(),
-                        modifier_string: editor_state
-                            .keyboard_manager
-                            .format_modifier_string("", true),
-                    });
+                    send_ui(
+                        SerialCommand::Drag {
+                            button: mouse_button_to_button_text(drag_details.button).unwrap(),
+                            grid_id: window_details.event_grid_id(&self.settings),
+                            position: self.grid_position.to_tuple(),
+                            modifier_string: editor_state
+                                .keyboard_manager
+                                .format_modifier_string("", true),
+                        },
+                        neovim_handler,
+                    );
                 } else if self.settings.get::<WindowSettings>().mouse_move_event {
                     // Send a mouse move command
-                    send_ui(SerialCommand::MouseButton {
-                        button: "move".into(),
-                        action: "".into(), // this is ignored by nvim
-                        grid_id: window_details.event_grid_id(&self.settings),
-                        position: relative_position.to_tuple(),
-                        modifier_string: editor_state
-                            .keyboard_manager
-                            .format_modifier_string("", true),
-                    })
+                    send_ui(
+                        SerialCommand::MouseButton {
+                            button: "move".into(),
+                            action: "".into(), // this is ignored by nvim
+                            grid_id: window_details.event_grid_id(&self.settings),
+                            position: relative_position.to_tuple(),
+                            modifier_string: editor_state
+                                .keyboard_manager
+                                .format_modifier_string("", true),
+                        },
+                        neovim_handler,
+                    );
                 }
             }
 
@@ -249,6 +259,7 @@ impl MouseManager {
         mouse_button: MouseButton,
         down: bool,
         editor_state: &EditorState,
+        neovim_handler: &NeovimHandler,
     ) {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
@@ -268,15 +279,18 @@ impl MouseManager {
                         self.get_relative_position(details, editor_state)
                     };
 
-                    send_ui(SerialCommand::MouseButton {
-                        button: button_text.clone(),
-                        action,
-                        grid_id: details.event_grid_id(&self.settings),
-                        position: position.to_tuple(),
-                        modifier_string: editor_state
-                            .keyboard_manager
-                            .format_modifier_string("", true),
-                    });
+                    send_ui(
+                        SerialCommand::MouseButton {
+                            button: button_text.clone(),
+                            action,
+                            grid_id: details.event_grid_id(&self.settings),
+                            position: position.to_tuple(),
+                            modifier_string: editor_state
+                                .keyboard_manager
+                                .format_modifier_string("", true),
+                        },
+                        neovim_handler,
+                    );
 
                     if down {
                         self.drag_details = Some(DragDetails {
@@ -297,7 +311,12 @@ impl MouseManager {
         }
     }
 
-    fn handle_line_scroll(&mut self, amount: GridVec<f32>, editor_state: &EditorState) {
+    fn handle_line_scroll(
+        &mut self,
+        amount: GridVec<f32>,
+        editor_state: &EditorState,
+        neovim_handler: &NeovimHandler,
+    ) {
         if !self.enabled {
             return;
         }
@@ -327,7 +346,7 @@ impl MouseManager {
                     .format_modifier_string("", true),
             };
             for _ in 0..(new.y - previous.y).abs() {
-                send_ui(scroll_command.clone());
+                send_ui(scroll_command.clone(), neovim_handler);
             }
         }
 
@@ -347,14 +366,19 @@ impl MouseManager {
                     .format_modifier_string("", true),
             };
             for _ in 0..(new.x - previous.x).abs() {
-                send_ui(scroll_command.clone());
+                send_ui(scroll_command.clone(), neovim_handler);
             }
         }
     }
 
-    fn handle_pixel_scroll(&mut self, amount: PixelVec<f32>, editor_state: &EditorState) {
+    fn handle_pixel_scroll(
+        &mut self,
+        amount: PixelVec<f32>,
+        editor_state: &EditorState,
+        neovim_handler: &NeovimHandler,
+    ) {
         let amount = amount / *editor_state.grid_scale;
-        self.handle_line_scroll(amount, editor_state);
+        self.handle_line_scroll(amount, editor_state, neovim_handler);
     }
 
     fn handle_touch(
@@ -363,6 +387,7 @@ impl MouseManager {
         location: PixelPos<f32>,
         phase: &TouchPhase,
         editor_state: &EditorState,
+        neovim_handler: &NeovimHandler,
     ) {
         match phase {
             TouchPhase::Started => {
@@ -404,7 +429,11 @@ impl MouseManager {
                     }
 
                     if self.drag_details.is_some() || dragging_just_now {
-                        self.handle_pointer_motion((location.x, location.y).into(), editor_state);
+                        self.handle_pointer_motion(
+                            (location.x, location.y).into(),
+                            editor_state,
+                            neovim_handler,
+                        );
                     }
                     // the double check might seem useless, but the if branch above might set
                     // trace.left_deadzone_once - which urges to check again
@@ -415,27 +444,52 @@ impl MouseManager {
                         // starting point
                         trace.last = location;
 
-                        self.handle_pixel_scroll(delta, editor_state);
+                        self.handle_pixel_scroll(delta, editor_state, neovim_handler);
                     }
                 }
 
                 if dragging_just_now {
-                    self.handle_pointer_motion((location.x, location.y).into(), editor_state);
-                    self.handle_pointer_transition(MouseButton::Left, true, editor_state);
+                    self.handle_pointer_motion(
+                        (location.x, location.y).into(),
+                        editor_state,
+                        neovim_handler,
+                    );
+                    self.handle_pointer_transition(
+                        MouseButton::Left,
+                        true,
+                        editor_state,
+                        neovim_handler,
+                    );
                 }
             }
             TouchPhase::Ended | TouchPhase::Cancelled => {
                 if let Some(trace) = self.touch_position.remove(&finger_id) {
                     if self.drag_details.is_some() {
-                        self.handle_pointer_transition(MouseButton::Left, false, editor_state);
+                        self.handle_pointer_transition(
+                            MouseButton::Left,
+                            false,
+                            editor_state,
+                            neovim_handler,
+                        );
                     }
                     if !trace.left_deadzone_once {
                         self.handle_pointer_motion(
                             (trace.start.x, trace.start.y).into(),
                             editor_state,
+                            neovim_handler,
                         );
-                        self.handle_pointer_transition(MouseButton::Left, true, editor_state);
-                        self.handle_pointer_transition(MouseButton::Left, false, editor_state);
+                        self.handle_pointer_transition(
+                            MouseButton::Left,
+                            true,
+                            editor_state,
+                            neovim_handler,
+                        );
+                        self.handle_pointer_transition(
+                            MouseButton::Left,
+                            false,
+                            editor_state,
+                            neovim_handler,
+                        );
                     }
                 }
             }
@@ -448,6 +502,7 @@ impl MouseManager {
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
+        neovim_handler: &NeovimHandler,
     ) {
         let full_region = WindowDrawDetails {
             id: 0,
@@ -473,6 +528,7 @@ impl MouseManager {
                 self.handle_pointer_motion(
                     (position.x as f32, position.y as f32).into(),
                     &editor_state,
+                    neovim_handler,
                 );
                 if self.mouse_hidden && window.has_focus() {
                     self.request_cursor_visible(window);
@@ -490,11 +546,15 @@ impl MouseManager {
             WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::LineDelta(x, y),
                 ..
-            } => self.handle_line_scroll((*x, *y).into(), &editor_state),
+            } => self.handle_line_scroll((*x, *y).into(), &editor_state, neovim_handler),
             WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::PixelDelta(delta),
                 ..
-            } => self.handle_pixel_scroll((delta.x as f32, delta.y as f32).into(), &editor_state),
+            } => self.handle_pixel_scroll(
+                (delta.x as f32, delta.y as f32).into(),
+                &editor_state,
+                neovim_handler,
+            ),
             WindowEvent::Touch(Touch {
                 device_id,
                 id,
@@ -506,11 +566,13 @@ impl MouseManager {
                 PixelPos::new(location.x as f32, location.y as f32),
                 phase,
                 &editor_state,
+                neovim_handler,
             ),
             WindowEvent::MouseInput { button, state, .. } => self.handle_pointer_transition(
                 *button,
                 state == &ElementState::Pressed,
                 &editor_state,
+                neovim_handler,
             ),
 
             WindowEvent::KeyboardInput {

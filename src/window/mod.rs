@@ -13,6 +13,7 @@ use crate::platform::macos::register_file_handler;
 #[cfg(target_os = "linux")]
 use std::env;
 
+use glamour::Size2;
 use winit::{
     dpi::{PhysicalSize, Size},
     event::DeviceId,
@@ -51,7 +52,7 @@ use crate::{
         clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
         PersistentWindowSettings, Settings, SettingsChanged,
     },
-    units::GridSize,
+    units::{Grid, GridSize},
     utils::expand_tilde,
 };
 pub use application::Application;
@@ -84,7 +85,7 @@ pub struct Pressure {
 }
 
 #[cfg(target_os = "macos")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ForceClickKind {
     Text,
     Url,
@@ -102,7 +103,7 @@ impl From<&str> for ForceClickKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
@@ -124,7 +125,14 @@ pub enum WindowCommand {
     UnregisterRightClick,
 }
 
-#[derive(Debug)]
+#[cfg(target_os = "macos")]
+#[derive(Clone, Debug, PartialEq)]
+pub enum MacShortcutCommand {
+    TogglePinnedWindow,
+    ShowEditorSwitcher,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
@@ -137,6 +145,39 @@ pub enum UserEvent {
     ShowProgressBar {
         percent: f32,
     },
+    #[cfg(target_os = "macos")]
+    CreateWindow,
+    #[cfg(target_os = "macos")]
+    MacShortcut(MacShortcutCommand),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventTarget {
+    Window(winit::window::WindowId),
+    Focused,
+    All,
+}
+
+#[derive(Debug, Clone)]
+pub struct EventPayload {
+    pub payload: UserEvent,
+    pub target: EventTarget,
+}
+
+impl EventPayload {
+    pub fn for_window(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
+        Self {
+            payload,
+            target: EventTarget::Window(window_id),
+        }
+    }
+
+    pub fn all(payload: UserEvent) -> Self {
+        Self {
+            payload,
+            target: EventTarget::All,
+        }
+    }
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
@@ -148,6 +189,13 @@ impl From<Vec<DrawCommand>> for UserEvent {
 impl From<WindowCommand> for UserEvent {
     fn from(value: WindowCommand) -> Self {
         UserEvent::WindowCommand(value)
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl From<MacShortcutCommand> for EventPayload {
+    fn from(value: MacShortcutCommand) -> Self {
+        EventPayload::all(UserEvent::MacShortcut(value))
     }
 }
 
@@ -163,7 +211,7 @@ impl From<HotReloadConfigs> for UserEvent {
     }
 }
 
-pub fn create_event_loop() -> EventLoop<UserEvent> {
+pub fn create_event_loop() -> EventLoop<EventPayload> {
     let mut builder = EventLoop::with_user_event();
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);
@@ -329,6 +377,22 @@ pub fn determine_window_size(
                 )
             }
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
+        },
+    }
+}
+
+pub fn determine_grid_size(
+    window_size: &WindowSize,
+    window_settings: Option<PersistentWindowSettings>,
+) -> Option<Size2<Grid<u32>>> {
+    match window_size {
+        WindowSize::Grid(grid_size) => Some(*grid_size),
+        // Clippy wrongly suggests to use unwrap or default here
+        #[allow(clippy::manual_unwrap_or_default)]
+        _ => match window_settings {
+            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
+            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+            _ => None,
         },
     }
 }

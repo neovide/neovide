@@ -15,13 +15,13 @@ pub enum WindowType {
     Message { scrolled: bool },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Line {
     pub text: String,
     fragments: Vec<LineFragmentData>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LineFragmentData {
     text_range: Range<u32>,
     style: Option<Arc<Style>>,
@@ -29,7 +29,7 @@ pub struct LineFragmentData {
     words: Vec<WordData>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct WordData {
     text_offset: u32,
     cell: u32,
