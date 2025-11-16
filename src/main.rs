@@ -41,7 +41,7 @@ use std::{
     env::{self, args},
     fs::{create_dir_all, File, OpenOptions},
     io::Write,
-    panic::set_hook,
+    path::PathBuf,
     process::ExitCode,
     sync::Arc,
     time::SystemTime,
@@ -49,33 +49,29 @@ use std::{
 
 use anyhow::Result;
 use log::trace;
-use std::env::var;
-use std::panic::PanicHookInfo;
-use std::path::PathBuf;
-use time::macros::format_description;
-use time::OffsetDateTime;
+use std::panic::{set_hook, PanicHookInfo};
+use time::{macros::format_description, OffsetDateTime};
 use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
 use backtrace::Backtrace;
-use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
 use renderer::{
     cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings, RendererSettings,
 };
-use running_tracker::RunningTracker;
 use window::{
-    create_event_loop, determine_window_size, Application, UserEvent, WindowSettings, WindowSize,
+    create_event_loop, determine_grid_size, determine_window_size, Application, EventPayload,
+    WindowSettings,
 };
 
 pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
+use crate::settings::{load_last_window_settings, Config, Settings};
 
 pub use profiling::startup_profiler;
 
@@ -107,44 +103,46 @@ fn main() -> ExitCode {
 
     let event_loop = create_event_loop();
     let clipboard = clipboard::Clipboard::new(&event_loop);
-    let running_tracker = RunningTracker::new();
-    let settings = Arc::new(Settings::new());
     let clipboard_handle = clipboard::ClipboardHandle::new(&clipboard);
+    let settings = Arc::new(Settings::new());
+    let setup_proxy = event_loop.create_proxy();
+    let config = match setup(setup_proxy, settings.clone()) {
+        Ok(config) => config,
+        Err(err) => return handle_startup_errors(err, event_loop, settings.clone(), clipboard),
+    };
 
-    match setup(
+    // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
+    // color.
+    #[cfg(target_os = "macos")]
+    if settings.get::<CmdLineSettings>().frame == Frame::Transparent {
+        let mut window_settings = settings.get::<WindowSettings>();
+        window_settings.theme = window::ThemeSettings::BgColor;
+        settings.set(&window_settings);
+    }
+
+    let window_settings = load_last_window_settings().ok();
+    let window_size = determine_window_size(window_settings.as_ref(), &settings);
+    let grid_size = determine_grid_size(&window_size, window_settings);
+
+    let mut application = Application::new(
+        window_size,
+        grid_size,
+        config.font,
         event_loop.create_proxy(),
-        running_tracker.clone(),
         settings.clone(),
-        clipboard_handle.clone(),
-    ) {
-        Err(err) => handle_startup_errors(err, event_loop, settings.clone(), clipboard),
-        Ok((window_size, initial_config, runtime)) => {
-            let mut application = Application::new(
-                window_size,
-                initial_config,
-                event_loop.create_proxy(),
-                settings.clone(),
-                runtime,
-                clipboard,
-            );
+        clipboard,
+        clipboard_handle,
+    );
 
-            let result = event_loop.run_app(&mut application);
-
-            match result {
-                Ok(_) => running_tracker.exit_code(),
-                Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
-                _ => ExitCode::FAILURE,
-            }
-        }
+    let result = application.run(event_loop);
+    match result {
+        Ok(_) => application.runtime_tracker.exit_code(),
+        Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
+        _ => ExitCode::FAILURE,
     }
 }
 
-fn setup(
-    proxy: EventLoopProxy<UserEvent>,
-    running_tracker: RunningTracker,
-    settings: Arc<Settings>,
-    clipboard: clipboard::ClipboardHandle,
-) -> Result<(WindowSize, Config, NeovimRuntime)> {
+fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result<Config> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -252,32 +250,7 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
-    // color.
-    #[cfg(target_os = "macos")]
-    if settings.get::<CmdLineSettings>().frame == Frame::Transparent {
-        let mut window_settings = settings.get::<WindowSettings>();
-        window_settings.theme = window::ThemeSettings::BgColor;
-        settings.set(&window_settings);
-    }
-
-    let window_settings = load_last_window_settings().ok();
-    let window_size = determine_window_size(window_settings.as_ref(), &settings);
-    let grid_size = match window_size {
-        WindowSize::Grid(grid_size) => Some(grid_size),
-        // Clippy wrongly suggests to use unwrap or default here
-        #[allow(clippy::manual_unwrap_or_default)]
-        _ => match window_settings {
-            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
-            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
-            _ => None,
-        },
-    };
-
-    let mut runtime = NeovimRuntime::new(clipboard)?;
-    runtime.launch(proxy, grid_size, running_tracker, settings, &config)?;
-
-    Ok((window_size, config, runtime))
+    Ok(config)
 }
 
 #[cfg(not(test))]
@@ -362,7 +335,7 @@ fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &O
 
     let file_path = match path {
         Some(v) => v,
-        None => &match var(BACKTRACES_FILE_ENV_VAR) {
+        None => &match env::var(BACKTRACES_FILE_ENV_VAR) {
             Ok(v) => PathBuf::from(v),
             Err(_) => settings::neovide_std_datapath().join(DEFAULT_BACKTRACES_FILE),
         },

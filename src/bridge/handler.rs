@@ -1,10 +1,13 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, RwLock,
+};
 
 use async_trait::async_trait;
 use log::{trace, warn};
 use nvim_rs::{call_args, Handler, Neovim};
 use rmpv::Value;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use winit::event_loop::EventLoopProxy;
 
 #[cfg(target_os = "macos")]
@@ -19,36 +22,108 @@ use crate::{
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
     settings::{FontConfigState, Settings},
-    window::{UserEvent, WindowCommand},
-    LoggingSender,
+    window::{EventPayload, RouteId, UserEvent, WindowCommand},
+    LoggingReceiver, LoggingSender,
 };
+
+use super::ui_commands::UiCommand;
+
+#[derive(Default)]
+struct NeovimState {
+    nvim: Option<Neovim<NeovimWriter>>,
+    can_support_ime_api: bool,
+}
 
 #[derive(Clone)]
 pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
-    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
-    sender: LoggingSender<RedrawEvent>,
+    proxy: Arc<Mutex<EventLoopProxy<EventPayload>>>,
+    redraw_event_sender: LoggingSender<RedrawEvent>,
+    ui_command_sender: LoggingSender<UiCommand>,
+    ui_command_receiver: LoggingReceiver<UiCommand>,
+    current_neovim: Arc<RwLock<NeovimState>>,
+    ui_command_started: Arc<AtomicBool>,
     running_tracker: RunningTracker,
+    route_id: RouteId,
     #[allow(dead_code)]
     settings: Arc<Settings>,
     clipboard: ClipboardHandle,
 }
 
+impl std::fmt::Debug for NeovimHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NeovimHandler").finish()
+    }
+}
+
 impl NeovimHandler {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
-        sender: UnboundedSender<RedrawEvent>,
-        proxy: EventLoopProxy<UserEvent>,
+        redraw_event_sender: UnboundedSender<RedrawEvent>,
+        ui_command_sender: UnboundedSender<UiCommand>,
+        ui_command_receiver: UnboundedReceiver<UiCommand>,
+        proxy: EventLoopProxy<EventPayload>,
         running_tracker: RunningTracker,
+        route_id: RouteId,
         settings: Arc<Settings>,
         clipboard: ClipboardHandle,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
-            sender: LoggingSender::attach(sender, "neovim_handler"),
+            redraw_event_sender: LoggingSender::attach(redraw_event_sender, "neovim_handler"),
+            ui_command_sender: LoggingSender::attach(ui_command_sender, "UICommand"),
+            ui_command_receiver: LoggingReceiver::attach(ui_command_receiver, "UICommand"),
+            current_neovim: Arc::new(RwLock::new(NeovimState::default())),
+            ui_command_started: Arc::new(AtomicBool::new(false)),
             running_tracker,
+            route_id,
             settings,
             clipboard,
         }
+    }
+
+    fn send_window_command(&self, command: WindowCommand) {
+        let payload = EventPayload::for_route(UserEvent::WindowCommand(command), self.route_id);
+        let _ = self.proxy.lock().unwrap().send_event(payload);
+    }
+
+    pub fn get_ui_command_channel(&self) -> (LoggingSender<UiCommand>, LoggingReceiver<UiCommand>) {
+        (
+            self.ui_command_sender.clone(),
+            self.ui_command_receiver.clone(),
+        )
+    }
+
+    pub(crate) fn update_current_neovim(
+        &self,
+        neovim: Neovim<NeovimWriter>,
+        can_support_ime_api: bool,
+    ) {
+        if let Ok(mut guard) = self.current_neovim.write() {
+            guard.nvim = Some(neovim);
+            guard.can_support_ime_api = can_support_ime_api;
+        }
+    }
+
+    pub(crate) fn clone_current_neovim(&self) -> Option<Neovim<NeovimWriter>> {
+        self.current_neovim
+            .read()
+            .ok()
+            .and_then(|guard| guard.nvim.as_ref().cloned())
+    }
+
+    pub(crate) fn clone_current_neovim_with_ime(&self) -> Option<(Neovim<NeovimWriter>, bool)> {
+        self.current_neovim.read().ok().and_then(|guard| {
+            guard
+                .nvim
+                .as_ref()
+                .cloned()
+                .map(|nvim| (nvim, guard.can_support_ime_api))
+        })
+    }
+
+    pub(crate) fn mark_ui_command_started(&self) -> bool {
+        self.ui_command_started.swap(true, Ordering::SeqCst)
     }
 }
 
@@ -116,80 +191,73 @@ impl Handler for NeovimHandler {
 
                         match parsed_event {
                             RedrawEvent::Restart { details } => {
-                                let _ = self
-                                    .proxy
-                                    .lock()
-                                    .unwrap()
-                                    .send_event(UserEvent::NeovimRestart(details));
+                                let payload = EventPayload::for_route(
+                                    UserEvent::NeovimRestart(details),
+                                    self.route_id,
+                                );
+                                let _ = self.proxy.lock().unwrap().send_event(payload);
                             }
                             _ => {
-                                let _ = self.sender.send(parsed_event);
+                                let _ = self.redraw_event_sender.send(parsed_event);
                             }
                         }
                     }
                 }
             }
             "setting_changed" => {
-                self.settings
-                    .handle_setting_changed_notification(arguments, &self.proxy.lock().unwrap());
+                self.settings.handle_setting_changed_notification(
+                    arguments,
+                    &self.proxy.lock().unwrap(),
+                    self.route_id,
+                );
             }
             "option_changed" => {
-                self.settings
-                    .handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
+                self.settings.handle_option_changed_notification(
+                    arguments,
+                    &self.proxy.lock().unwrap(),
+                    self.route_id,
+                );
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {
-                let _ = self
-                    .proxy
-                    .lock()
-                    .unwrap()
-                    .send_event(WindowCommand::RegisterRightClick.into());
+                self.send_window_command(WindowCommand::RegisterRightClick);
             }
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
-                let _ = self
-                    .proxy
-                    .lock()
-                    .unwrap()
-                    .send_event(WindowCommand::UnregisterRightClick.into());
+                self.send_window_command(WindowCommand::UnregisterRightClick);
             }
             "neovide.focus_window" => {
-                let _ = self
-                    .proxy
-                    .lock()
-                    .unwrap()
-                    .send_event(WindowCommand::FocusWindow.into());
+                self.send_window_command(WindowCommand::FocusWindow);
             }
             #[cfg(target_os = "macos")]
             "neovide.force_click" => match parse_force_click_args(&arguments) {
                 Some((col, row, entity, guifont, kind)) => {
-                    let _ = self.proxy.lock().unwrap().send_event(
-                        WindowCommand::TouchpadPressure {
-                            col,
-                            row,
-                            entity,
-                            guifont,
-                            kind,
-                        }
-                        .into(),
-                    );
+                    self.send_window_command(WindowCommand::TouchpadPressure {
+                        col,
+                        row,
+                        entity,
+                        guifont,
+                        kind,
+                    });
                 }
                 None => warn!("neovide.force_click called with invalid arguments: {arguments:?}"),
             },
             "neovide.exec_detach_handler" => {
-                send_ui(ParallelCommand::Quit);
+                send_ui(ParallelCommand::Quit, self);
             }
             "neovide.set_redraw" => {
                 if let Some(value) = arguments.first() {
                     let value = value.as_bool().unwrap_or(true);
-                    let _ = self.sender.send(RedrawEvent::NeovideSetRedraw(value));
+                    let _ = self
+                        .redraw_event_sender
+                        .send(RedrawEvent::NeovideSetRedraw(value));
                 }
             }
             "neovide.intro_banner_allowed" => {
                 if let Some(value) = arguments.first() {
                     if let Some(allowed) = value.as_bool() {
                         let _ = self
-                            .sender
+                            .redraw_event_sender
                             .send(RedrawEvent::NeovideIntroBannerAllowed(allowed));
                     }
                 }
@@ -197,7 +265,11 @@ impl Handler for NeovimHandler {
             "neovide.progress_bar" => {
                 parse_progress_bar_event(arguments.first())
                     .map(|event| {
-                        let _ = self.proxy.lock().unwrap().send_event(event);
+                        let _ = self
+                            .proxy
+                            .lock()
+                            .unwrap()
+                            .send_event(EventPayload::for_route(event, self.route_id));
                     })
                     .unwrap_or_else(|| {
                         log::info!(
