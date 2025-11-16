@@ -253,6 +253,12 @@ impl WinitWindowWrapper {
                     let transparent = opacity < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
                 }
+                self.apply_blur(blur, None);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::WindowBlurredRadius(radius) => {
+                let WindowSettings { window_blurred, .. } = self.settings.get::<WindowSettings>();
+                self.apply_blur(window_blurred, Some(radius));
             }
             WindowSettingsChanged::Opacity(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
@@ -462,6 +468,38 @@ impl WinitWindowWrapper {
         tracy_gpu_collect();
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn apply_blur(&mut self, blur: bool, radius: Option<i64>) {
+        use crate::window::settings::ACRYLIC_DEFAULT_RADIUS;
+        let WindowSettings {
+            opacity,
+            window_blurred_radius,
+            ..
+        } = self.settings.get::<WindowSettings>();
+        let transparent = opacity < 1.0;
+        let radius = radius
+            .or(Some(window_blurred_radius))
+            .or(Some(ACRYLIC_DEFAULT_RADIUS));
+
+        if let Some(macos_feature) = &self.macos_feature {
+            macos_feature.set_blur(blur && transparent, radius);
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn apply_blur(&mut self, blur: bool, _radius: Option<i64>) {
+        let WindowSettings {
+            opacity,
+            normal_opacity,
+            ..
+        } = self.settings.get::<WindowSettings>();
+        let transparent = opacity.min(normal_opacity) < 1.0;
+
+        if let Some(skia_renderer) = &self.skia_renderer {
+            skia_renderer.window().set_blur(blur && transparent);
+        }
+    }
+
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
@@ -592,7 +630,7 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        window.set_blur(window_blurred && opacity.min(normal_opacity) < 1.0);
+        self.apply_blur(window_blurred && opacity.min(normal_opacity) < 1.0, None);
 
         #[cfg(target_os = "windows")]
         if window_blurred {

@@ -1,8 +1,8 @@
 use crate::error_msg;
-use crate::settings::*;
 
 #[cfg(target_os = "macos")]
 pub use crate::platform::macos::settings::*;
+use crate::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
@@ -31,6 +31,9 @@ pub struct WindowSettings {
     pub touch_deadzone: f32,
     pub touch_drag_timeout: f32,
     pub window_blurred: bool,
+
+    #[cfg(target_os = "macos")]
+    pub window_blurred_radius: i64,
 
     #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
@@ -79,6 +82,9 @@ impl Default for WindowSettings {
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,
             window_blurred: false,
+
+            #[cfg(target_os = "macos")]
+            window_blurred_radius: ACRYLIC_DEFAULT_RADIUS,
 
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
