@@ -464,6 +464,13 @@ impl MouseManager {
                     }
                 }
             }
+            WindowEvent::Focused(false) => {
+                let window_settings = self.settings.get::<WindowSettings>();
+                if window_settings.hide_mouse_when_typing && self.mouse_hidden {
+                    window.set_cursor_visible(true);
+                    self.mouse_hidden = false;
+                }
+            }
             _ => {}
         }
     }
