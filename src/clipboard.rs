@@ -12,7 +12,7 @@ use raw_window_handle::HasDisplayHandle;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use winit::event_loop::EventLoop;
 
-use crate::window::UserEvent;
+use crate::window::EventPayload;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync + 'static>>;
 
@@ -40,7 +40,7 @@ impl ClipboardHandle {
 }
 
 impl Clipboard {
-    pub fn new(event_loop: &EventLoop<UserEvent>) -> Arc<Mutex<Self>> {
+    pub fn new(event_loop: &EventLoop<EventPayload>) -> Arc<Mutex<Self>> {
         let clipboard = match event_loop.display_handle().unwrap().as_raw() {
             #[cfg(target_os = "linux")]
             RawDisplayHandle::Wayland(WaylandDisplayHandle { mut display, .. }) => unsafe {
