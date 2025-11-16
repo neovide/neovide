@@ -45,6 +45,12 @@ opengl = false # macOS/Windows only
 # server = "/tmp/nvim.sock" # or "127.0.0.1:7777"
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
+macos-native-tabs = false # macOS only
+macos-pinned-hotkey = "ctrl+shift+z" # macOS only
+macos-switcher-hotkey = "ctrl+shift+n" # macOS only, requires macos-native-tabs = true
+macos-tab-prev-hotkey = "cmd+shift+[" # macOS only
+macos-tab-next-hotkey = "cmd+shift+]" # macOS only
+theme = "auto"
 title-hidden = false
 vsync = true
 # wayland-app-id = "neovide"
