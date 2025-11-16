@@ -1,8 +1,11 @@
-use std::{iter, mem};
+use std::{iter, mem, process::ExitStatus};
 
-use crate::{dimensions::Dimensions, frame::Frame, settings::*, utils::handle_wslpaths};
+use crate::{
+    bridge::create_blocking_nvim_command, dimensions::Dimensions, frame::Frame, settings::*,
+    utils::handle_wslpaths,
+};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{
     builder::{styling, FalseyValueParser, Styles},
     ArgAction, Parser,
@@ -13,6 +16,8 @@ use winit::window::CursorIcon;
 pub const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
 pub const SRGB_DEFAULT: &str = "0";
+
+const NEOVIM_PASSTHROUGH_FLAGS: &[&str] = &["-h", "--help", "-?", "-v", "--version", "--api-info"];
 
 fn get_styles() -> Styles {
     styling::Styles::styled()
@@ -231,6 +236,50 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
     Ok(())
 }
 
+pub fn maybe_passthrough_to_neovim(
+    cmdline_settings: &CmdLineSettings,
+) -> Result<Option<ExitStatus>> {
+    if !neovim_passthrough_requested(&cmdline_settings.neovim_args) {
+        return Ok(None);
+    }
+
+    let mut command = create_blocking_nvim_command(cmdline_settings, false);
+    let binary = cmdline_settings
+        .neovim_bin
+        .clone()
+        .unwrap_or_else(|| "nvim".to_owned());
+    let status = command
+        .status()
+        .with_context(|| format!("Failed to run {binary} for passthrough output"))?;
+
+    Ok(Some(status))
+}
+
+pub fn exit_status_code(status: ExitStatus) -> i32 {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        status
+            .code()
+            .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
+    }
+
+    #[cfg(windows)]
+    {
+        status.code().unwrap_or(1)
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        return status.code().unwrap_or(1);
+    }
+}
+
+fn neovim_passthrough_requested(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| NEOVIM_PASSTHROUGH_FLAGS.contains(&arg.as_str()))
+}
+
 #[cfg(test)]
 #[allow(clippy::bool_assert_comparison)] // useful here since the explicit true/false comparison matters
 #[serial_test::serial]
@@ -384,6 +433,19 @@ mod tests {
 
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().log_to_file);
+    }
+
+    #[test]
+    fn test_passthrough_detection_help() {
+        assert!(super::neovim_passthrough_requested(&["-h".into()]));
+    }
+
+    #[test]
+    fn test_passthrough_detection_none() {
+        assert!(!super::neovim_passthrough_requested(&[
+            "file".into(),
+            "--clean".into()
+        ]));
     }
 
     #[test]
