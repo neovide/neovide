@@ -33,7 +33,7 @@ pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::{get_api_information, setup_neovide_specific_state};
 
-pub use command::create_nvim_command;
+pub use command::{create_blocking_nvim_command, create_nvim_command};
 pub use events::*;
 pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};

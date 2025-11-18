@@ -236,6 +236,12 @@ fn setup(
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect(), settings.as_ref())?;
+    {
+        let cmdline_settings = settings.get::<CmdLineSettings>();
+        if let Some(status) = cmd_line::maybe_passthrough_to_neovim(&cmdline_settings)? {
+            std::process::exit(cmd_line::exit_status_code(status));
+        }
+    }
     #[cfg(not(target_os = "windows"))]
     maybe_disown(&settings);
 
