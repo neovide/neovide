@@ -22,6 +22,7 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
+use crate::utils::expand_tilde;
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     settings::Settings,
@@ -92,7 +93,10 @@ fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
 
 fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
     custom_icon_path
-        .and_then(|path| load_icon_from_custom_path(path))
+        .and_then(|path| {
+            let expanded = expand_tilde(path);
+            load_icon_from_custom_path(&expanded)
+        })
         .or_else(load_icon_from_default_bytes)
 }
 

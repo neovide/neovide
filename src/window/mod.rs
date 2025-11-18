@@ -50,6 +50,7 @@ use crate::{
         PersistentWindowSettings, Settings, SettingsChanged,
     },
     units::GridSize,
+    utils::expand_tilde,
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
@@ -296,7 +297,8 @@ pub fn determine_window_size(
 pub fn load_icon(path: Option<&String>) -> Icon {
     let icon_result = path
         .and_then(|path| {
-            let mut file = File::open(path).ok()?;
+            let expanded_path = expand_tilde(path);
+            let mut file = File::open(expanded_path).ok()?;
             let mut data = Vec::new();
             file.read_to_end(&mut data).ok()?;
             Some(data)
