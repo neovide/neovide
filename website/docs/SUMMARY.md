@@ -15,3 +15,4 @@
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
 - [Maintainer Cookbook](maintainer-cookbook.md)
+- [Sponsor](sponsor.md)

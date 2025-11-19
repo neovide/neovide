@@ -18,16 +18,35 @@ much more, head on over to [neovide.dev](https://neovide.dev).
     <em>Screenshot of Neovide running on Windows</em>
 </div>
 
-## Author Notes
+## Installation
 
-I've been using this as my daily driver since November 2019. It should be relatively stable, but I'm
-still working out some kinks and ironing out some cross platform issues. In general it should be
-usable at this point, and if it isn't I consider that a bug and appreciate a report in the issues!
-Any help and ideas are also greatly appreciated.
+Pre-built releases for macOS, Windows and Linux are published on the
+[GitHub Releases page](https://github.com/neovide/neovide/releases) and each release includes signed
+installers or AppImage builds. For detailed package-manager commands, verification steps and build
+from source instructions, see the [installation guide on neovide.dev](https://neovide.dev/installation.html)
 
-I'm also very interested in suggestions code quality/style wise when it comes to Rust. I'm pretty
-new to the language and appreciate any critiques that you might have to offer. I won't take all of
-them, but I promise to consider anything you might have to offer.
+## Getting help
+
+Neovide is maintained in spare time, so please be patient when asking for support. Depending on your
+question:
+
+- Use the [issue tracker](https://github.com/neovide/neovide/issues) for reproducible bugs or crash reports.
+- Open a thread in [GitHub Discussions](https://github.com/neovide/neovide/discussions) for general
+  questions, tips, or feature ideas.
+- Chat in real time on [Discord](https://discord.gg/SjFpZdQys6) or on
+  [Matrix](https://matrix.to/#/#neovide:matrix.org) if you want help from other community members.
+
+Discussions and chat are better suited to questions or workflow brainstorming, while the issue
+tracker works best for actionable bugs.
+
+## Supporting the Project
+
+If you use and like Neovide, please consider
+[sponsoring the project on GitHub](https://github.com/sponsors/neovide). Funding helps pay for
+code-signing certificates, cross-platform hardware and the time maintainers spend supporting users.
+There are tiers for individuals and teams, and one-time contributions are welcome too.
+
+[Read more about sponsoring Neovide](https://neovide.dev/sponsor.html).
 
 ## License
 
