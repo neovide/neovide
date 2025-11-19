@@ -30,6 +30,7 @@ Settings currently available in the config file with default values:
 
 ```toml
 backtraces_path = "/path/to/neovide_backtraces.log" # see below for the default platform specific location
+chdir = "/path/to/dir"
 fork = false
 frame = "full"
 idle = true

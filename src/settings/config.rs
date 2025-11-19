@@ -60,6 +60,7 @@ pub struct Config {
     pub wsl: Option<bool>,
     pub backtraces_path: Option<PathBuf>,
     pub icon: Option<String>,
+    pub chdir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,6 +125,9 @@ impl Config {
         }
         if let Some(icon) = &self.icon {
             env::set_var("NEOVIDE_ICON", icon);
+        }
+        if let Some(chdir) = &self.chdir {
+            env::set_var("NEOVIDE_CHDIR", chdir.to_string_lossy().to_string());
         }
     }
 

@@ -159,7 +159,7 @@ pub struct CmdLineSettings {
     pub opengl: bool,
 
     /// Change to this directory during startup.
-    #[arg(long = "chdir")]
+    #[arg(long = "chdir", env = "NEOVIDE_CHDIR")]
     pub chdir: Option<String>,
 }
 
