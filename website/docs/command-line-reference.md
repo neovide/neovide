@@ -273,9 +273,12 @@ Wayland, depending on what you are running on.
 ### Working Directory
 
 ```sh
---chdir <path>
+--chdir <path> or $NEOVIDE_CHDIR
 ```
+
+**Unreleased yet.**
 
 Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial
-working directory for all instances of neovim or terminal.
+working directory for all instances of neovim or terminal. This value can
+also be set via the `chdir` entry in the [Neovide Config File](config-file.md).
