@@ -1411,11 +1411,13 @@ permission bit set.</p>
 <p>On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.</p>
 <h3 id="working-directory"><a class="header" href="#working-directory">Working Directory</a></h3>
-<pre><code class="language-sh">--chdir &lt;path&gt;
+<pre><code class="language-sh">--chdir &lt;path&gt; or $NEOVIDE_CHDIR
 </code></pre>
+<p><strong>Unreleased yet.</strong></p>
 <p>Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial
-working directory for all instances of neovim or terminal.</p>
+working directory for all instances of neovim or terminal. This value can
+also be set via the <code>chdir</code> entry in the <a href="config-file.html">Neovide Config File</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="config-file"><a class="header" href="#config-file">Config File</a></h1>
 <p><strong>Available since 0.11.0.</strong></p>
 <p>Neovide also support configuration through a config file in <a href="https://toml.io">the toml format</a>.</p>
@@ -1439,6 +1441,7 @@ however.)</p>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
 <pre><code class="language-toml">backtraces_path = &quot;/path/to/neovide_backtraces.log&quot; # see below for the default platform specific location
+chdir = &quot;/path/to/dir&quot;
 fork = false
 frame = &quot;full&quot;
 idle = true
