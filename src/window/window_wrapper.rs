@@ -513,10 +513,9 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = Some(MacosWindowFeature::from_winit_window(
-                window,
-                self.settings.clone(),
-            ));
+            let feature = MacosWindowFeature::from_winit_window(window, self.settings.clone());
+            feature.activate_and_focus();
+            self.macos_feature = Some(feature);
         }
 
         let scale_factor = window.scale_factor();

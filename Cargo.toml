@@ -11,21 +11,21 @@ repository = "https://github.com/neovide/neovide"
 readme = "README.md"
 keywords = ["neovim", "nvim", "gui"]
 exclude = [
-    "website/*",
-    "ubuntu-builder/*",
-    "wix/*",
-    "macos-builder/*",
-    ".vscode/**/*",
-    ".github/**/*",
-    "assets/dmg-background/**/*",
-    "assets/neovide-*.png",
-    "assets/neovide.svg",
-    "*.md",
-    "scripts/*.sh",
-    "docs/*",
-    "target/*",
-    ".gitignore",
-    "stylua.toml",
+  "website/*",
+  "ubuntu-builder/*",
+  "wix/*",
+  "macos-builder/*",
+  ".vscode/**/*",
+  ".github/**/*",
+  "assets/dmg-background/**/*",
+  "assets/neovide-*.png",
+  "assets/neovide.svg",
+  "*.md",
+  "scripts/*.sh",
+  "docs/*",
+  "target/*",
+  ".gitignore",
+  "stylua.toml",
 ]
 
 [workspace]
@@ -42,7 +42,7 @@ tracy-context-switch-tracing = ["tracy-client-sys?/context-switch-tracing"]
 tracy-sampling = ["tracy-client-sys?/sampling"]
 tracy-code-transfer = ["tracy-client-sys?/code-transfer"]
 tracy-callstack-inlines = ["tracy-client-sys?/callstack-inlines"]
-d3d_debug = [] # Enable the D3D debug layer
+d3d_debug = []                                                              # Enable the D3D debug layer
 
 [dependencies]
 anyhow = { version = "1.0.95", features = ["backtrace"] }
@@ -76,17 +76,17 @@ serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.134"
 spin_sleep = "1.3.0"
 strum = { version = "0.27.2", features = ["derive"] }
-swash = { version = "0.2.1", default-features = false, features = [ "std"  ] }
+swash = { version = "0.2.1", default-features = false, features = ["std"] }
 time = { version = "0.3.37", features = ["macros", "formatting"] }
 tokio = { version = "1.42.0", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["compat"] }
 toml = "0.9.5"
 tracy-client-sys = { version = "0.26.1", optional = true, default-features = false, features = [
-    "broadcast",
-    "delayed-init",
-    "enable",
-    "manual-lifetime",
-    "fibers",
+  "broadcast",
+  "delayed-init",
+  "enable",
+  "manual-lifetime",
+  "fibers",
 ] }
 winit = { version = "=0.30.12", features = ["serde"] }
 xdg = "3.0.0"
@@ -99,17 +99,17 @@ serial_test = "3.2.0"
 skia-safe = { version = "0.89.1", features = ["gl", "d3d", "textlayout"] }
 # This needs to match the version used by skia
 windows = { version = "0.62.0", features = [
-    "Win32_Graphics_Direct3D",
-    "Win32_Graphics_Direct3D12",
-    "Win32_Graphics_DirectComposition",
-    "Win32_Graphics_Dwm",
-    "Win32_Graphics_Dxgi",
-    "Win32_Graphics_Dxgi_Common",
-    "Win32_Security",
-    "Win32_System_Console",
-    "Win32_System_Performance",
-    "Win32_System_Threading",
-    "Win32_UI_HiDpi",
+  "Win32_Graphics_Direct3D",
+  "Win32_Graphics_Direct3D12",
+  "Win32_Graphics_DirectComposition",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Security",
+  "Win32_System_Console",
+  "Win32_System_Performance",
+  "Win32_System_Threading",
+  "Win32_UI_HiDpi",
 ] }
 windows-registry = "0.6.1"
 wslpath-rs = "0.2"
@@ -118,51 +118,51 @@ wslpath-rs = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.1"
 objc2-core-foundation = { version = "0.3.1", default-features = false, features = [
-    "CFCGTypes",
+  "CFCGTypes",
 ] }
 objc2-foundation = { version = "0.3.1", default-features = false, features = [
-    "std",
-    "NSUserDefaults",
-    "NSProcessInfo",
+  "std",
+  "NSUserDefaults",
+  "NSProcessInfo",
 ] }
 objc2-app-kit = { version = "0.3.1", default-features = false, features = [
-    "std",
-    "objc2-core-foundation",
-    "objc2-quartz-core",
-    "NSResponder",
-    "NSEvent",
-    "NSView",
-    "NSWindow",
-    "NSScreen",
-    "NSApplication",
-    "NSMenu",
-    "NSMenuItem",
-    "NSLayoutConstraint",
-    "NSColor",
-    "NSColorSpace",
-    "NSImage",
-    "NSGraphics",
+  "std",
+  "objc2-core-foundation",
+  "objc2-quartz-core",
+  "NSResponder",
+  "NSEvent",
+  "NSView",
+  "NSWindow",
+  "NSScreen",
+  "NSApplication",
+  "NSMenu",
+  "NSMenuItem",
+  "NSLayoutConstraint",
+  "NSColor",
+  "NSColorSpace",
+  "NSImage",
+  "NSGraphics",
 ] }
 objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
-    "std",
-    "objc2-core-foundation",
-    "objc2-metal",
-    "CALayer",
-    "CAMetalLayer",
+  "std",
+  "objc2-core-foundation",
+  "objc2-metal",
+  "CALayer",
+  "CAMetalLayer",
 ] }
 objc2-core-video = { version = "0.3.1", default-features = false, features = [
-    "objc2-core-graphics",
-    "CVBase",
-    "CVReturn",
-    "CVDisplayLink",
+  "objc2-core-graphics",
+  "CVBase",
+  "CVReturn",
+  "CVDisplayLink",
 ] }
 objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
-    "CGDirectDisplay",
+  "CGDirectDisplay",
 ] }
 objc2-metal = { version = "0.3.1", default-features = false, features = [
-    "std",
-    "MTLCommandQueue",
-    "MTLCommandBuffer",
+  "std",
+  "MTLCommandQueue",
+  "MTLCommandBuffer",
 ] }
 skia-safe = { version = "0.89.1", features = ["metal", "gl", "textlayout"] }
 uzers = "0.12.1"
