@@ -100,7 +100,7 @@ fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSIma
         .or_else(load_icon_from_default_bytes)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MacosWindowFeature {
     ns_window: Retained<NSWindow>,
     system_titlebar_height: f64,
@@ -394,7 +394,7 @@ impl QuitHandler {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Menu {
     quit_handler: Retained<QuitHandler>,
 }
