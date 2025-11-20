@@ -17,11 +17,6 @@ use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
     NSRect, NSSize, NSString, NSUserDefaults,
 };
-use once_cell::unsync::OnceCell;
-
-thread_local! {
-    pub static WINDOW_FEATURE: OnceCell<MacosWindowFeature> = OnceCell::new();
-}
 
 use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -179,6 +174,35 @@ impl MacosWindowFeature {
         macos_window_feature.update_background(true);
 
         macos_window_feature
+    }
+
+    fn activate_app_and_focus_window(window: &NSWindow) {
+        let mtm = MainThreadMarker::new().expect("Window activation must be on the main thread.");
+        let app = NSApplication::sharedApplication(mtm);
+        #[allow(deprecated)]
+        app.activateIgnoringOtherApps(true);
+        window.makeKeyAndOrderFront(None);
+    }
+
+    pub fn activate_and_focus(&self) {
+        Self::activate_app_and_focus_window(&self.ns_window);
+    }
+
+    fn focus_target_window(app: &NSApplication) -> Option<Retained<NSWindow>> {
+        app.mainWindow()
+            .or_else(|| app.keyWindow())
+            .or_else(|| app.windows().firstObject())
+    }
+
+    pub fn activate_and_focus_existing_window() -> bool {
+        let Some(mtm) = MainThreadMarker::new() else {
+            return false;
+        };
+
+        let app = NSApplication::sharedApplication(mtm);
+        Self::focus_target_window(&app)
+            .map(|window| Self::activate_app_and_focus_window(&window))
+            .is_some()
     }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
@@ -483,6 +507,12 @@ impl Menu {
 }
 
 pub fn register_file_handler() {
+    fn dispatch_file_drops(filenames: &NSArray<NSString>) {
+        for filename in filenames.iter() {
+            send_ui(ParallelCommand::FileDrop(filename.to_string()));
+        }
+    }
+
     // See signature at
     // https://developer.apple.com/documentation/appkit/nsapplicationdelegate/application(_:openfiles:)?language=objc
     unsafe extern "C-unwind" fn handle_open_files(
@@ -491,14 +521,8 @@ pub fn register_file_handler() {
         _sender: &objc2::runtime::AnyObject,
         filenames: &NSArray<NSString>,
     ) {
-        for filename in filenames.iter() {
-            send_ui(ParallelCommand::FileDrop(filename.to_string()));
-        }
-        WINDOW_FEATURE.with(|cell| {
-            if let Some(window_feature) = cell.get() {
-                window_feature.ns_window.makeKeyAndOrderFront(None);
-            }
-        });
+        dispatch_file_drops(filenames);
+        MacosWindowFeature::activate_and_focus_existing_window();
     }
 
     let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");

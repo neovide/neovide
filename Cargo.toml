@@ -88,7 +88,6 @@ tracy-client-sys = { version = "0.26.1", optional = true, default-features = fal
   "manual-lifetime",
   "fibers",
 ] }
-once_cell = "1.21.3"
 winit = { version = "=0.30.12", features = ["serde"] }
 xdg = "3.0.0"
 

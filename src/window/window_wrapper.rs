@@ -40,7 +40,7 @@ use {
 };
 
 #[cfg(target_os = "macos")]
-use super::macos::{MacosWindowFeature, WINDOW_FEATURE};
+use super::macos::MacosWindowFeature;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -514,10 +514,7 @@ impl WinitWindowWrapper {
         #[cfg(target_os = "macos")]
         {
             let feature = MacosWindowFeature::from_winit_window(window, self.settings.clone());
-            WINDOW_FEATURE.with(|cell| {
-                cell.set(feature.clone())
-                    .expect("WINDOW_FEATURE already set");
-            });
+            feature.activate_and_focus();
             self.macos_feature = Some(feature);
         }
 
