@@ -1,0 +1,17 @@
+root = true
+
+[*]
+insert_final_newline = true
+indent_style = space
+
+[*.rs]
+indent_size = 4
+max_line_length = 100
+
+[*.lua]
+indent_size = 4
+max_line_length = 120
+
+[*.md]
+indent_size = 2
+max_line_length = 100

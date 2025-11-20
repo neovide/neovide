@@ -10,7 +10,7 @@ use winit::event::WindowEvent;
 
 use crate::{
     bridge::EditorMode,
-    editor::{Cursor, CursorShape},
+    editor::{Cursor, CursorShape, Word},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, Settings},
@@ -393,7 +393,10 @@ impl CursorRenderer {
         );
         if !box_char_drawn {
             let pos = (self.destination.x, self.destination.y + baseline_offset);
-            let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
+            let blobs = &grid_renderer.shaper.shape_cached(
+                Word::new(&character, &[character.len() as u8]),
+                coarse_style,
+            );
             for blob in blobs.iter() {
                 canvas.draw_text_blob(blob, pos, &paint);
             }

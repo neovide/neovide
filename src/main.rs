@@ -22,6 +22,7 @@ mod dimensions;
 mod editor;
 mod error_handling;
 mod frame;
+mod platform;
 mod profiling;
 mod renderer;
 mod running_tracker;
@@ -62,7 +63,9 @@ use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
-use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+use renderer::{
+    cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings, RendererSettings,
+};
 use running_tracker::RunningTracker;
 use window::{
     create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
@@ -214,6 +217,7 @@ fn setup(
     settings.register::<WindowSettings>();
     settings.register::<RendererSettings>();
     settings.register::<CursorSettings>();
+    settings.register::<ProgressBarSettings>();
 
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
@@ -232,6 +236,12 @@ fn setup(
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect(), settings.as_ref())?;
+    {
+        let cmdline_settings = settings.get::<CmdLineSettings>();
+        if let Some(status) = cmd_line::maybe_passthrough_to_neovim(&cmdline_settings)? {
+            std::process::exit(cmd_line::exit_status_code(status));
+        }
+    }
     #[cfg(not(target_os = "windows"))]
     maybe_disown(&settings);
 

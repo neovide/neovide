@@ -160,6 +160,16 @@ to its generalistic purpose.
 
 This sets the window title to be hidden on macOS.
 
+### Application Icon
+
+```sh
+--icon <path>
+```
+
+**Unreleased yet.**
+
+This sets a custom application icon. A default icon is bundled with Neovide.
+
 ### sRGB
 
 ```sh
@@ -259,3 +269,16 @@ permission bit set.
 
 On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.
+
+### Working Directory
+
+```sh
+--chdir <path> or $NEOVIDE_CHDIR
+```
+
+**Unreleased yet.**
+
+Start neovim in the specified working directory. This will impact neovim
+arguments that use relative path names (e.g. file names), and the initial
+working directory for all instances of neovim or terminal. This value can
+also be set via the `chdir` entry in the [Neovide Config File](config-file.md).

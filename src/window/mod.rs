@@ -6,7 +6,9 @@ mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
-pub mod macos;
+use crate::platform::macos;
+#[cfg(target_os = "macos")]
+use crate::platform::macos::register_file_handler;
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -33,12 +35,11 @@ use winit::platform::windows::WindowAttributesExtWindows;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 
-#[cfg(target_os = "macos")]
-use macos::register_file_handler;
-
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
+use std::fs::File;
+use std::io::Read;
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
@@ -49,6 +50,7 @@ use crate::{
         PersistentWindowSettings, Settings, SettingsChanged,
     },
     units::GridSize,
+    utils::expand_tilde,
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
@@ -56,7 +58,7 @@ pub use update_loop::ShouldRender;
 pub use update_loop::UpdateLoop;
 pub use window_wrapper::WinitWindowWrapper;
 
-static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
+static DEFAULT_ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
 const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     width: 500,
@@ -71,7 +73,7 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     height: 8192,
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
@@ -86,7 +88,7 @@ pub enum WindowCommand {
     UnregisterRightClick,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
@@ -95,6 +97,9 @@ pub enum UserEvent {
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
+    ShowProgressBar {
+        percent: f32,
+    },
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
@@ -138,9 +143,8 @@ pub fn create_window(
     title: &str,
     settings: &Settings,
 ) -> WindowConfig {
-    let icon = load_icon();
-
     let cmd_line_settings = settings.get::<CmdLineSettings>();
+    let icon = load_icon(cmd_line_settings.icon.as_ref());
 
     let window_settings = load_last_window_settings().ok();
 
@@ -290,8 +294,22 @@ pub fn determine_window_size(
     }
 }
 
-pub fn load_icon() -> Icon {
-    let icon = load_from_memory(ICON).expect("Failed to parse icon data");
+pub fn load_icon(path: Option<&String>) -> Icon {
+    let icon_result = path
+        .and_then(|path| {
+            let expanded_path = expand_tilde(path);
+            let mut file = File::open(expanded_path).ok()?;
+            let mut data = Vec::new();
+            file.read_to_end(&mut data).ok()?;
+            Some(data)
+        })
+        .map(|data| load_from_memory(&data));
+
+    let icon = match icon_result {
+        Some(Ok(icon)) => icon,
+        _ => load_from_memory(DEFAULT_ICON).expect("Failed to parse icon data"),
+    };
+
     let (width, height) = icon.dimensions();
     let mut rgba = Vec::with_capacity((width * height) as usize * 4);
     for (_, _, pixel) in icon.pixels() {

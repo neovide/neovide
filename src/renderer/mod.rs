@@ -5,6 +5,7 @@ pub mod fonts;
 pub mod grid_renderer;
 pub mod opengl;
 pub mod profiler;
+pub mod progress_bar;
 mod rendered_layer;
 mod rendered_window;
 mod vsync;
@@ -23,6 +24,7 @@ use std::{
 
 use itertools::Itertools;
 use log::error;
+use progress_bar::{ProgressBar, ProgressBarSettings};
 use skia_safe::Canvas;
 
 use winit::{
@@ -58,7 +60,7 @@ use crate::profiling::GpuCtx;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
+pub use rendered_window::{RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
 pub use vsync::VSync;
 
@@ -134,7 +136,7 @@ impl Default for RendererSettings {
 // window) are sorted as larger than the ones that should be handled later
 // So the order of the variants here matters so that the derive implementation can get
 // the order in the binary heap correct
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
@@ -146,13 +148,14 @@ pub enum DrawCommand {
         grid_id: u64,
         command: WindowDrawCommand,
     },
-    CloseWindow(u64),
 }
 
 pub struct Renderer {
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
+
+    pub progress_bar: ProgressBar,
 
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
@@ -187,6 +190,8 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0, settings.clone());
 
+        let progress_bar = ProgressBar::new();
+
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -194,6 +199,7 @@ impl Renderer {
             current_mode,
             window_regions,
             profiler,
+            progress_bar,
             os_scale_factor,
             user_scale_factor,
             settings,
@@ -328,7 +334,17 @@ impl Renderer {
 
         self.profiler.draw(root_canvas, dt);
 
+        let grid_size = self.get_grid_size();
+
         root_canvas.restore();
+
+        let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
+        self.progress_bar.draw(
+            &progress_bar_settings,
+            root_canvas,
+            &self.grid_renderer,
+            grid_size,
+        );
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();
@@ -368,6 +384,10 @@ impl Renderer {
         animating |= self
             .cursor_renderer
             .animate(&self.current_mode, &self.grid_renderer, dt);
+
+        let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
+        self.progress_bar.animate(&progress_bar_settings, dt);
+        animating |= self.progress_bar.is_animating();
 
         animating
     }
@@ -471,7 +491,6 @@ impl Renderer {
             DrawCommand::UIReady => {
                 result.should_show = true;
             }
-            _ => {}
         }
     }
 
