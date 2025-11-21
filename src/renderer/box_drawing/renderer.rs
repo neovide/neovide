@@ -1515,10 +1515,10 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         // ┬ ┭ ┮ ┯ ┰ ┱ ┲ ┳
         '┬' -> None, t1, t1, t1
         '┭' -> None, t1, t1, t3
-        '┮' -> None, t1, t3, t1
-        '┯' -> None, t1, t3, t3
-        '┰' -> None, t3, t1, t1
-        '┱' -> None, t3, t1, t3
+        '┮' -> None, t3, t1, t1
+        '┯' -> None, t3, t1, t3
+        '┰' -> None, t1, t3, t1
+        '┱' -> None, t1, t3, t3
         '┲' -> None, t3, t3, t1
         '┳' -> None, t3, t3, t3
 
@@ -1535,10 +1535,10 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         // ┴ ┵ ┶ ┷ ┸ ┹ ┺ ┻
         '┴' -> t1, t1, None, t1
         '┵' -> t1, t1, None, t3
-        '┶' -> t3, t1, None, t1
-        '┷' -> t3, t1, None, t3
-        '┸' -> t1, t3, None, t1
-        '┹' -> t1, t3, None, t3
+        '┶' -> t1, t3, None, t1
+        '┷' -> t1, t3, None, t3
+        '┸' -> t3, t1, None, t1
+        '┹' -> t3, t1, None, t3
         '┺' -> t3, t3, None, t1
         '┻' -> t3, t3, None, t3
 

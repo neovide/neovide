@@ -20,9 +20,10 @@ use skia_safe::{
 use winit::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{
+    platform::macos::get_ns_window,
     profiling::tracy_gpu_zone,
     renderer::{RendererSettings, SkiaRenderer, VSync},
-    window::{macos::get_ns_window, UserEvent},
+    window::UserEvent,
 };
 
 use super::Settings;
@@ -40,7 +41,7 @@ impl MetalDrawableSurface {
     ) -> MetalDrawableSurface {
         tracy_gpu_zone!("MetalDrawableSurface.new");
 
-        let texture = unsafe { drawable.texture() };
+        let texture = drawable.texture();
         let texture_info = unsafe { TextureInfo::new(Retained::as_ptr(&texture).cast()) };
         let backend_render_target = gpu::backend_render_targets::make_mtl(
             (texture.width() as i32, texture.height() as i32),
@@ -92,20 +93,18 @@ impl MetalSkiaRenderer {
         let draw_size = window.inner_size();
         let ns_window = get_ns_window(&window);
 
-        unsafe {
-            ns_window.setColorSpace(Some(
-                if srgb {
-                    NSColorSpace::sRGBColorSpace()
-                } else {
-                    NSColorSpace::deviceRGBColorSpace()
-                }
-                .as_ref(),
-            ));
-        }
+        ns_window.setColorSpace(Some(
+            if srgb {
+                NSColorSpace::sRGBColorSpace()
+            } else {
+                NSColorSpace::deviceRGBColorSpace()
+            }
+            .as_ref(),
+        ));
 
         let device =
             MTLCreateSystemDefaultDevice().expect("Failed to create Metal system default device.");
-        let metal_layer = unsafe {
+        let metal_layer = {
             let metal_layer = CAMetalLayer::new();
             metal_layer.setDevice(Some(&device));
             metal_layer.setPresentsWithTransaction(false);
@@ -150,7 +149,7 @@ impl MetalSkiaRenderer {
     fn move_to_next_frame(&mut self) {
         tracy_gpu_zone!("move_to_next_frame");
 
-        let drawable = unsafe {
+        let drawable = {
             self.metal_layer
                 .nextDrawable()
                 .expect("Failed to get next drawable of metal layer.")
@@ -209,12 +208,10 @@ impl SkiaRenderer for MetalSkiaRenderer {
         tracy_gpu_zone!("resize");
 
         let window_size = self.window.inner_size();
-        unsafe {
-            self.metal_layer.setDrawableSize(CGSize::new(
-                window_size.width as CGFloat,
-                window_size.height as CGFloat,
-            ));
-        }
+        self.metal_layer.setDrawableSize(CGSize::new(
+            window_size.width as CGFloat,
+            window_size.height as CGFloat,
+        ));
 
         self.window.request_redraw();
     }

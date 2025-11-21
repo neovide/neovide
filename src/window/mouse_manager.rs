@@ -17,7 +17,7 @@ use crate::{
     bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::Settings,
-    units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
+    units::{GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
     window::keyboard_manager::KeyboardManager,
     window::WindowSettings,
 };
@@ -41,6 +41,7 @@ struct DragDetails {
 struct EditorState<'a> {
     grid_scale: &'a GridScale,
     window_regions: &'a Vec<WindowDrawDetails>,
+    full_region: WindowDrawDetails,
     window: &'a Window,
     keyboard_manager: &'a KeyboardManager,
 }
@@ -66,6 +67,11 @@ pub struct MouseManager {
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
 
     mouse_hidden: bool,
+    // tracks whether we need to force a cursor visibility resync once focus returns.
+    // on macos, alt-tabbing while hidden keeps appkit in a cursor hidden mode that ignores
+    // redundant show requests https://github.com/rust-windowing/winit/issues/1295 so we
+    // remember to toggle visibility once we regain focus.
+    cursor_resync_needed: bool,
     pub enabled: bool,
 
     settings: Arc<Settings>,
@@ -81,8 +87,57 @@ impl MouseManager {
             scroll_position: GridPos::default(),
             touch_position: HashMap::new(),
             mouse_hidden: false,
+            cursor_resync_needed: false,
             enabled: true,
             settings,
+        }
+    }
+
+    fn request_cursor_visible(&mut self, window: &Window) {
+        window.set_cursor_visible(true);
+        self.mouse_hidden = false;
+        // remember to reapply on focus regain if we changed visibility while unfocused.
+        self.cursor_resync_needed = !window.has_focus();
+    }
+
+    fn force_cursor_visible(&mut self, window: &Window) {
+        #[cfg(target_os = "macos")]
+        {
+            // winit short-circuits duplicate visibility requests and AppKit won't repaint when the
+            // window is unfocused https://github.com/rust-windowing/winit/issues/1295 so flip to
+            // false first to ensure the following true call is seen.
+            // TODO: move this workaround into winit so visibility resyncs automatically.
+            window.set_cursor_visible(false);
+        }
+        window.set_cursor_visible(true);
+        self.mouse_hidden = false;
+        self.cursor_resync_needed = false;
+    }
+
+    fn hide_cursor(&mut self, window: &Window) {
+        window.set_cursor_visible(false);
+        self.mouse_hidden = true;
+        self.cursor_resync_needed = false;
+    }
+
+    fn handle_focus_gain(&mut self, window: &Window) {
+        if self.cursor_resync_needed {
+            self.force_cursor_visible(window);
+        }
+    }
+
+    fn handle_focus_loss(&mut self, window: &Window) {
+        if self.mouse_hidden {
+            self.request_cursor_visible(window);
+            self.cursor_resync_needed = true;
+        }
+    }
+
+    fn handle_focus_change(&mut self, window: &Window, focused: bool) {
+        if focused {
+            self.handle_focus_gain(window);
+        } else {
+            self.handle_focus_loss(window);
         }
     }
 
@@ -91,14 +146,20 @@ impl MouseManager {
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
         let position = self.window_position;
-
-        // the rendered window regions are sorted by draw order, so the earlier windows in the
-        // list are drawn under the later ones
-        editor_state
-            .window_regions
-            .iter()
-            .filter(|details| details.region.contains(&position))
-            .next_back()
+        if self
+            .settings
+            .get::<WindowSettings>()
+            .has_mouse_grid_detection
+        {
+            Some(&editor_state.full_region)
+        } else {
+            // the rendered window regions are sorted by draw order, so the earlier windows in the
+            // list are drawn under the later ones
+            editor_state
+                .window_regions
+                .iter()
+                .rfind(|details| details.region.contains(&position))
+        }
     }
 
     fn get_relative_position(
@@ -122,20 +183,29 @@ impl MouseManager {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
-        if !relative_window_rect.contains(&position) {
-            return;
-        }
 
         self.window_position = position;
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
         let window_details = if let Some(drag_details) = &self.drag_details {
-            editor_state
-                .window_regions
-                .iter()
-                .find(|details| details.id == drag_details.draw_details.id)
+            if self
+                .settings
+                .get::<WindowSettings>()
+                .has_mouse_grid_detection
+            {
+                Some(&editor_state.full_region)
+            } else {
+                editor_state
+                    .window_regions
+                    .iter()
+                    .find(|details| details.id == drag_details.draw_details.id)
+            }
         } else {
+            if !relative_window_rect.contains(&position) {
+                return;
+            }
+
             self.get_window_details_under_mouse(editor_state)
         };
 
@@ -379,12 +449,25 @@ impl MouseManager {
         renderer: &Renderer,
         window: &Window,
     ) {
+        let full_region = WindowDrawDetails {
+            id: 0,
+            region: renderer
+                .window_regions
+                .first()
+                .map_or(PixelRect::ZERO, |v| v.region),
+            grid_size: renderer
+                .window_regions
+                .first()
+                .map_or(GridSize::ZERO, |v| v.grid_size),
+        };
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,
             window_regions: &renderer.window_regions,
+            full_region,
             window,
             keyboard_manager,
         };
+        let hide_mouse_when_typing = self.settings.get::<WindowSettings>().hide_mouse_when_typing;
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.handle_pointer_motion(
@@ -392,8 +475,16 @@ impl MouseManager {
                     &editor_state,
                 );
                 if self.mouse_hidden && window.has_focus() {
-                    window.set_cursor_visible(true);
-                    self.mouse_hidden = false;
+                    self.request_cursor_visible(window);
+                } else if self.cursor_resync_needed && window.has_focus() {
+                    self.force_cursor_visible(window);
+                }
+            }
+            WindowEvent::CursorEntered { .. } => {
+                if self.mouse_hidden {
+                    self.request_cursor_visible(window);
+                } else if self.cursor_resync_needed && window.has_focus() {
+                    self.force_cursor_visible(window);
                 }
             }
             WindowEvent::MouseWheel {
@@ -424,17 +515,15 @@ impl MouseManager {
 
             WindowEvent::KeyboardInput {
                 event: key_event, ..
-            } => {
-                if key_event.state == ElementState::Pressed {
-                    let window_settings = self.settings.get::<WindowSettings>();
-                    if window_settings.hide_mouse_when_typing
-                        && !self.mouse_hidden
-                        && window.has_focus()
-                    {
-                        window.set_cursor_visible(false);
-                        self.mouse_hidden = true;
-                    }
-                }
+            } if hide_mouse_when_typing
+                && key_event.state == ElementState::Pressed
+                && !self.mouse_hidden
+                && window.has_focus() =>
+            {
+                self.hide_cursor(window);
+            }
+            WindowEvent::Focused(focused_event) if hide_mouse_when_typing => {
+                self.handle_focus_change(window, *focused_event);
             }
             _ => {}
         }

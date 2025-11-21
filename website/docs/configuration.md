@@ -447,6 +447,34 @@ When scrolling more than one screen at a time, only this many lines at the end o
 will be animated. Set it to 0 to snap to the final position without any animation, or to something
 big like 9999 to always scroll the whole screen, much like Neovide <= 0.10.4 did.
 
+#### Progress Bar
+
+VimScript:
+
+```vim
+let g:neovide_progress_bar_enabled = v:true
+let g:neovide_progress_bar_height = 5.0
+let g:neovide_progress_bar_animation_speed = 200.0
+let g:neovide_progress_bar_hide_delay = 0.2
+```
+
+Lua:
+
+```lua
+vim.g.neovide_progress_bar_enabled = true
+vim.g.neovide_progress_bar_height = 5.0
+vim.g.neovide_progress_bar_animation_speed = 200.0
+vim.g.neovide_progress_bar_hide_delay = 0.2
+```
+
+**Unreleased yet.**
+
+- `g:neovide_progress_bar_enabled` sets whether the progress bar is enabled.
+- `g:neovide_progress_bar_height` sets the height of the progress bar in pixels.
+- `g:neovide_progress_bar_animation_speed` sets the speed of the progress bar animation.
+- `g:neovide_progress_bar_hide_delay` sets the delay in seconds before the progress bar is
+  hidden after reaching 100%.
+
 #### Hiding the mouse when typing
 
 VimScript:
@@ -1261,6 +1289,29 @@ Only for the `railgun` vfx mode.
 Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
 more "nervous", the lower, the more it looks like a collapsing sine wave.
 
-<!--
-  vim: textwidth=100
--->
+### Automatic settings, should be turned on/off for debug purposes only
+
+Note: These settings will be removed when the features are deemed stable. In most cases they are
+only here because the automatic detection of Neovim nightly versions does not always work.
+
+#### Autodetect mouse grid
+
+VimScript:
+
+```vim
+let g:neovide_has_mouse_grid_detection = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_has_mouse_grid_detection = true
+```
+
+**Unreleased yet.**
+
+**Requires Neovim 0.12.0.**
+
+Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
+automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
+it manually for unsupported versions, since the behaviour is undefined.

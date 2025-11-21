@@ -1,149 +1,56 @@
-name: Build and Test
-
-permissions:
-  checks: write
-  contents: read
+name: Nightly Release
 
 on:
-  # Allow manual triggering
+  schedule:
+    - cron: "0 5 * * *"
   workflow_dispatch:
-  # Always run on pull requests
-  pull_request:
-    # And on `main` when manually pushed or after merges
-    paths-ignore:
-      - "website/**"
-      - ".vscode/**"
-      - "**.md"
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "website/**"
-      - ".vscode/**"
-      - "**.md"
-
-env:
-  CARGO_TERM_COLOR: always
-  MACOSX_DEPLOYMENT_TARGET: 10.11
 
 defaults:
   run:
     shell: bash # necessary for windows
 
 jobs:
-  lint:
-    uses: ./.github/workflows/lint-app.yml
-
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        toolchain: [stable, nightly]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-
-      - name: Show toolchain info
-        run: cargo --version --verbose
-
-      - name: Install neovim
-        uses: rhysd/action-setup-vim@v1
-        with:
-          neovim: true
-
-      - name: Install dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get -qq install -y \
-            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
-            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
-            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
-            libxi-dev libfuse2 appstream libfontconfig1-dev
-
-      - name: Install Cargo Binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Install cargo-nextest
-        run: cargo binstall -y cargo-nextest
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: test-and-clippy
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Test
-        env:
-          RUST_BACKTRACE: full
-        run: |
-          cargo nextest run --profile ci
-          mv target/nextest/ci/results.xml target/nextest/ci/results-${{ matrix.os }}.xml
-
-      - name: Prepare test results
-        run: |
-          mkdir -p test-results-${{ matrix.os }}-${{ matrix.toolchain }}
-          mv target/nextest/ci/results-*.xml test-results-${{ matrix.os }}-${{ matrix.toolchain }}/
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.os }}-${{ matrix.toolchain }}
-          path: |
-            test-results-${{ matrix.os }}-${{ matrix.toolchain }}
-
-  clippy:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        toolchain: [stable, nightly]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          components: clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: false
-          shared-key: test-and-clippy
-
-      - name: Show toolchain info
-        run: cargo --version --verbose
-
-      - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
-        continue-on-error: ${{ matrix.toolchain == 'nightly' }}
-
-  event-upload:
-    needs: test
-    name: Upload Test Event
+  create_release:
+    name: Create Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
     steps:
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
+      - name: Delete old release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes || true
+          git push origin :nightly || true
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: test-event
-          path: ${{ github.event_path }}
+          tag_name: nightly
+          release_name: Nightly
+          body: |
+            This is a pre-release build of Neovide.
 
-  build-deploy:
+            **Note:** This release is not guaranteed to be stable.
+          draft: true
+          prerelease: true
+
+  build_and_upload:
+    name: Build and Upload
+    needs: create_release
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
-        # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
         os: [windows-latest, macos-latest, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -155,7 +62,6 @@ jobs:
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
-      # This is needed for building skia from source
       - name: Setup github long path support (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -203,7 +109,7 @@ jobs:
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static" 
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
         run: |
           cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
@@ -301,8 +207,11 @@ jobs:
       - name: Prepare Artifacts (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
-          echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
+          pwsh -Command 'Compress-Archive -Path "$env:GITHUB_WORKSPACE/target/release/neovide.exe" -DestinationPath "$env:GITHUB_WORKSPACE/target/release/neovide-windows-x86_64.zip" -Force'
+          echo "ARTIFACT_NAME=neovide.msi" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=target/release/neovide.msi" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_WINDOWS_ZIP=neovide-windows-x86_64.zip" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_WINDOWS_ZIP=target/release/neovide-windows-x86_64.zip" >> $GITHUB_ENV
 
       - name: Prepare Artifacts (macOS)
         if: matrix.os == 'macos-latest'
@@ -314,22 +223,29 @@ jobs:
           # create .dmg for aarch64-apple-darwin
           GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
 
-          echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
-          echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+          # archive the raw binaries
+          tar czvf target/x86_64-apple-darwin/release/neovide-macos-x86_64.tar.gz -C target/x86_64-apple-darwin/release neovide
+          tar czvf target/aarch64-apple-darwin/release/neovide-macos-aarch64.tar.gz -C target/aarch64-apple-darwin/release neovide
+
+          echo "ARTIFACT_NAME=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_ARM=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_ARM=target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_MACOS_TAR_X86=neovide-macos-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_MACOS_TAR_X86=target/x86_64-apple-darwin/release/neovide-macos-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_MACOS_TAR_ARM=neovide-macos-aarch64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_MACOS_TAR_ARM=target/aarch64-apple-darwin/release/neovide-macos-aarch64.tar.gz" >> $GITHUB_ENV
 
       - name: Prepare Artifacts (Linux)
         if: matrix.os == 'ubuntu-22.04'
         run: |
           cd target/release
-          # archive artifact
           strip neovide
           tar czvf neovide-linux-x86_64.tar.gz neovide
-          # create appimage
           curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy
           curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
           chmod +x linuxdeploy-plugin-appimage
-
           export LDAI_OUTPUT=neovide.AppImage
           export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
           ./linuxdeploy \
@@ -338,79 +254,91 @@ jobs:
             --appdir=AppDir \
             --icon-file=../../assets/neovide.svg \
             --output=appimage
+          echo "ARTIFACT_NAME=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=target/release/neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_APPIMAGE=neovide.AppImage" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_APPIMAGE=target/release/neovide.AppImage" >> $GITHUB_ENV
 
-          echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
-          echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
-          echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
-
-      - name: Sign Mac App .dmg (aarch64-apple-darwin)
-        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
-        uses: indygreg/apple-code-sign-action@v1
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
-          p12_file: key.p12
-          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
-          sign: true
-          sign_args: "--code-signature-flags=runtime"
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
+          asset_content_type: application/octet-stream
 
-      - name: Sign Mac App .dmg (x86_64-apple-darwin)
-        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
-        uses: indygreg/apple-code-sign-action@v1
+      - if: env.ARTIFACT_NAME_ARM
+        name: Upload Release Asset (macOS ARM)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
-          p12_file: key.p12
-          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
-          sign: true
-          sign_args: "--code-signature-flags=runtime"
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_ARM }}
+          asset_name: ${{ env.ARTIFACT_NAME_ARM }}
+          asset_content_type: application/octet-stream
 
-      - name: Notarize signed macOS (aarch64-apple-darwin)
-        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
-        uses: indygreg/apple-code-sign-action@v1
-        continue-on-error: true
+      - if: env.ARTIFACT_NAME_MACOS_TAR_X86
+        name: Upload Release Asset (macOS x86 tarball)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
-          sign: false
-          notarize: true
-          staple: true
-          app_store_connect_api_key_json_file: app_store_connect_api_key.json
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_MACOS_TAR_X86 }}
+          asset_name: ${{ env.ARTIFACT_NAME_MACOS_TAR_X86 }}
+          asset_content_type: application/octet-stream
 
-      - name: Notarize signed macOS (x86_64-apple-darwin)
-        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
-        uses: indygreg/apple-code-sign-action@v1
-        continue-on-error: true
+      - if: env.ARTIFACT_NAME_MACOS_TAR_ARM
+        name: Upload Release Asset (macOS ARM tarball)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
-          sign: false
-          notarize: true
-          staple: true
-          app_store_connect_api_key_json_file: app_store_connect_api_key.json
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_MACOS_TAR_ARM }}
+          asset_name: ${{ env.ARTIFACT_NAME_MACOS_TAR_ARM }}
+          asset_content_type: application/octet-stream
 
-      - if: env.ARTIFACT
-        uses: actions/upload-artifact@v4
+      - if: env.ARTIFACT_NAME_APPIMAGE
+        name: Upload Release Asset (Linux AppImage)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ env.ARTIFACT }}
-          path: target/release/${{ env.ARTIFACT }}
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_APPIMAGE }}
+          asset_name: ${{ env.ARTIFACT_NAME_APPIMAGE }}
+          asset_content_type: application/octet-stream
 
-      - if: env.ARTIFACT2
-        uses: actions/upload-artifact@v4
+      - if: env.ARTIFACT_NAME_WINDOWS_ZIP
+        name: Upload Release Asset (Windows Zip)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ env.ARTIFACT2 }}
-          path: target/release/${{ env.ARTIFACT2 }}
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_WINDOWS_ZIP }}
+          asset_name: ${{ env.ARTIFACT_NAME_WINDOWS_ZIP }}
+          asset_content_type: application/octet-stream
 
-      - if: env.ARTIFACT3
-        uses: actions/upload-artifact@v4
+  publish_release:
+    name: Publish Release
+    needs: [create_release, build_and_upload]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish Release
+        uses: actions/github-script@v6
         with:
-          name: ${{ env.ARTIFACT3 }}
-          path: target/release/${{ env.ARTIFACT3 }}
-
-      - if: env.ARTIFACT4
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT4 }}
-          path: target/x86_64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT4 }}
-
-      - if: env.ARTIFACT5
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT5 }}
-          path: target/aarch64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT5 }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ needs.create_release.outputs.release_id }},
+              draft: false
+            });

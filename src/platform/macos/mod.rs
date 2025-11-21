@@ -1,3 +1,5 @@
+pub mod settings;
+
 use std::sync::Arc;
 use std::{os::raw::c_void, str};
 
@@ -20,16 +22,17 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
+use crate::utils::expand_tilde;
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     settings::Settings,
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
-use super::{WindowSettings, WindowSettingsChanged};
+use crate::window::{WindowSettings, WindowSettingsChanged};
 
-static NEOVIDE_ICON_PATH: &[u8] =
-    include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
+    include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 define_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -41,7 +44,7 @@ define_class!(
     impl TitlebarClickHandler {
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, event: &NSEvent) {
-            if unsafe {event.clickCount()} == 2 {
+            if event.clickCount() == 2 {
                 self.window().unwrap().zoom(Some(self));
             }
         }
@@ -73,18 +76,28 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
     }
 }
 
-fn load_neovide_icon() -> Option<Retained<NSImage>> {
+fn load_icon_from_custom_path(icon_path: &str) -> Option<Retained<NSImage>> {
+    let path = NSString::from_str(icon_path);
+    NSImage::initWithContentsOfFile(NSImage::alloc(), &path)
+}
+
+fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
     unsafe {
         let data = NSData::dataWithBytes_length(
-            NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
-            NEOVIDE_ICON_PATH.len(),
+            DEFAULT_NEOVIDE_ICON_BYTES.as_ptr() as *mut c_void,
+            DEFAULT_NEOVIDE_ICON_BYTES.len(),
         );
-
-        let icon_image: Option<Retained<NSImage>> =
-            NSImage::initWithData(NSImage::alloc(), data.as_ref());
-
-        icon_image
+        NSImage::initWithData(NSImage::alloc(), data.as_ref())
     }
+}
+
+fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
+    custom_icon_path
+        .and_then(|path| {
+            let expanded = expand_tilde(path);
+            load_icon_from_custom_path(&expanded)
+        })
+        .or_else(load_icon_from_default_bytes)
 }
 
 #[derive(Debug)]
@@ -115,7 +128,7 @@ impl MacosWindowFeature {
 
         let frame = settings.get::<CmdLineSettings>().frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
-            Frame::Transparent => unsafe {
+            Frame::Transparent => {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
 
                 // Add the titlebar_click_handler into the view of window.
@@ -140,7 +153,7 @@ impl MacosWindowFeature {
                     Self::titlebar_height_in_pixel(system_titlebar_height, window.scale_factor());
 
                 Some(titlebar_click_handler)
-            },
+            }
             _ => None,
         };
 
@@ -163,11 +176,40 @@ impl MacosWindowFeature {
         macos_window_feature
     }
 
+    fn activate_app_and_focus_window(window: &NSWindow) {
+        let mtm = MainThreadMarker::new().expect("Window activation must be on the main thread.");
+        let app = NSApplication::sharedApplication(mtm);
+        #[allow(deprecated)]
+        app.activateIgnoringOtherApps(true);
+        window.makeKeyAndOrderFront(None);
+    }
+
+    pub fn activate_and_focus(&self) {
+        Self::activate_app_and_focus_window(&self.ns_window);
+    }
+
+    fn focus_target_window(app: &NSApplication) -> Option<Retained<NSWindow>> {
+        app.mainWindow()
+            .or_else(|| app.keyWindow())
+            .or_else(|| app.windows().firstObject())
+    }
+
+    pub fn activate_and_focus_existing_window() -> bool {
+        let Some(mtm) = MainThreadMarker::new() else {
+            return false;
+        };
+
+        let app = NSApplication::sharedApplication(mtm);
+        Self::focus_target_window(&app)
+            .map(|window| Self::activate_app_and_focus_window(&window))
+            .is_some()
+    }
+
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
     fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {
         // Do a test to calculate this.
         let mock_content_rect = NSRect::new(NSPoint::new(100., 100.), NSSize::new(100., 100.));
-        let frame_rect = unsafe {
+        let frame_rect = {
             NSWindow::frameRectForContentRect_styleMask(
                 mock_content_rect,
                 NSWindowStyleMask::Titled,
@@ -234,38 +276,45 @@ impl MacosWindowFeature {
             self.display_deprecation_warning();
         }
         let [red, green, blue, alpha] = color.to_array();
-        unsafe {
-            let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
+        let opaque = alpha >= 1.0;
+        let ns_background = if opaque && show_border {
+            NSColor::colorWithSRGBRed_green_blue_alpha(
                 red.into(),
                 green.into(),
                 blue.into(),
                 alpha.into(),
-            );
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            // If the shadow is enabled and the background color is not transparent, the window will have a grey border
-            // Workaround: Disable shadow when `show_border` is false
-            self.ns_window.setHasShadow(opaque && show_border);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+            )
+        } else if !opaque {
+            // Use white with very low alpha to make borders rendering properly
+            NSColor::whiteColor().colorWithAlphaComponent(0.001)
+        } else {
+            NSColor::clearColor()
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // Show shadow if window is opaque OR has border decoration
+        self.ns_window.setHasShadow(opaque || show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     fn update_ns_background(&self, opaque: bool, show_border: bool) {
-        unsafe {
-            // Setting the background color to `NSColor::windowBackgroundColor()`
-            // makes the background opaque and draws a grey border around the window
-            let ns_background = match opaque && show_border {
-                true => NSColor::windowBackgroundColor(),
-                false => NSColor::clearColor(),
-            };
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            self.ns_window.setHasShadow(opaque);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+        // Setting the background color to `NSColor::windowBackgroundColor()`
+        // makes the background opaque and draws a grey border around the window
+        let ns_background = if opaque && show_border {
+            NSColor::windowBackgroundColor()
+        } else if !opaque {
+            // Use white with very low alpha to make borders rendering properly
+            NSColor::whiteColor().colorWithAlphaComponent(0.001)
+        } else {
+            NSColor::clearColor()
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // Show shadow if window is opaque OR has border decoration
+        self.ns_window.setHasShadow(opaque || show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     /// Update background color, opacity, shadow and blur of a window.
@@ -318,7 +367,7 @@ impl MacosWindowFeature {
             app.activateIgnoringOtherApps(true);
 
             // Make sure the icon is loaded when launched from terminal
-            let icon = load_neovide_icon();
+            let icon = load_neovide_icon(self.settings.get::<CmdLineSettings>().icon.as_ref());
             let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
             unsafe { app.setApplicationIconImage(icon_ref) }
         }
@@ -417,21 +466,19 @@ impl Menu {
 
         let main_menu = NSMenu::new(mtm);
 
-        unsafe {
-            let app_menu = self.add_app_menu(mtm);
-            let app_menu_item = NSMenuItem::new(mtm);
-            app_menu_item.setSubmenu(Some(&app_menu));
-            if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
-                app.setServicesMenu(services_menu.submenu().as_deref());
-            }
-            main_menu.addItem(&app_menu_item);
-
-            let win_menu = self.add_window_menu(mtm);
-            let win_menu_item = NSMenuItem::new(mtm);
-            win_menu_item.setSubmenu(Some(&win_menu));
-            main_menu.addItem(&win_menu_item);
-            app.setWindowsMenu(Some(&win_menu));
+        let app_menu = self.add_app_menu(mtm);
+        let app_menu_item = NSMenuItem::new(mtm);
+        app_menu_item.setSubmenu(Some(&app_menu));
+        if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
+            app.setServicesMenu(services_menu.submenu().as_deref());
         }
+        main_menu.addItem(&app_menu_item);
+
+        let win_menu = self.add_window_menu(mtm);
+        let win_menu_item = NSMenuItem::new(mtm);
+        win_menu_item.setSubmenu(Some(&win_menu));
+        main_menu.addItem(&win_menu_item);
+        app.setWindowsMenu(Some(&win_menu));
         app.setMainMenu(Some(&main_menu));
     }
 
@@ -460,6 +507,12 @@ impl Menu {
 }
 
 pub fn register_file_handler() {
+    fn dispatch_file_drops(filenames: &NSArray<NSString>) {
+        for filename in filenames.iter() {
+            send_ui(ParallelCommand::FileDrop(filename.to_string()));
+        }
+    }
+
     // See signature at
     // https://developer.apple.com/documentation/appkit/nsapplicationdelegate/application(_:openfiles:)?language=objc
     unsafe extern "C-unwind" fn handle_open_files(
@@ -468,9 +521,8 @@ pub fn register_file_handler() {
         _sender: &objc2::runtime::AnyObject,
         filenames: &NSArray<NSString>,
     ) {
-        for filename in filenames.iter() {
-            send_ui(ParallelCommand::FileDrop(filename.to_string()));
-        }
+        dispatch_file_drops(filenames);
+        MacosWindowFeature::activate_and_focus_existing_window();
     }
 
     let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");

@@ -22,7 +22,7 @@ pub use window_size::{
     PersistentWindowSettings, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
 };
 
-mod config;
+pub mod config;
 pub use config::{Config, HotReloadConfigs};
 
 pub trait SettingGroup {
@@ -189,6 +189,7 @@ pub enum SettingsChanged {
     Window(crate::window::WindowSettingsChanged),
     Cursor(crate::renderer::cursor_renderer::CursorSettingsChanged),
     Renderer(crate::renderer::RendererSettingsChanged),
+    ProgressBar(crate::renderer::progress_bar::ProgressBarSettingsChanged),
     #[cfg(test)]
     Test(tests::TestSettingsChanged),
 }

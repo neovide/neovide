@@ -10,7 +10,7 @@ use crate::window::UserEvent;
 
 use std::{ffi::c_void, marker::PhantomPinned, pin::Pin, ptr::NonNull};
 
-use crate::{profiling::tracy_zone, window::macos::get_ns_window};
+use crate::{platform::macos::get_ns_window, profiling::tracy_zone};
 
 use objc2_core_foundation::CFRetained;
 use objc2_core_graphics::CGDirectDisplayID;
@@ -156,10 +156,8 @@ impl VSyncMacosDisplayLink {
 
     fn stop_display_link(&mut self) {
         if let Some((display_link, _)) = self.display_link.as_ref() {
-            unsafe {
-                #[allow(deprecated)]
-                CVDisplayLinkStop(display_link.as_ref());
-            }
+            #[allow(deprecated)]
+            CVDisplayLinkStop(display_link.as_ref());
         }
     }
 

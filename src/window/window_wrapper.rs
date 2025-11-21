@@ -436,6 +436,9 @@ impl WinitWindowWrapper {
             UserEvent::ConfigsChanged(config) => {
                 self.handle_config_changed(*config);
             }
+            UserEvent::ShowProgressBar { percent, .. } => {
+                self.renderer.progress_bar.start(percent);
+            }
             _ => {}
         }
     }
@@ -495,6 +498,7 @@ impl WinitWindowWrapper {
         let WindowSettings {
             input_ime,
             opacity,
+            normal_opacity,
             window_blurred,
             fullscreen,
             #[cfg(target_os = "macos")]
@@ -514,10 +518,9 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = Some(MacosWindowFeature::from_winit_window(
-                window,
-                self.settings.clone(),
-            ));
+            let feature = MacosWindowFeature::from_winit_window(window, self.settings.clone());
+            feature.activate_and_focus();
+            self.macos_feature = Some(feature);
         }
 
         let scale_factor = window.scale_factor();
@@ -593,7 +596,7 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        window.set_blur(window_blurred && opacity < 1.0);
+        window.set_blur(window_blurred && opacity.min(normal_opacity) < 1.0);
 
         #[cfg(target_os = "windows")]
         if window_blurred {
