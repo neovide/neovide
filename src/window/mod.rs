@@ -15,6 +15,7 @@ use std::env;
 
 use winit::{
     dpi::{PhysicalSize, Size},
+    event::DeviceId,
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Cursor, Icon, Theme, Window},
 };
@@ -73,12 +74,47 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     height: 8192,
 };
 
+#[allow(dead_code)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Pressure {
+    device_id: DeviceId,
+    pressure: f32,
+    stage: i64,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Clone, Debug)]
+pub enum ForceClickKind {
+    Text,
+    Url,
+    File,
+}
+
+#[cfg(target_os = "macos")]
+impl From<&str> for ForceClickKind {
+    fn from(value: &str) -> Self {
+        match value {
+            "url" => ForceClickKind::Url,
+            "file" => ForceClickKind::File,
+            _ => ForceClickKind::Text,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
     FocusWindow,
+    #[cfg(target_os = "macos")]
+    TouchpadPressure {
+        col: i64,
+        row: i64,
+        entity: String,
+        guifont: String,
+        kind: ForceClickKind,
+    },
     Minimize,
     ThemeChanged(Option<Theme>),
     #[cfg(windows)]

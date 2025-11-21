@@ -2,11 +2,15 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use log::trace;
+#[cfg(target_os = "macos")]
+use log::warn;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 use tokio::sync::mpsc::UnboundedSender;
 use winit::event_loop::EventLoopProxy;
 
+#[cfg(target_os = "macos")]
+use crate::window::ForceClickKind;
 use crate::{
     bridge::{
         clipboard::{get_clipboard_contents, set_clipboard_contents},
@@ -125,6 +129,22 @@ impl Handler for NeovimHandler {
                     .unwrap()
                     .send_event(WindowCommand::FocusWindow.into());
             }
+            #[cfg(target_os = "macos")]
+            "neovide.force_click" => match parse_force_click_args(&arguments) {
+                Some((col, row, entity, guifont, kind)) => {
+                    let _ = self.proxy.lock().unwrap().send_event(
+                        WindowCommand::TouchpadPressure {
+                            col,
+                            row,
+                            entity,
+                            guifont,
+                            kind,
+                        }
+                        .into(),
+                    );
+                }
+                None => warn!("neovide.force_click called with invalid arguments: {arguments:?}"),
+            },
             "neovide.exec_detach_handler" => {
                 send_ui(ParallelCommand::Quit);
             }
@@ -158,4 +178,24 @@ impl Handler for NeovimHandler {
             _ => {}
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+fn parse_force_click_args(
+    arguments: &[Value],
+) -> Option<(i64, i64, String, String, ForceClickKind)> {
+    let (col, row, entity, guifont, kind_value) = match arguments {
+        [col, row, entity, guifont, kind, ..] => (col, row, entity, guifont, Some(kind)),
+        [col, row, entity, guifont] => (col, row, entity, guifont, None),
+        _ => return None,
+    };
+
+    let col = col.as_i64()?;
+    let row = row.as_i64()?;
+    let entity = entity.as_str().unwrap_or("").to_string();
+    let guifont = guifont.as_str().unwrap_or("").to_string();
+    let kind_str = kind_value.and_then(Value::as_str).unwrap_or("text");
+    let kind = ForceClickKind::from(kind_str);
+
+    Some((col, row, entity, guifont, kind))
 }

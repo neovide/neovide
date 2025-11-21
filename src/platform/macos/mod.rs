@@ -1,21 +1,23 @@
 pub mod settings;
 
-use std::sync::Arc;
-use std::{os::raw::c_void, str};
+use std::{cell::RefCell, ffi::CString, os::raw::c_void, path::Path, ptr, str, sync::Arc};
 
+use glamour::Point2;
 use objc2::{
-    define_class, msg_send,
+    class, define_class, msg_send,
     rc::Retained,
     runtime::{AnyClass, AnyObject, ClassBuilder},
     sel, AnyThread, MainThreadOnly,
 };
 use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSImage,
-    NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
+    NSFontAttributeName, NSFontDescriptor, NSFontWeight, NSImage, NSMenu, NSMenuItem, NSView,
+    NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
+use objc2_core_foundation::CGFloat;
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
-    NSRect, NSSize, NSString, NSUserDefaults,
+    ns_string, MainThreadMarker, NSArray, NSAttributedString, NSData, NSDictionary, NSInteger,
+    NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString, NSUserDefaults, NSURL,
 };
 
 use csscolorparser::Color;
@@ -25,14 +27,41 @@ use winit::window::Window;
 use crate::utils::expand_tilde;
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
+    renderer::fonts::font_options::FontOptions,
     settings::Settings,
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
+use crate::units::Pixel;
+#[cfg(target_os = "macos")]
+use crate::window::ForceClickKind;
 use crate::window::{WindowSettings, WindowSettingsChanged};
 
 static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
     include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+
+thread_local! {
+    static QUICKLOOK_PREVIEW_ITEM: RefCell<Option<Retained<NSURL>>> = const { RefCell::new(None) };
+    static QUICKLOOK_CONTROLLER: RefCell<Option<Retained<QuickLookPreviewController>>> =
+        const { RefCell::new(None) };
+}
+
+pub enum TouchpadStage {
+    Soft,
+    Click,
+    ForceClick,
+}
+
+impl TouchpadStage {
+    pub fn from_stage(stage: i64) -> TouchpadStage {
+        match stage {
+            0 => TouchpadStage::Soft,
+            1 => TouchpadStage::Click,
+            2 => TouchpadStage::ForceClick,
+            _ => panic!("Invalid touchpad stage"),
+        }
+    }
+}
 
 define_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -54,6 +83,58 @@ define_class!(
 impl TitlebarClickHandler {
     fn new(mtm: MainThreadMarker) -> Retained<Self> {
         unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    struct QuickLookPreviewController;
+
+    impl QuickLookPreviewController {
+        #[unsafe(method(numberOfPreviewItemsInPreviewPanel:))]
+        fn number_of_preview_items(&self, _panel: *mut AnyObject) -> NSInteger {
+            QUICKLOOK_PREVIEW_ITEM.with(|cell| {
+                if cell.borrow().is_some() {
+                    1
+                } else {
+                    0
+                }
+            })
+        }
+
+        #[unsafe(method(previewPanel:previewItemAtIndex:))]
+        fn preview_item_at_index(
+            &self,
+            _panel: *mut AnyObject,
+            _index: NSInteger,
+        ) -> *mut AnyObject {
+            QUICKLOOK_PREVIEW_ITEM.with(|cell| {
+                cell.borrow()
+                    .as_ref()
+                    .map(|item| Retained::<NSURL>::as_ptr(item) as *mut AnyObject)
+                    .unwrap_or(ptr::null_mut())
+            })
+        }
+    }
+);
+
+impl QuickLookPreviewController {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+
+    fn shared(mtm: MainThreadMarker) -> Retained<Self> {
+        QUICKLOOK_CONTROLLER.with(|cell| {
+            if let Some(controller) = cell.borrow().as_ref() {
+                return controller.clone();
+            }
+
+            let controller = Self::new(mtm);
+            *cell.borrow_mut() = Some(controller.clone());
+            controller
+        })
     }
 }
 
@@ -103,13 +184,14 @@ fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSIma
 #[derive(Debug)]
 pub struct MacosWindowFeature {
     ns_window: Retained<NSWindow>,
-    system_titlebar_height: f64,
+    pub system_titlebar_height: f64,
     titlebar_click_handler: Option<Retained<TitlebarClickHandler>>,
     // Extra titlebar height in --frame transparency. 0 in other cases.
     extra_titlebar_height_in_pixel: u32,
     is_fullscreen: bool,
     menu: Option<Menu>,
     settings: Arc<Settings>,
+    pub definition_is_active: bool,
 }
 
 impl MacosWindowFeature {
@@ -169,6 +251,7 @@ impl MacosWindowFeature {
             is_fullscreen,
             menu: None,
             settings: settings.clone(),
+            definition_is_active: false,
         };
 
         macos_window_feature.update_background(true);
@@ -229,6 +312,170 @@ impl MacosWindowFeature {
             self.extra_titlebar_height_in_pixel =
                 Self::titlebar_height_in_pixel(self.system_titlebar_height, scale_factor);
         }
+    }
+
+    pub fn set_definition_is_active(&mut self, is_active: bool) {
+        self.definition_is_active = is_active;
+    }
+
+    fn preview_file(&self, entity: &str) -> bool {
+        if entity.is_empty() {
+            return false;
+        }
+
+        let expanded = expand_tilde(entity);
+        let path = Path::new(&expanded);
+        if !path.exists() {
+            return false;
+        }
+
+        let Some(mtm) = MainThreadMarker::new() else {
+            return false;
+        };
+
+        unsafe {
+            let ns_path = NSString::from_str(&expanded);
+            let url = NSURL::fileURLWithPath(&ns_path);
+            self.present_quicklook_item(url, mtm)
+        }
+    }
+
+    fn preview_url(&self, url: &str) -> bool {
+        if url.is_empty() {
+            return false;
+        }
+        let Some(mtm) = MainThreadMarker::new() else {
+            return false;
+        };
+
+        let ns_url_string = NSString::from_str(url);
+
+        if let Some(ns_url) = NSURL::URLWithString(&ns_url_string) {
+            return unsafe { self.present_quicklook_item(ns_url, mtm) };
+        }
+        false
+    }
+
+    unsafe fn present_quicklook_item(&self, url: Retained<NSURL>, mtm: MainThreadMarker) -> bool {
+        QUICKLOOK_PREVIEW_ITEM.with(|cell| {
+            *cell.borrow_mut() = Some(url);
+        });
+
+        let controller = QuickLookPreviewController::shared(mtm);
+
+        let panel: *mut AnyObject = msg_send![class!(QLPreviewPanel), sharedPreviewPanel];
+        if panel.is_null() {
+            return false;
+        }
+
+        let controller_ref: &QuickLookPreviewController = controller.as_ref();
+
+        let _: () = msg_send![panel, setDataSource: controller_ref];
+        let _: () = msg_send![panel, setDelegate: controller_ref];
+        let _: () = msg_send![panel, reloadData];
+        let _: () = msg_send![panel, makeKeyAndOrderFront: controller_ref];
+
+        true
+    }
+
+    pub fn handle_force_click_target(
+        &mut self,
+        entity: &str,
+        kind: ForceClickKind,
+        point: Point2<Pixel<f32>>,
+        guifont: String,
+        cell_height_px: f32,
+    ) {
+        let handled = match kind {
+            ForceClickKind::Url => self.preview_url(entity),
+            ForceClickKind::File => self.preview_file(entity),
+            ForceClickKind::Text => false,
+        };
+
+        if handled {
+            self.set_definition_is_active(false);
+            return;
+        }
+
+        self.show_definition_at_point(entity, point, guifont, cell_height_px);
+        self.set_definition_is_active(true);
+    }
+
+    pub fn handle_touchpad_force_click(&self) {
+        if self.definition_is_active {
+            return;
+        }
+
+        send_ui(SerialCommand::ForceClickCommand);
+    }
+
+    pub fn show_definition_at_point(
+        &self,
+        text: &str,
+        point: Point2<Pixel<f32>>,
+        guifont: String,
+        cell_height_px: f32,
+    ) {
+        if text.is_empty() {
+            return;
+        }
+
+        let (font_size, requested_family) = Self::definition_font_request(&guifont, cell_height_px);
+
+        unsafe {
+            let ns_view = self.ns_window.contentView().unwrap();
+            let translated_point = self.definition_point(point);
+            let attr_string =
+                Self::definition_attr_string(text, font_size, requested_family.as_deref());
+
+            ns_view.showDefinitionForAttributedString_atPoint(
+                Some(attr_string.as_ref()),
+                translated_point,
+            );
+        }
+    }
+
+    fn definition_font_request(guifont: &str, cell_height_px: f32) -> (f64, Option<String>) {
+        let options = FontOptions::parse(guifont).unwrap_or_default();
+        let font_size = if options.size > 0.0 {
+            options.size
+        } else {
+            cell_height_px
+        } as f64;
+        let requested_family = options.normal.first().map(|font| font.family.to_string());
+        (font_size, requested_family)
+    }
+
+    unsafe fn definition_attr_string(
+        text: &str,
+        font_size: f64,
+        requested_family: Option<&str>,
+    ) -> Retained<NSAttributedString> {
+        let default_font = NSFont::monospacedSystemFontOfSize_weight(
+            CGFloat::from(font_size),
+            NSFontWeight::from(5),
+        );
+
+        let font_name_string = requested_family
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| NSFont::fontName(default_font.as_ref()).to_string());
+        let font_name = NSString::from_str(&font_name_string);
+        let font_descriptor = NSFontDescriptor::fontDescriptorWithName_size(&font_name, font_size);
+
+        // prefer the requested font; fall back to the descriptor, then a monospaced default
+        // to keep size sane.
+        let font = NSFont::fontWithDescriptor_size(&font_descriptor, font_size)
+            .or_else(|| NSFont::fontWithName_size(&font_name, font_size))
+            .unwrap_or_else(|| default_font.clone());
+
+        let attributes = NSDictionary::from_slices(&[NSFontAttributeName], &[font.as_ref()]);
+        let attr_text = NSString::from_str(text);
+        NSAttributedString::new_with_attributes(&attr_text, attributes.as_ref())
+    }
+
+    unsafe fn definition_point(&self, point: Point2<Pixel<f32>>) -> NSPoint {
+        let scale_factor = self.ns_window.backingScaleFactor();
+        NSPoint::new(point.x as f64 / scale_factor, point.y as f64 / scale_factor)
     }
 
     fn set_titlebar_click_handler_visible(&self, visible: bool) {
@@ -335,7 +582,7 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_settings_changed(&self, changed_setting: WindowSettingsChanged) {
+    pub fn handle_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
         match changed_setting {
             WindowSettingsChanged::BackgroundColor(background_color) => {
                 log::info!("background_color changed to {background_color}");
@@ -535,7 +782,8 @@ pub fn register_file_handler() {
         let class: &AnyClass = AnyObject::class(delegate.as_ref());
 
         // register subclass of whatever was in delegate
-        let mut my_class = ClassBuilder::new(c"NeovideApplicationDelegate", class).unwrap();
+        let class_name = CString::new("NeovideApplicationDelegate").unwrap();
+        let mut my_class = ClassBuilder::new(class_name.as_c_str(), class).unwrap();
         my_class.add_method(
             sel!(application:openFiles:),
             handle_open_files as unsafe extern "C-unwind" fn(_, _, _, _) -> _,

@@ -79,6 +79,108 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
     rpcnotify("neovide.focus_window")
 end, {})
 
+
+if vim.fn.has("mac") == 1 then
+    local URL_PATTERN = "https?://[%w-_%.]+%.%w[%w-_%.%%%?%.:/+=&%%[%]#]*"
+    local compat_unpack = table.unpack or unpack
+    local function find_span(line, cursor_column, pattern, plain)
+        local start_pos = 1
+        local search_limit = #line + 1
+        for _ = 1, search_limit do
+            local match_start, match_end = line:find(pattern, start_pos, plain)
+            if not match_start then
+                break
+            end
+            if cursor_column >= match_start and cursor_column <= match_end then
+                return match_start, match_end
+            end
+            start_pos = match_end + 1
+        end
+        return nil, nil
+    end
+
+    local function detect_url(line, cursor_column)
+        local url_start, url_end = find_span(line, cursor_column, URL_PATTERN, false)
+        if not url_start then
+            return nil
+        end
+        return {
+            entity = line:sub(url_start, url_end),
+            col = url_start - 1,
+            kind = "url",
+        }
+    end
+
+    local function detect_file(line, cursor_column)
+        local cfile = vim.fn.expand("<cfile>")
+        if not cfile or cfile == "" then
+            return nil
+        end
+        local literal_start = find_span(line, cursor_column, cfile, true)
+        if not literal_start then
+            return nil
+        end
+        local absolute_path = vim.fn.fnamemodify(cfile, ":p")
+        if absolute_path == "" or not vim.loop.fs_stat(absolute_path) then
+            return nil
+        end
+        return {
+            entity = absolute_path,
+            col = literal_start - 1,
+            kind = "file",
+        }
+    end
+
+    local function detect_word(line, cursor_column)
+        local word, word_col =
+            compat_unpack(vim.fn.matchstrpos(line, [[\k*\%]] .. cursor_column .. [[c\k*]]))
+        if not word or word == "" then
+            return nil
+        end
+        return {
+            entity = word,
+            col = word_col,
+            kind = "text",
+        }
+    end
+
+    local ENTITY_DETECTORS = { detect_url, detect_file, detect_word }
+
+    local function detect_entity(line, cursor_col)
+        local cursor_column = cursor_col + 1
+        for _, detector in ipairs(ENTITY_DETECTORS) do
+            local match = detector(line, cursor_column)
+            if match then
+                return match
+            end
+        end
+        return {
+            entity = "",
+            col = cursor_col,
+            kind = "text",
+        }
+    end
+
+    local function take_entity_under_cursor()
+        local mouse_pos = vim.fn.getmousepos()
+        local guifont = vim.api.nvim_get_option("guifont")
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        local line = vim.api.nvim_get_current_line()
+
+        local match = detect_entity(line, cursor[2])
+        local screenpos = vim.fn.screenpos(mouse_pos.winid, cursor[1], match.col + 1)
+        local screen_row = math.max(screenpos.row - 1, 0)
+        local screen_col = math.max(screenpos.col - 1, 0)
+
+        return screen_col, screen_row, match.entity, guifont, match.kind
+    end
+
+    vim.api.nvim_create_user_command("NeovideForceClick", function()
+        local col, row, entity, guifont, entity_kind = take_entity_under_cursor()
+        rpcnotify("neovide.force_click", col, row, entity, guifont, entity_kind)
+    end, {})
+end
+
 vim.api.nvim_exec2(
     [[
 function! WatchGlobal(variable, callback)
