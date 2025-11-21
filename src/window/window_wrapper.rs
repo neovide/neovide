@@ -10,8 +10,7 @@ use winit::{
 };
 
 use super::{
-    KeyboardManager, MouseManager, ThemeSettings, UserEvent, WindowCommand, WindowSettings,
-    WindowSettingsChanged,
+    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -31,7 +30,7 @@ use crate::{
         MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
+    window::{create_window, PhysicalSize, ShouldRender, ThemeSettings, WindowSize},
     CmdLineSettings,
 };
 #[cfg(windows)]

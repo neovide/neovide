@@ -1,3 +1,5 @@
+use rmpv::Value;
+
 use crate::error_msg;
 use crate::settings::*;
 
@@ -96,6 +98,44 @@ impl Default for WindowSettings {
             mouse_move_event: false,
             observed_columns: None,
             observed_lines: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeSettings {
+    Auto,
+    Dark,
+    Light,
+    BgColor,
+}
+
+impl ParseFromValue for ThemeSettings {
+    fn parse_from_value(&mut self, value: Value) {
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "auto" => ThemeSettings::Auto,
+                "dark" => ThemeSettings::Dark,
+                "light" => ThemeSettings::Light,
+                "bg_color" => ThemeSettings::BgColor,
+                value => {
+                    error_msg!("Setting Theme expected one of `auto`, `dark`, `light`, `bg_color`, but received {value:?}");
+                    return;
+                }
+            };
+        } else {
+            error_msg!("Setting Theme expected string, but received {value:?}");
+        }
+    }
+}
+
+impl From<ThemeSettings> for Value {
+    fn from(value: ThemeSettings) -> Self {
+        match value {
+            ThemeSettings::Auto => Value::from("auto"),
+            ThemeSettings::Dark => Value::from("dark"),
+            ThemeSettings::Light => Value::from("light"),
+            ThemeSettings::BgColor => Value::from("bg_color"),
         }
     }
 }
