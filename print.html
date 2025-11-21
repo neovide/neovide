@@ -802,6 +802,28 @@ clipped by the line of text below.</p>
 <p>Set the <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option when Neovide
 starts. Possible values: <em>light</em>, <em>dark</em>, <em>auto</em>. On systems that support it, <em>auto</em> will mirror the
 system theme, and will update <code>background</code> when the system theme changes.</p>
+<p><strong>Unreleased yet.</strong></p>
+<p><strong>NOTE:</strong> The meaning of the setting has changed in 0.16.0. The default value of the Neovim
+<a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option is now always
+automatically set, and updates according to the system theme, as long as the user has not set it to
+something else.</p>
+<p>Sets the theme of the Neovide window on systems that supports it.</p>
+<ul>
+<li><code>auto</code> - Use the system theme</li>
+<li><code>light</code> - Set the window theme to light</li>
+<li><code>dark</code> - Set the window theme to dark</li>
+<li><code>bg_color</code> - Determine window theme from the Neovide normal/background color</li>
+</ul>
+<p><code>bg</code>, which would mirror the Neovim background option is not supported yet, due to technical
+challenges. If you need that now it's best to set both <code>neovide_theme</code> and <code>background</code> to the same.</p>
+<p>The default is <code>auto</code>, except when using <code>--frame transparent</code> on macOS to preserve the old visual
+look with that configuration.</p>
+<p>Supported platforms:</p>
+<ul>
+<li>Windows</li>
+<li>MacOS</li>
+<li>Linux Wayland with client-side decorations (Most notably Gnome)</li>
+</ul>
 <h4 id="layer-grouping"><a class="header" href="#layer-grouping">Layer grouping</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:experimental_layer_grouping = v:false
@@ -1933,6 +1955,11 @@ vim.g.neovide_cursor_animate_command_line = false
 vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_scroll_animation_length = 0.00
 </code></pre>
+<h2 id="the-default-neovim-background-is-dark-on-a-light-gnome-theme"><a class="header" href="#the-default-neovim-background-is-dark-on-a-light-gnome-theme">The default Neovim background is dark on a light Gnome theme</a></h2>
+<p>Gnome does not support a genuine light theme. See <a href="https://gitlab.gnome.org/GNOME/gnome-control-center/-/issues/1948">this Gnome
+issue</a>. You can work around it by
+setting it manually with <code>gsettings set org.gnome.desktop.interface color-scheme prefer-light</code>.
+But do note that it resets when you change the Gnome theme.</p>
 <h2 id="macos-login-shells"><a class="header" href="#macos-login-shells">macOS Login Shells</a></h2>
 <p>Traditionally, Unix shells use two main configuration files that are executed
 before a user can interact with the shell: a profile file and an rc file.</p>

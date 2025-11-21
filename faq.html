@@ -269,6 +269,11 @@ vim.g.neovide_cursor_animate_command_line = false
 vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_scroll_animation_length = 0.00
 </code></pre>
+<h2 id="the-default-neovim-background-is-dark-on-a-light-gnome-theme"><a class="header" href="#the-default-neovim-background-is-dark-on-a-light-gnome-theme">The default Neovim background is dark on a light Gnome theme</a></h2>
+<p>Gnome does not support a genuine light theme. See <a href="https://gitlab.gnome.org/GNOME/gnome-control-center/-/issues/1948">this Gnome
+issue</a>. You can work around it by
+setting it manually with <code>gsettings set org.gnome.desktop.interface color-scheme prefer-light</code>.
+But do note that it resets when you change the Gnome theme.</p>
 <h2 id="macos-login-shells"><a class="header" href="#macos-login-shells">macOS Login Shells</a></h2>
 <p>Traditionally, Unix shells use two main configuration files that are executed
 before a user can interact with the shell: a profile file and an rc file.</p>
