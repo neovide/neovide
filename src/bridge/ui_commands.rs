@@ -3,7 +3,7 @@ use std::sync::{Arc, OnceLock};
 use anyhow::{Context, Result};
 use indoc::indoc;
 use log::trace;
-use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
+use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -124,7 +124,6 @@ pub enum ParallelCommand {
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
-    SetBackground(String),
     ShowError { lines: Vec<String> },
 }
 
@@ -218,10 +217,6 @@ impl ParallelCommand {
                 .await
                 .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
-            ParallelCommand::SetBackground(background) => nvim
-                .set_option_value("background", Value::from(background), nvim_dict! {})
-                .await
-                .context("SetBackground failed"),
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),

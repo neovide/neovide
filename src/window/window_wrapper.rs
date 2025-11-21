@@ -30,7 +30,7 @@ use crate::{
         MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
+    window::{create_window, PhysicalSize, ShouldRender, ThemeSettings, WindowSize},
     CmdLineSettings,
 };
 #[cfg(windows)]
@@ -63,10 +63,6 @@ pub struct WindowPadding {
     pub bottom: u32,
 }
 
-pub fn set_background(background: &str) {
-    send_ui(ParallelCommand::SetBackground(background.to_string()));
-}
-
 #[derive(PartialEq, PartialOrd)]
 enum UIState {
     Initing, // Running init.vim/lua
@@ -94,6 +90,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
+    inferred_theme: Option<Theme>,
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
@@ -133,6 +130,7 @@ impl WinitWindowWrapper {
             vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
+            inferred_theme: None,
             #[cfg(target_os = "macos")]
             macos_feature: None,
             settings,
@@ -213,7 +211,10 @@ impl WinitWindowWrapper {
                 self.is_minimized = true;
             }
             WindowCommand::ThemeChanged(new_theme) => {
-                self.handle_theme_changed(new_theme);
+                if self.inferred_theme != new_theme {
+                    self.inferred_theme = new_theme;
+                    self.handle_theme_changed();
+                }
             }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
@@ -256,6 +257,9 @@ impl WinitWindowWrapper {
             }
             WindowSettingsChanged::Opacity(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
+            }
+            WindowSettingsChanged::Theme(..) => {
+                self.handle_theme_changed();
             }
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleBackgroundColor(color) => {
@@ -311,9 +315,19 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn handle_theme_changed(&mut self, new_theme: Option<Theme>) {
+    fn get_theme(&self) -> Option<Theme> {
+        let WindowSettings { theme, .. } = self.settings.get::<WindowSettings>();
+        match theme {
+            ThemeSettings::Auto => None,
+            ThemeSettings::Light => Some(Theme::Light),
+            ThemeSettings::Dark => Some(Theme::Dark),
+            ThemeSettings::BgColor => self.inferred_theme,
+        }
+    }
+
+    pub fn handle_theme_changed(&mut self) {
         if let Some(skia_renderer) = &self.skia_renderer {
-            skia_renderer.window().set_theme(new_theme);
+            skia_renderer.window().set_theme(self.get_theme());
         }
     }
 
@@ -381,17 +395,6 @@ impl WinitWindowWrapper {
                     self.handle_focus_gained();
                 } else {
                     self.handle_focus_lost();
-                }
-            }
-            WindowEvent::ThemeChanged(theme) => {
-                tracy_zone!("ThemeChanged");
-                let settings = self.settings.get::<WindowSettings>();
-                if settings.theme.as_str() == "auto" {
-                    let background = match theme {
-                        Theme::Light => "light",
-                        Theme::Dark => "dark",
-                    };
-                    set_background(background);
                 }
             }
             WindowEvent::Moved(_) => {
@@ -486,12 +489,13 @@ impl WinitWindowWrapper {
 
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
 
-        let window_config = create_window(event_loop, maximized, &self.title, &self.settings);
+        let theme = self.get_theme();
+        let window_config =
+            create_window(event_loop, maximized, &self.title, &self.settings, theme);
         let window = &window_config.window;
 
         let WindowSettings {
             input_ime,
-            theme,
             opacity,
             normal_opacity,
             window_blurred,
@@ -601,17 +605,6 @@ impl WinitWindowWrapper {
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
-        }
-
-        match theme.as_str() {
-            "light" => set_background("light"),
-            "dark" => set_background("dark"),
-            "auto" => match window.theme() {
-                Some(Theme::Light) => set_background("light"),
-                Some(Theme::Dark) => set_background("dark"),
-                None => {}
-            },
-            _ => {}
         }
 
         #[cfg(target_os = "windows")]

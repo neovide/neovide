@@ -168,6 +168,13 @@ vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_scroll_animation_length = 0.00
 ```
 
+## The default Neovim background is dark on a light Gnome theme
+
+Gnome does not support a genuine light theme. See [this Gnome
+issue](https://gitlab.gnome.org/GNOME/gnome-control-center/-/issues/1948). You can work around it by
+setting it manually with `gsettings set org.gnome.desktop.interface color-scheme prefer-light`.
+But do note that it resets when you change the Gnome theme.
+
 ## macOS Login Shells
 
 Traditionally, Unix shells use two main configuration files that are executed

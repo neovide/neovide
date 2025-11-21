@@ -79,6 +79,9 @@ use crate::settings::{load_last_window_settings, Config, PersistentWindowSetting
 
 pub use profiling::startup_profiler;
 
+#[cfg(target_os = "macos")]
+use crate::frame::Frame;
+
 const DEFAULT_BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const BACKTRACES_FILE_ENV_VAR: &str = "NEOVIDE_BACKTRACES";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
@@ -105,6 +108,8 @@ fn main() -> ExitCode {
     let event_loop = create_event_loop();
     clipboard::init(&event_loop);
 
+    let colorscheme_stream = mundy::Preferences::stream(mundy::Interest::ColorScheme);
+
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
 
@@ -112,6 +117,7 @@ fn main() -> ExitCode {
         event_loop.create_proxy(),
         running_tracker.clone(),
         settings.clone(),
+        colorscheme_stream,
     ) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
         Ok((window_size, initial_config, runtime)) => {
@@ -144,6 +150,7 @@ fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    colorscheme_stream: mundy::PreferencesStream,
 ) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
     // | Architecture |
@@ -252,6 +259,15 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
+    // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
+    // color.
+    #[cfg(target_os = "macos")]
+    if settings.get::<CmdLineSettings>().frame == Frame::Transparent {
+        let mut window_settings = settings.get::<WindowSettings>();
+        window_settings.theme = window::ThemeSettings::BgColor;
+        settings.set(&window_settings);
+    }
+
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref(), &settings);
     let grid_size = match window_size {
@@ -266,7 +282,13 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size, running_tracker, settings)?;
+    runtime.launch(
+        proxy,
+        grid_size,
+        running_tracker,
+        settings,
+        colorscheme_stream,
+    )?;
     Ok((window_size, config, runtime))
 }
 

@@ -8,15 +8,10 @@ mod window;
 use std::{collections::HashMap, sync::Arc, thread};
 
 use log::{error, trace, warn};
-use tokio::sync::mpsc::unbounded_channel;
-
-use winit::event_loop::EventLoopProxy;
-
-#[cfg(target_os = "macos")]
-use winit::window::Theme;
-
-#[cfg(target_os = "macos")]
 use skia_safe::Color4f;
+use tokio::sync::mpsc::unbounded_channel;
+use winit::event_loop::EventLoopProxy;
+use winit::window::Theme;
 
 use crate::{
     bridge::{GridLineCell, GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
@@ -27,9 +22,6 @@ use crate::{
     units::{GridRect, GridSize},
     window::{UserEvent, WindowCommand, WindowSettings},
 };
-
-#[cfg(target_os = "macos")]
-use crate::{cmd_line::CmdLineSettings, frame::Frame};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
@@ -193,15 +185,10 @@ impl Editor {
             }
             RedrawEvent::DefaultColorsSet { colors } => {
                 tracy_zone!("EditorDefaultColorsSet");
-
-                // Set the dark/light theme of window, so the titlebar text gets correct color.
-                #[cfg(target_os = "macos")]
-                if self.settings.get::<CmdLineSettings>().frame == Frame::Transparent {
-                    let _ = self.event_loop_proxy.send_event(
-                        WindowCommand::ThemeChanged(window_theme_for_background(colors.background))
-                            .into(),
-                    );
-                }
+                let _ = self.event_loop_proxy.send_event(
+                    WindowCommand::ThemeChanged(window_theme_for_background(colors.background))
+                        .into(),
+                );
 
                 self.draw_command_batcher
                     .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
@@ -788,13 +775,11 @@ pub fn start_editor(
 
 /// Based on formula in https://graphicdesign.stackexchange.com/questions/62368/automatically-select-a-foreground-color-based-on-a-background-color
 /// Check if the color is light or dark
-#[cfg(target_os = "macos")]
 fn is_light_color(color: &Color4f) -> bool {
     0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b > 0.5
 }
 
 /// Get the proper dark/light theme for a background_color.
-#[cfg(target_os = "macos")]
 fn window_theme_for_background(background_color: Option<Color4f>) -> Option<Theme> {
     background_color?;
 

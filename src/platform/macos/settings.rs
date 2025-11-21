@@ -1,7 +1,6 @@
-use log::error;
 use rmpv::Value;
 
-use crate::settings::*;
+use crate::{error_msg, settings::*};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionAsMeta {
@@ -20,12 +19,12 @@ impl ParseFromValue for OptionAsMeta {
                 "both" => OptionAsMeta::Both,
                 "none" => OptionAsMeta::None,
                 value => {
-                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
+                    error_msg!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
                     return;
                 }
             };
         } else {
-            error!("Setting OptionAsMeta expected string, but received {value:?}");
+            error_msg!("Setting OptionAsMeta expected string, but received {value:?}");
         }
     }
 }
