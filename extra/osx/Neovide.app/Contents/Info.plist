@@ -427,6 +427,27 @@
     <dict>
       <key>CFBundleTypeExtensions</key>
       <array>
+        <string>ts</string>
+        <string>tsx</string>
+        <string>cts</string>
+        <string>mts</string>
+      </array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array>
+        <string>application/typescript</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>TypeScript Source File</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>org.vim.typescript-source</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
         <string>pl</string>
         <string>pm</string>
         <string>pod</string>
@@ -951,6 +972,44 @@
       <string>Visual Basic Source File</string>
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>json</string>
+        <string>jsonc</string>
+        <string>json5</string>
+      </array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array>
+        <string>application/json</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>JSON document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>public.json</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>toml</string>
+      </array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array>
+        <string>application/toml</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>TOML document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>org.vim.toml-file</string>
+      </array>
     </dict>
     <dict>
       <key>CFBundleTypeExtensions</key>
@@ -1531,6 +1590,29 @@
           <string>jscript</string>
           <string>javascript</string>
         </array>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.source-code</string>
+        <string>public.plain-text</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>TypeScript Source File</string>
+      <key>UTTypeIdentifier</key>
+      <string>org.vim.typescript-source</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>ts</string>
+          <string>tsx</string>
+          <string>cts</string>
+          <string>mts</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/typescript</string>
       </dict>
     </dict>
     <dict>
@@ -2309,6 +2391,25 @@
           <string>yaml</string>
           <string>yml</string>
         </array>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.plain-text</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>TOML document</string>
+      <key>UTTypeIdentifier</key>
+      <string>org.vim.toml-file</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>toml</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/toml</string>
       </dict>
     </dict>
     <dict>
