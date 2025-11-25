@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+#[cfg(target_os = "macos")]
+use crate::clipboard;
 use crate::{
     bridge::{send_ui, SerialCommand},
     settings::Settings,
@@ -50,6 +52,11 @@ impl KeyboardManager {
             } if self.ime_preedit.0.is_empty() => {
                 log::trace!("{key_event:#?}");
                 if key_event.state == ElementState::Pressed {
+                    #[cfg(target_os = "macos")]
+                    if self.try_handle_command_paste(key_event) {
+                        return;
+                    }
+
                     if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
                         tracy_named_frame!("keyboard input");
@@ -90,6 +97,38 @@ impl KeyboardManager {
                 }
             }
             _ => {}
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn try_handle_command_paste(&self, key_event: &KeyEvent) -> bool {
+        if key_event.state != ElementState::Pressed {
+            return false;
+        }
+
+        if !self.modifiers.state().super_key() {
+            return false;
+        }
+
+        let is_paste_key = match &key_event.logical_key {
+            Key::Character(text) => text.eq_ignore_ascii_case("v"),
+            Key::Named(NamedKey::Paste) => true,
+            _ => false,
+        };
+
+        if !is_paste_key {
+            return false;
+        }
+
+        match clipboard::get_contents("+") {
+            Ok(text) => {
+                send_ui(SerialCommand::Paste { text });
+                true
+            }
+            Err(error) => {
+                log::error!("Failed to read clipboard for paste: {error}");
+                false
+            }
         }
     }
 

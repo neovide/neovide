@@ -4,9 +4,15 @@ Commonly asked questions, or just explanations/elaborations on stuff.
 
 ## How can I use cmd-c/cmd-v to copy and paste?
 
-Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that
-your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
-this behavior by adding keybindings in neovim.
+Neovide does not change the default keymaps, it only forwards keys. On
+macOS we now treat <kbd>Cmd</kbd>+<kbd>V</kbd> as a paste request from the windowing system and feed
+the clipboard to Neovim automatically, so you no longer need to add your own `<D-v>` mappings.
+
+On Linux/Windows there is no dedicated "paste" shortcut coming from the compositor/OS, so you must
+continue to map your preferred key (usually `<D-v>` or `<C-v>`) inside Neovim.
+
+Other platform-specific shortcuts like Cmd+C, Cmd+S, etc. still need explicit mappings because Neovim
+doesn't define them by default. You can add them conditionally when running inside Neovide:
 
 ```lua
 if vim.g.neovide then

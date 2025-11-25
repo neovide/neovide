@@ -23,6 +23,9 @@ use crate::{
 #[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
+    Paste {
+        text: String,
+    },
     MouseButton {
         button: String,
         action: String,
@@ -59,6 +62,11 @@ impl SerialCommand {
                     .map(|_| ())
                     .context("Input failed")
             }
+            SerialCommand::Paste { text } => nvim
+                .paste(&text, true, -1)
+                .await
+                .map(|_| ())
+                .context("Paste failed"),
             SerialCommand::MouseButton {
                 button,
                 action,
