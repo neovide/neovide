@@ -158,6 +158,22 @@ window containing Neovide to the front and activate it. This
 is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.</p>
+<h2 id="force-click-macos-unreleased-yet"><a class="header" href="#force-click-macos-unreleased-yet">Force Click (macOS) (Unreleased yet)</a></h2>
+<p>On macOS, <code>:NeovideForceClick</code> triggers native force-click behaviours for whatever is under the
+cursor. Plain text falls back to the usual &quot;Look Up&quot; popover; file paths and URLs both open in the
+<a href="https://developer.apple.com/documentation/quicklook">Quick Look</a> panel, so you get previews
+in-place instead of being kicked to a browser. Trackpad force presses call this command
+automatically and you can bind it manually if you want to trigger it from another input.</p>
+<p>Mouse button:</p>
+<pre><code class="language-lua">vim.keymap.set(&quot;n&quot;, &quot;&lt;X1Mouse&gt;&quot;, &quot;&lt;Cmd&gt;NeovideForceClick&lt;CR&gt;&quot;, { silent = true })
+</code></pre>
+<p>Keyboard shortcut:</p>
+<pre><code class="language-lua">vim.keymap.set(&quot;n&quot;, &quot;&lt;leader&gt;k&quot;, &quot;&lt;Cmd&gt;NeovideForceClick&lt;CR&gt;&quot;, { silent = true })
+</code></pre>
+<p>Vimscript equivalents:</p>
+<pre><code class="language-vim">nnoremap &lt;silent&gt; &lt;X1Mouse&gt; :NeovideForceClick&lt;CR&gt;
+nnoremap &lt;silent&gt; &lt;leader&gt;k :NeovideForceClick&lt;CR&gt;
+</code></pre>
 <h2 id="open-config-file-unreleased-yet"><a class="header" href="#open-config-file-unreleased-yet">Open Config File (Unreleased yet)</a></h2>
 <p>Running the <code>NeovideConfig</code> command will open your Neovide
 configuration file for editing. This provides a simple and
