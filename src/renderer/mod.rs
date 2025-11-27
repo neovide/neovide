@@ -157,7 +157,7 @@ pub struct Renderer {
 
     pub progress_bar: ProgressBar,
 
-    rendered_windows: HashMap<u64, RenderedWindow>,
+    pub rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
 
     profiler: profiler::Profiler,

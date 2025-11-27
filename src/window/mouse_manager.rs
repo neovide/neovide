@@ -38,12 +38,12 @@ struct DragDetails {
     button: MouseButton,
 }
 
-struct EditorState<'a> {
-    grid_scale: &'a GridScale,
-    window_regions: &'a Vec<WindowDrawDetails>,
-    full_region: WindowDrawDetails,
-    window: &'a Window,
-    keyboard_manager: &'a KeyboardManager,
+pub struct EditorState<'a> {
+    pub grid_scale: &'a GridScale,
+    pub window_regions: &'a Vec<WindowDrawDetails>,
+    pub full_region: WindowDrawDetails,
+    pub window: &'a Window,
+    pub keyboard_manager: &'a KeyboardManager,
 }
 
 #[derive(Debug)]
@@ -59,7 +59,7 @@ pub struct MouseManager {
     grid_position: GridPos<u32>,
 
     has_moved: bool,
-    window_position: PixelPos<f32>,
+    pub window_position: PixelPos<f32>,
 
     scroll_position: GridPos<f32>,
 
@@ -141,7 +141,7 @@ impl MouseManager {
         }
     }
 
-    fn get_window_details_under_mouse<'b>(
+    pub fn get_window_details_under_mouse<'b>(
         &self,
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
@@ -162,7 +162,7 @@ impl MouseManager {
         }
     }
 
-    fn get_relative_position(
+    pub fn get_relative_position(
         &self,
         window_details: &WindowDrawDetails,
         editor_state: &EditorState,

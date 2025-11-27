@@ -15,7 +15,9 @@ use super::{
 
 #[cfg(target_os = "macos")]
 use {
+    crate::units::{GridPos, Pixel},
     crate::{error_msg, window::settings},
+    glamour::Point2,
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
@@ -40,7 +42,11 @@ use {
 };
 
 #[cfg(target_os = "macos")]
-use super::macos::MacosWindowFeature;
+use super::macos::{MacosWindowFeature, TouchpadStage};
+
+#[cfg(target_os = "macos")]
+const MACOS_FEATURE_ERR: &str =
+    "The macos feature should be initialized before the touchpad pressure event";
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -206,6 +212,29 @@ impl WinitWindowWrapper {
                     skia_renderer.window().focus_window();
                 }
             }
+            #[cfg(target_os = "macos")]
+            WindowCommand::TouchpadPressure {
+                col,
+                row,
+                entity,
+                guifont,
+                kind,
+            } => {
+                let titlebar_height = self.macos_feature_ref().system_titlebar_height as f32;
+                let window_padding = self.calculate_window_padding();
+                let pixel_position = self.grid_to_pixel_position(col, row);
+                let grid_scale_height = self.renderer.grid_renderer.grid_scale.height();
+                let point =
+                    self.apply_padding_to_position(pixel_position, window_padding, titlebar_height);
+
+                self.macos_feature_mut().handle_force_click_target(
+                    &entity,
+                    kind,
+                    point,
+                    guifont,
+                    grid_scale_height,
+                );
+            }
             WindowCommand::Minimize => {
                 self.minimize_window();
                 self.is_minimized = true;
@@ -289,9 +318,9 @@ impl WinitWindowWrapper {
                 self.set_simple_fullscreen(fullscreen);
             }
             _ => {}
-        };
+        }
         #[cfg(target_os = "macos")]
-        if let Some(macos_feature) = &self.macos_feature {
+        if let Some(macos_feature) = self.macos_feature.as_mut() {
             macos_feature.handle_settings_changed(changed_setting);
         }
     }
@@ -400,6 +429,19 @@ impl WinitWindowWrapper {
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
                 vsync.update(skia_renderer.window());
+            }
+            #[cfg(target_os = "macos")]
+            WindowEvent::TouchpadPressure { stage, .. } => {
+                tracy_zone!("TouchpadPressure");
+                let macos_feature = self.macos_feature.as_mut().expect(
+                    "The macos feature should be initialized before the touchpad pressure event",
+                );
+                match TouchpadStage::from_stage(stage) {
+                    TouchpadStage::Soft | TouchpadStage::Click => {
+                        macos_feature.set_definition_is_active(false)
+                    }
+                    TouchpadStage::ForceClick => macos_feature.handle_touchpad_force_click(),
+                }
             }
             WindowEvent::Ime(Ime::Enabled) => {
                 log::info!("Ime enabled");
@@ -676,6 +718,57 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn macos_feature_ref(&self) -> &MacosWindowFeature {
+        self.macos_feature.as_ref().expect(MACOS_FEATURE_ERR)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn macos_feature_mut(&mut self) -> &mut MacosWindowFeature {
+        self.macos_feature.as_mut().expect(MACOS_FEATURE_ERR)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn grid_to_pixel_position(&mut self, col: i64, row: i64) -> Point2<Pixel<f32>> {
+        let grid_position = GridPos::new(col, row);
+        let root_region_offset = self
+            .renderer
+            .window_regions
+            .first()
+            .map(|region| region.region.min);
+
+        // Align the lookup point with the actual font baseline instead of a heuristic offset.
+        let (grid_scale, baseline_offset) = {
+            let grid_renderer = &mut self.renderer.grid_renderer;
+            (
+                grid_renderer.grid_scale,
+                grid_renderer.shaper.baseline_offset(),
+            )
+        };
+
+        let mut position = grid_position * grid_scale;
+
+        if let Some(offset) = root_region_offset {
+            position.x += offset.x;
+            position.y += offset.y;
+        }
+
+        position.y += baseline_offset;
+
+        position
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn apply_padding_to_position(
+        &self,
+        position: Point2<Pixel<f32>>,
+        padding: WindowPadding,
+        titlebar_height: f32,
+    ) -> Point2<Pixel<f32>> {
+        let _ = (padding, titlebar_height);
+        position
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {

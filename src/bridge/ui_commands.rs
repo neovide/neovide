@@ -42,6 +42,8 @@ pub enum SerialCommand {
         position: (u32, u32),
         modifier_string: String,
     },
+    #[cfg(target_os = "macos")]
+    ForceClickCommand,
 }
 
 impl SerialCommand {
@@ -108,6 +110,11 @@ impl SerialCommand {
                 )
                 .await
                 .context("Mouse Drag Failed"),
+            #[cfg(target_os = "macos")]
+            SerialCommand::ForceClickCommand => nvim
+                .command("NeovideForceClick")
+                .await
+                .context("Force click command failed"),
         };
 
         if let Err(error) = result {

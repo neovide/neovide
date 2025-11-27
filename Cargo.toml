@@ -126,13 +126,20 @@ objc2-core-foundation = { version = "0.3.1", default-features = false, features 
 ] }
 objc2-foundation = { version = "0.3.1", default-features = false, features = [
   "std",
+  "NSArray",
+  "NSDictionary",
+  "NSString",
+  "NSAttributedString",
   "NSUserDefaults",
   "NSProcessInfo",
+  "NSURL",
 ] }
 objc2-app-kit = { version = "0.3.1", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "objc2-quartz-core",
+  "NSFont",
+  "NSFontDescriptor",
   "NSResponder",
   "NSEvent",
   "NSView",
@@ -146,6 +153,7 @@ objc2-app-kit = { version = "0.3.1", default-features = false, features = [
   "NSColorSpace",
   "NSImage",
   "NSGraphics",
+  "NSWorkspace",
 ] }
 objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
   "std",
