@@ -760,7 +760,7 @@ vim.g.neovide_progress_bar_height = 5.0
 vim.g.neovide_progress_bar_animation_speed = 200.0
 vim.g.neovide_progress_bar_hide_delay = 0.2
 </code></pre>
-<p><strong>Unreleased yet.</strong></p>
+<p><strong>Nightly.</strong></p>
 <ul>
 <li><code>g:neovide_progress_bar_enabled</code> sets whether the progress bar is enabled.</li>
 <li><code>g:neovide_progress_bar_height</code> sets the height of the progress bar in pixels.</li>
@@ -802,7 +802,7 @@ clipped by the line of text below.</p>
 <p>Set the <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option when Neovide
 starts. Possible values: <em>light</em>, <em>dark</em>, <em>auto</em>. On systems that support it, <em>auto</em> will mirror the
 system theme, and will update <code>background</code> when the system theme changes.</p>
-<p><strong>Unreleased yet.</strong></p>
+<p><strong>Nightly.</strong></p>
 <p><strong>NOTE:</strong> The meaning of the setting has changed in 0.16.0. The default value of the Neovim
 <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option is now always
 automatically set, and updates according to the system theme, as long as the user has not set it to
@@ -1242,7 +1242,7 @@ only here because the automatic detection of Neovim nightly versions does not al
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_has_mouse_grid_detection = true
 </code></pre>
-<p><strong>Unreleased yet.</strong></p>
+<p><strong>Nightly.</strong></p>
 <p><strong>Requires Neovim 0.12.0.</strong></p>
 <p>Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
 automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
@@ -1262,7 +1262,7 @@ window containing Neovide to the front and activate it. This
 is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.</p>
-<h2 id="force-click-macos-unreleased-yet"><a class="header" href="#force-click-macos-unreleased-yet">Force Click (macOS) (Unreleased yet)</a></h2>
+<h2 id="force-click-macos-nightly"><a class="header" href="#force-click-macos-nightly">Force Click (macOS) (Nightly)</a></h2>
 <p>On macOS, <code>:NeovideForceClick</code> triggers native force-click behaviours for whatever is under the
 cursor. Plain text falls back to the usual &quot;Look Up&quot; popover; file paths and URLs both open in the
 <a href="https://developer.apple.com/documentation/quicklook">Quick Look</a> panel, so you get previews
@@ -1278,7 +1278,7 @@ automatically and you can bind it manually if you want to trigger it from anothe
 <pre><code class="language-vim">nnoremap &lt;silent&gt; &lt;X1Mouse&gt; :NeovideForceClick&lt;CR&gt;
 nnoremap &lt;silent&gt; &lt;leader&gt;k :NeovideForceClick&lt;CR&gt;
 </code></pre>
-<h2 id="open-config-file-unreleased-yet"><a class="header" href="#open-config-file-unreleased-yet">Open Config File (Unreleased yet)</a></h2>
+<h2 id="open-config-file-nightly"><a class="header" href="#open-config-file-nightly">Open Config File (Nightly)</a></h2>
 <p>Running the <code>NeovideConfig</code> command will open your Neovide
 configuration file for editing. This provides a simple and
 discoverable way to access your settings without needing to
@@ -1384,7 +1384,7 @@ to its generalistic purpose.</p>
 <h3 id="application-icon"><a class="header" href="#application-icon">Application Icon</a></h3>
 <pre><code class="language-sh">--icon &lt;path&gt;
 </code></pre>
-<p><strong>Unreleased yet.</strong></p>
+<p><strong>Nightly.</strong></p>
 <p>This sets a custom application icon. A default icon is bundled with Neovide.</p>
 <h3 id="srgb"><a class="header" href="#srgb">sRGB</a></h3>
 <pre><code class="language-sh">--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
@@ -1451,7 +1451,7 @@ Wayland, depending on what you are running on.</p>
 <h3 id="working-directory"><a class="header" href="#working-directory">Working Directory</a></h3>
 <pre><code class="language-sh">--chdir &lt;path&gt; or $NEOVIDE_CHDIR
 </code></pre>
-<p><strong>Unreleased yet.</strong></p>
+<p><strong>Nightly.</strong></p>
 <p>Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial
 working directory for all instances of neovim or terminal. This value can
@@ -2114,7 +2114,7 @@ been mentioned</li>
 <li><code>Cargo.toml</code> (do note it contains the version <em>twice</em>, one time in the
 top, one time at the bottom in the bundling section)</li>
 <li><code>extra/osx/Neovide.app/Contents/Resources/Info.plist</code></li>
-<li><code>website/docs/*.md</code> and update <code>Unreleased yet</code> to <code>Available since $tag</code>
+<li><code>website/docs/*.md</code> and update <code>Nightly</code> to <code>Available since $tag</code>
 (where <code>$tag</code> is the tag name)</li>
 </ul>
 </li>
