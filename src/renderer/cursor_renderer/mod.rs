@@ -4,7 +4,6 @@ mod cursor_vfx;
 use std::{collections::HashMap, sync::Arc};
 
 use approx::AbsDiffEq;
-use itertools::Itertools;
 use skia_safe::{op, Canvas, Paint, Path};
 use winit::event::WindowEvent;
 
@@ -459,38 +458,36 @@ impl CursorRenderer {
         if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && !changed_to_from_cmdline;
+
             if self.jumped {
                 // Caclculate the direction alignment for each corner and generate a sorted list
                 // This way we know which corner is the front and which is the back
-                let corner_ranks = self
-                    .corners
-                    .iter()
-                    .map(|corner| {
-                        corner.calculate_direction_alignment(
-                            cursor_dimensions.into(),
-                            center_destination,
-                        )
-                    })
-                    .enumerate()
-                    .sorted_by(|a, b| {
-                        a.1.partial_cmp(&b.1)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                            .then(a.0.cmp(&b.0))
-                    })
-                    .enumerate()
-                    .sorted_by_key(|(_, (id, _))| *id)
-                    .map(|(rank, (_, _))| rank)
-                    .collect_array::<4>()
-                    .unwrap();
-                for (id, corner) in self.corners.iter_mut().enumerate() {
+
+                let alignments: [f32; 4] = core::array::from_fn(|i| {
+                    self.corners[i]
+                        .calculate_direction_alignment(cursor_dimensions.into(), center_destination)
+                });
+
+                for (i, corner) in self.corners.iter_mut().enumerate() {
+                    // Calculate rank based on "how many others are smaller".
+                    let mut rank = 0;
+                    for (j, other_val) in alignments.iter().enumerate() {
+                        let my_val = alignments[i];
+                        // The comparison `j < i` ensures stability for equal values
+                        if *other_val < my_val || (*other_val == my_val && j < i) {
+                            rank += 1;
+                        }
+                    }
+
                     corner.jump(
                         &settings,
                         center_destination,
                         cursor_dimensions.into(),
-                        corner_ranks[id],
+                        rank,
                     )
                 }
             }
+
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
                     cursor_dimensions.into(),
