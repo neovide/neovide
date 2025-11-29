@@ -25,8 +25,10 @@ use crate::{
     cmd_line::{CmdLineSettings, SRGB_DEFAULT},
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
-    window::{load_icon, UserEvent},
+    window::load_icon,
 };
+
+use super::EventPayload;
 
 const TEXT_COLOR: Color4f = WHITE;
 const BACKGROUND_COLOR: Color4f = BLACK;
@@ -36,7 +38,11 @@ const MAX_LINES: i32 = 9999;
 const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
-pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>, settings: Arc<Settings>) {
+pub fn show_error_window(
+    message: &str,
+    event_loop: EventLoop<EventPayload>,
+    settings: Arc<Settings>,
+) {
     let mut error_window = ErrorWindow::new(message, settings);
     event_loop.run_app(&mut error_window).ok();
 }
@@ -91,7 +97,7 @@ impl<'a> ErrorWindow<'a> {
     }
 }
 
-impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
+impl ApplicationHandler<EventPayload> for ErrorWindow<'_> {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -120,10 +126,10 @@ impl State {
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
         let window = create_window(event_loop, &settings);
-        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings);
-        skia_renderer.window().set_visible(true);
-        let scale_factor = skia_renderer.window().scale_factor();
-        let size = skia_renderer.window().inner_size();
+        let skia_renderer = create_skia_renderer(&window, srgb, vsync, settings);
+        window.window.set_visible(true);
+        let scale_factor = window.window.scale_factor();
+        let size = window.window.inner_size();
         let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
         let scroll = Scroll::None;
         let current_position = 0;

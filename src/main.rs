@@ -41,41 +41,38 @@ use std::{
     env::{self, args},
     fs::{create_dir_all, File, OpenOptions},
     io::Write,
-    panic::set_hook,
+    path::PathBuf,
     process::ExitCode,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use anyhow::Result;
 use log::trace;
-use std::env::var;
-use std::panic::PanicHookInfo;
-use std::path::PathBuf;
-use time::macros::format_description;
-use time::OffsetDateTime;
+use settings::font::FontSettings;
+use std::panic::{set_hook, PanicHookInfo};
+use time::{macros::format_description, OffsetDateTime};
 use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
 use backtrace::Backtrace;
-use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
 use renderer::{
     cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings, RendererSettings,
 };
-use running_tracker::RunningTracker;
 use window::{
-    create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
+    create_event_loop, determine_grid_size, determine_window_size, Application, EventPayload,
+    WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
+use crate::settings::{load_last_window_settings, Config, Settings};
 
 pub use profiling::startup_profiler;
 
@@ -110,35 +107,48 @@ fn main() -> ExitCode {
 
     let colorscheme_stream = mundy::Preferences::stream(mundy::Interest::ColorScheme);
 
-    let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
-
-    match setup(
-        event_loop.create_proxy(),
-        running_tracker.clone(),
-        settings.clone(),
-        colorscheme_stream,
-    ) {
+    let proxy = event_loop.create_proxy();
+    match setup(proxy.clone(), settings.clone()) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
-        Ok((window_size, initial_config, runtime)) => {
-            let mut update_loop = UpdateLoop::new(
+        Ok(font_settings) => {
+            // TODO: move it to application as propers
+            // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
+            // color.
+            #[cfg(target_os = "macos")]
+            if settings.get::<CmdLineSettings>().frame == Frame::Transparent {
+                let mut window_settings = settings.get::<WindowSettings>();
+                window_settings.theme = window::ThemeSettings::BgColor;
+                settings.set(&window_settings);
+            }
+            let window_settings = load_last_window_settings().ok();
+            let window_size = determine_window_size(window_settings.as_ref(), &settings);
+            let grid_size = determine_grid_size(&window_size, window_settings);
+
+            let mut application = Application::new(
                 window_size,
-                initial_config,
+                grid_size,
+                font_settings,
                 event_loop.create_proxy(),
                 settings.clone(),
+                colorscheme_stream,
             );
 
-            let result = event_loop.run_app(&mut update_loop);
+            let result = application.run(event_loop);
 
-            // Wait a little bit more and force Nevoim to exit after that.
+            // Wait a little bit more and force Nevovim to exit after that.
             // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
             // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
             // read will hang forever, waiting for more data to read.
             // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+            application
+                .window_wrapper
+                .runtime
+                .runtime
+                .shutdown_timeout(std::time::Duration::from_millis(500));
 
             match result {
-                Ok(_) => running_tracker.exit_code(),
+                Ok(_) => application.runtime_tracker.exit_code(),
                 Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
                 _ => ExitCode::FAILURE,
             }
@@ -147,11 +157,9 @@ fn main() -> ExitCode {
 }
 
 fn setup(
-    proxy: EventLoopProxy<UserEvent>,
-    running_tracker: RunningTracker,
+    proxy: EventLoopProxy<EventPayload>,
     settings: Arc<Settings>,
-    colorscheme_stream: mundy::PreferencesStream,
-) -> Result<(WindowSize, Config, NeovimRuntime)> {
+) -> Result<Option<FontSettings>> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -259,37 +267,7 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
-    // color.
-    #[cfg(target_os = "macos")]
-    if settings.get::<CmdLineSettings>().frame == Frame::Transparent {
-        let mut window_settings = settings.get::<WindowSettings>();
-        window_settings.theme = window::ThemeSettings::BgColor;
-        settings.set(&window_settings);
-    }
-
-    let window_settings = load_last_window_settings().ok();
-    let window_size = determine_window_size(window_settings.as_ref(), &settings);
-    let grid_size = match window_size {
-        WindowSize::Grid(grid_size) => Some(grid_size),
-        // Clippy wrongly suggests to use unwrap or default here
-        #[allow(clippy::manual_unwrap_or_default)]
-        _ => match window_settings {
-            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
-            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
-            _ => None,
-        },
-    };
-
-    let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(
-        proxy,
-        grid_size,
-        running_tracker,
-        settings,
-        colorscheme_stream,
-    )?;
-    Ok((window_size, config, runtime))
+    Ok(config.font)
 }
 
 #[cfg(not(test))]
@@ -367,7 +345,7 @@ fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &O
 
     let file_path = match path {
         Some(v) => v,
-        None => &match var(BACKTRACES_FILE_ENV_VAR) {
+        None => &match env::var(BACKTRACES_FILE_ENV_VAR) {
             Ok(v) => PathBuf::from(v),
             Err(_) => settings::neovide_std_datapath().join(DEFAULT_BACKTRACES_FILE),
         },
