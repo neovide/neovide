@@ -15,6 +15,7 @@ use crate::windows_attach_to_console;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
+    clipboard::ClipboardHandle,
     settings::Settings,
     window::{show_error_window, UserEvent},
 };
@@ -70,6 +71,7 @@ pub fn handle_startup_errors(
     err: Error,
     event_loop: EventLoop<UserEvent>,
     settings: Arc<Settings>,
+    clipboard: ClipboardHandle,
 ) -> ExitCode {
     // Command line output is always printed to the stdout/stderr
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
@@ -82,7 +84,12 @@ pub fn handle_startup_errors(
         log::error!("{}", &format_and_log_error_message(err));
         ExitCode::from(1)
     } else {
-        show_error_window(&format_and_log_error_message(err), event_loop, settings);
+        show_error_window(
+            &format_and_log_error_message(err),
+            event_loop,
+            settings,
+            clipboard,
+        );
         ExitCode::from(1)
     }
 }

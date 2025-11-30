@@ -21,7 +21,7 @@ use winit::{
 };
 
 use crate::{
-    clipboard,
+    clipboard::ClipboardHandle,
     cmd_line::{CmdLineSettings, SRGB_DEFAULT},
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
@@ -36,8 +36,13 @@ const MAX_LINES: i32 = 9999;
 const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
-pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>, settings: Arc<Settings>) {
-    let mut error_window = ErrorWindow::new(message, settings);
+pub fn show_error_window(
+    message: &str,
+    event_loop: EventLoop<UserEvent>,
+    settings: Arc<Settings>,
+    clipboard: ClipboardHandle,
+) {
+    let mut error_window = ErrorWindow::new(message, settings, clipboard);
     event_loop.run_app(&mut error_window).ok();
 }
 
@@ -73,20 +78,23 @@ struct State {
     current_position: TextIndex,
     modifiers: Modifiers,
     mouse_scroll_accumulator: f32,
+    clipboard: ClipboardHandle,
 }
 
 struct ErrorWindow<'a> {
     state: Option<State>,
     message: &'a str,
     settings: Arc<Settings>,
+    clipboard: ClipboardHandle,
 }
 
 impl<'a> ErrorWindow<'a> {
-    fn new(message: &'a str, settings: Arc<Settings>) -> Self {
+    fn new(message: &'a str, settings: Arc<Settings>, clipboard: ClipboardHandle) -> Self {
         Self {
             state: None,
             message,
             settings,
+            clipboard,
         }
     }
 }
@@ -104,13 +112,23 @@ impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_none() {
-            self.state = Some(State::new(self.message, event_loop, self.settings.clone()));
+            self.state = Some(State::new(
+                self.message,
+                event_loop,
+                self.settings.clone(),
+                self.clipboard.clone(),
+            ));
         }
     }
 }
 
 impl State {
-    fn new(message: &str, event_loop: &ActiveEventLoop, settings: Arc<Settings>) -> Self {
+    fn new(
+        message: &str,
+        event_loop: &ActiveEventLoop,
+        settings: Arc<Settings>,
+        clipboard: ClipboardHandle,
+    ) -> Self {
         let message = message.trim_end();
 
         let font_manager = FontMgr::new();
@@ -140,6 +158,7 @@ impl State {
             current_position,
             modifiers,
             mouse_scroll_accumulator,
+            clipboard,
         }
     }
 
@@ -257,7 +276,12 @@ impl State {
                         true
                     }
                     "y" => {
-                        let _ = clipboard::set_contents(message.to_string(), "+");
+                        if let Some(clipboard) = self.clipboard.upgrade() {
+                            let _ = clipboard
+                                .lock()
+                                .unwrap()
+                                .set_contents(message.to_string(), "+");
+                        }
                         true
                     }
                     _ => false,
