@@ -23,6 +23,7 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
+    clipboard::ClipboardHandle,
     cmd_line::CmdLineSettings,
     editor::start_editor,
     running_tracker::RunningTracker,
@@ -73,6 +74,7 @@ async fn nvim_exec_output(
 
 pub struct NeovimRuntime {
     pub runtime: Runtime,
+    clipboard: ClipboardHandle,
 }
 
 async fn neovim_instance(settings: &Settings) -> Result<NeovimInstance> {
@@ -253,10 +255,10 @@ async fn update_colorscheme(mut stream: mundy::PreferencesStream, neovim: Neovim
 }
 
 impl NeovimRuntime {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(clipboard: ClipboardHandle) -> Result<Self, Error> {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
 
-        Ok(Self { runtime })
+        Ok(Self { runtime, clipboard })
     }
 
     pub fn launch(
@@ -267,7 +269,12 @@ impl NeovimRuntime {
         settings: Arc<Settings>,
         mut colorscheme_stream: mundy::PreferencesStream,
     ) -> Result<()> {
-        let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
+        let handler = start_editor(
+            event_loop_proxy.clone(),
+            running_tracker,
+            settings.clone(),
+            self.clipboard.clone(),
+        );
         let session = self.runtime.block_on(launch(
             handler,
             grid_size,

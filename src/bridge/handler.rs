@@ -17,6 +17,7 @@ use crate::{
         events::parse_redraw_event,
         parse_progress_bar_event, send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
     },
+    clipboard::ClipboardHandle,
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
     settings::Settings,
@@ -32,6 +33,7 @@ pub struct NeovimHandler {
     running_tracker: RunningTracker,
     #[allow(dead_code)]
     settings: Arc<Settings>,
+    clipboard: ClipboardHandle,
 }
 
 impl NeovimHandler {
@@ -40,12 +42,14 @@ impl NeovimHandler {
         proxy: EventLoopProxy<UserEvent>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
+        clipboard: ClipboardHandle,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
             sender: LoggingSender::attach(sender, "neovim_handler"),
             running_tracker,
             settings,
+            clipboard,
         }
     }
 }
@@ -63,10 +67,24 @@ impl Handler for NeovimHandler {
         trace!("Neovim request: {:?}", &event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => get_clipboard_contents(&arguments[0])
-                .map_err(|_| Value::from("cannot get clipboard contents")),
-            "neovide.set_clipboard" => set_clipboard_contents(&arguments[0], &arguments[1])
-                .map_err(|_| Value::from("cannot set clipboard contents")),
+            "neovide.get_clipboard" => self
+                .clipboard
+                .upgrade()
+                .ok_or(Value::from("clipboard unavailable"))
+                .and_then(|clipboard| {
+                    let mut clipboard = clipboard.lock().unwrap();
+                    get_clipboard_contents(&mut clipboard, &arguments[0])
+                        .map_err(|_| Value::from("cannot get clipboard contents"))
+                }),
+            "neovide.set_clipboard" => self
+                .clipboard
+                .upgrade()
+                .ok_or(Value::from("clipboard unavailable"))
+                .and_then(|clipboard| {
+                    let mut clipboard = clipboard.lock().unwrap();
+                    set_clipboard_contents(&mut clipboard, &arguments[0], &arguments[1])
+                        .map_err(|_| Value::from("cannot set clipboard contents"))
+                }),
             "neovide.quit" => {
                 let error_code = arguments[0]
                     .as_i64()

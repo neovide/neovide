@@ -43,7 +43,7 @@ use std::{
     io::Write,
     panic::set_hook,
     process::ExitCode,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
 
@@ -86,6 +86,37 @@ const DEFAULT_BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const BACKTRACES_FILE_ENV_VAR: &str = "NEOVIDE_BACKTRACES";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
+struct AppContext {
+    clipboard: Arc<Mutex<clipboard::Clipboard>>,
+    runtime: Option<NeovimRuntime>,
+}
+
+impl AppContext {
+    fn new(clipboard: Arc<Mutex<clipboard::Clipboard>>) -> Self {
+        Self {
+            clipboard,
+            runtime: None,
+        }
+    }
+
+    fn clipboard_handle(&self) -> clipboard::ClipboardHandle {
+        clipboard::ClipboardHandle::new(&self.clipboard)
+    }
+}
+
+impl Drop for AppContext {
+    fn drop(&mut self) {
+        if let Some(runtime) = self.runtime.take() {
+            // Wait a little bit more and force Neovim to exit after that.
+            // This should not be required, but Neovim through libuv spawns child processes that inherit all the handles.
+            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+            // read will hang forever, waiting for more data to read.
+            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+        }
+    }
+}
+
 fn main() -> ExitCode {
     set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
@@ -106,7 +137,8 @@ fn main() -> ExitCode {
     env::remove_var("ARGV0");
 
     let event_loop = create_event_loop();
-    clipboard::init(&event_loop);
+    let clipboard = clipboard::Clipboard::new(&event_loop);
+    let mut app_ctx = AppContext::new(clipboard);
 
     let colorscheme_stream = mundy::Preferences::stream(mundy::Interest::ColorScheme);
 
@@ -117,10 +149,17 @@ fn main() -> ExitCode {
         event_loop.create_proxy(),
         running_tracker.clone(),
         settings.clone(),
+        app_ctx.clipboard_handle(),
         colorscheme_stream,
     ) {
-        Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
+        Err(err) => handle_startup_errors(
+            err,
+            event_loop,
+            settings.clone(),
+            app_ctx.clipboard_handle(),
+        ),
         Ok((window_size, initial_config, runtime)) => {
+            app_ctx.runtime = Some(runtime);
             let mut update_loop = UpdateLoop::new(
                 window_size,
                 initial_config,
@@ -129,13 +168,6 @@ fn main() -> ExitCode {
             );
 
             let result = event_loop.run_app(&mut update_loop);
-
-            // Wait a little bit more and force Nevoim to exit after that.
-            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
-            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-            // read will hang forever, waiting for more data to read.
-            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
 
             match result {
                 Ok(_) => running_tracker.exit_code(),
@@ -150,6 +182,7 @@ fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    clipboard: clipboard::ClipboardHandle,
     colorscheme_stream: mundy::PreferencesStream,
 ) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
@@ -281,7 +314,7 @@ fn setup(
         },
     };
 
-    let mut runtime = NeovimRuntime::new()?;
+    let mut runtime = NeovimRuntime::new(clipboard)?;
     runtime.launch(
         proxy,
         grid_size,

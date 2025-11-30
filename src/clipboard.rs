@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, Weak};
 
 #[cfg(target_os = "linux")]
 use copypasta::{
@@ -7,7 +7,6 @@ use copypasta::{
     x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext},
 };
 use copypasta::{ClipboardContext, ClipboardProvider};
-use parking_lot::Mutex;
 use raw_window_handle::HasDisplayHandle;
 #[cfg(target_os = "linux")]
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
@@ -23,59 +22,62 @@ pub struct Clipboard {
     selection: Box<dyn ClipboardProvider>,
 }
 
-static CLIPBOARD: OnceLock<Mutex<Clipboard>> = OnceLock::new();
-
-pub fn init(event_loop: &EventLoop<UserEvent>) {
-    CLIPBOARD
-        .set(Mutex::new(
-            match event_loop.display_handle().unwrap().as_raw() {
-                #[cfg(target_os = "linux")]
-                RawDisplayHandle::Wayland(WaylandDisplayHandle { mut display, .. }) => unsafe {
-                    let (selection, clipboard) =
-                        wayland_clipboard::create_clipboards_from_external(display.as_mut());
-                    Clipboard {
-                        clipboard: Box::new(clipboard),
-                        selection: Box::new(selection),
-                    }
-                },
-                #[cfg(target_os = "linux")]
-                _ => Clipboard {
-                    clipboard: Box::new(ClipboardContext::new().unwrap()),
-                    selection: Box::new(
-                        X11ClipboardContext::<X11SelectionClipboard>::new().unwrap(),
-                    ),
-                },
-                #[cfg(not(target_os = "linux"))]
-                _ => Clipboard {
-                    clipboard: Box::new(ClipboardContext::new().unwrap()),
-                },
-            },
-        ))
-        .ok();
+#[derive(Clone)]
+pub struct ClipboardHandle {
+    inner: Weak<Mutex<Clipboard>>,
 }
 
-pub fn get_contents(register: &str) -> Result<String> {
-    match register {
-        #[cfg(target_os = "linux")]
-        "*" => CLIPBOARD.get().unwrap().lock().selection.get_contents(),
-        _ => CLIPBOARD.get().unwrap().lock().clipboard.get_contents(),
+impl ClipboardHandle {
+    pub fn new(clipboard: &Arc<Mutex<Clipboard>>) -> Self {
+        Self {
+            inner: Arc::downgrade(clipboard),
+        }
+    }
+
+    pub fn upgrade(&self) -> Option<Arc<Mutex<Clipboard>>> {
+        self.inner.upgrade()
     }
 }
 
-pub fn set_contents(lines: String, register: &str) -> Result<()> {
-    match register {
-        #[cfg(target_os = "linux")]
-        "*" => CLIPBOARD
-            .get()
-            .unwrap()
-            .lock()
-            .selection
-            .set_contents(lines),
-        _ => CLIPBOARD
-            .get()
-            .unwrap()
-            .lock()
-            .clipboard
-            .set_contents(lines),
+impl Clipboard {
+    pub fn new(event_loop: &EventLoop<UserEvent>) -> Arc<Mutex<Self>> {
+        let clipboard = match event_loop.display_handle().unwrap().as_raw() {
+            #[cfg(target_os = "linux")]
+            RawDisplayHandle::Wayland(WaylandDisplayHandle { mut display, .. }) => unsafe {
+                let (selection, clipboard) =
+                    wayland_clipboard::create_clipboards_from_external(display.as_mut());
+                Clipboard {
+                    clipboard: Box::new(clipboard),
+                    selection: Box::new(selection),
+                }
+            },
+            #[cfg(target_os = "linux")]
+            _ => Clipboard {
+                clipboard: Box::new(ClipboardContext::new().unwrap()),
+                selection: Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap()),
+            },
+            #[cfg(not(target_os = "linux"))]
+            _ => Clipboard {
+                clipboard: Box::new(ClipboardContext::new().unwrap()),
+            },
+        };
+
+        Arc::new(Mutex::new(clipboard))
+    }
+
+    pub fn get_contents(&mut self, register: &str) -> Result<String> {
+        match register {
+            #[cfg(target_os = "linux")]
+            "*" => self.selection.get_contents(),
+            _ => self.clipboard.get_contents(),
+        }
+    }
+
+    pub fn set_contents(&mut self, lines: String, register: &str) -> Result<()> {
+        match register {
+            #[cfg(target_os = "linux")]
+            "*" => self.selection.set_contents(lines),
+            _ => self.clipboard.set_contents(lines),
+        }
     }
 }
