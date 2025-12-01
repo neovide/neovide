@@ -1,7 +1,7 @@
 use std::{
     io::{stdout, IsTerminal},
     process::ExitCode,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::{Error, Result};
@@ -15,7 +15,7 @@ use crate::windows_attach_to_console;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
-    clipboard::ClipboardHandle,
+    clipboard::{Clipboard, ClipboardHandle},
     settings::Settings,
     window::{show_error_window, UserEvent},
 };
@@ -71,8 +71,10 @@ pub fn handle_startup_errors(
     err: Error,
     event_loop: EventLoop<UserEvent>,
     settings: Arc<Settings>,
-    clipboard: ClipboardHandle,
+    clipboard: Arc<Mutex<Clipboard>>,
 ) -> ExitCode {
+    let clipboard_handle = ClipboardHandle::new(&clipboard);
+
     // Command line output is always printed to the stdout/stderr
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
         #[cfg(target_os = "windows")]
@@ -88,7 +90,7 @@ pub fn handle_startup_errors(
             &format_and_log_error_message(err),
             event_loop,
             settings,
-            clipboard,
+            clipboard_handle,
         );
         ExitCode::from(1)
     }
