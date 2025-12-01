@@ -44,7 +44,7 @@ use std::{
     panic::set_hook,
     process::ExitCode,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use anyhow::Result;
@@ -106,36 +106,32 @@ fn main() -> ExitCode {
     env::remove_var("ARGV0");
 
     let event_loop = create_event_loop();
-    clipboard::init(&event_loop);
-
+    let clipboard = clipboard::Clipboard::new(&event_loop);
     let colorscheme_stream = mundy::Preferences::stream(mundy::Interest::ColorScheme);
 
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
+    let clipboard_handle = clipboard::ClipboardHandle::new(&clipboard);
 
     match setup(
         event_loop.create_proxy(),
         running_tracker.clone(),
         settings.clone(),
+        clipboard_handle.clone(),
         colorscheme_stream,
     ) {
-        Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
+        Err(err) => handle_startup_errors(err, event_loop, settings.clone(), clipboard),
         Ok((window_size, initial_config, runtime)) => {
             let mut update_loop = UpdateLoop::new(
                 window_size,
                 initial_config,
                 event_loop.create_proxy(),
                 settings.clone(),
+                runtime,
+                clipboard,
             );
 
             let result = event_loop.run_app(&mut update_loop);
-
-            // Wait a little bit more and force Nevoim to exit after that.
-            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
-            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-            // read will hang forever, waiting for more data to read.
-            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
 
             match result {
                 Ok(_) => running_tracker.exit_code(),
@@ -150,6 +146,7 @@ fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    clipboard: clipboard::ClipboardHandle,
     colorscheme_stream: mundy::PreferencesStream,
 ) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
@@ -281,7 +278,7 @@ fn setup(
         },
     };
 
-    let mut runtime = NeovimRuntime::new()?;
+    let mut runtime = NeovimRuntime::new(clipboard)?;
     runtime.launch(
         proxy,
         grid_size,

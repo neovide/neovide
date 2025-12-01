@@ -37,6 +37,9 @@ use crate::units::Pixel;
 use crate::window::ForceClickKind;
 use crate::window::{WindowSettings, WindowSettingsChanged};
 
+#[link(name = "Quartz", kind = "framework")]
+extern "C" {}
+
 static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
     include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 

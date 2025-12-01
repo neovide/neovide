@@ -166,7 +166,7 @@ This sets the window title to be hidden on macOS.
 --icon <path>
 ```
 
-**Unreleased yet.**
+**Nightly.**
 
 This sets a custom application icon. A default icon is bundled with Neovide.
 
@@ -276,7 +276,7 @@ Wayland, depending on what you are running on.
 --chdir <path> or $NEOVIDE_CHDIR
 ```
 
-**Unreleased yet.**
+**Nightly.**
 
 Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial

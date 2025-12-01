@@ -15,6 +15,7 @@ use winit::window::Theme;
 
 use crate::{
     bridge::{GridLineCell, GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
+    clipboard::ClipboardHandle,
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
     running_tracker::RunningTracker,
@@ -755,6 +756,7 @@ pub fn start_editor(
     event_loop_proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    clipboard: ClipboardHandle,
 ) -> NeovimHandler {
     let (sender, mut receiver) = unbounded_channel();
     let handler = NeovimHandler::new(
@@ -762,6 +764,7 @@ pub fn start_editor(
         event_loop_proxy.clone(),
         running_tracker,
         settings.clone(),
+        clipboard,
     );
     thread::spawn(move || {
         let mut editor = Editor::new(event_loop_proxy, settings.clone());

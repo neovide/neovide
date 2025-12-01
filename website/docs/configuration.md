@@ -467,7 +467,7 @@ vim.g.neovide_progress_bar_animation_speed = 200.0
 vim.g.neovide_progress_bar_hide_delay = 0.2
 ```
 
-**Unreleased yet.**
+**Nightly.**
 
 - `g:neovide_progress_bar_enabled` sets whether the progress bar is enabled.
 - `g:neovide_progress_bar_height` sets the height of the progress bar in pixels.
@@ -536,7 +536,7 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
-**Unreleased yet.**
+**Nightly.**
 
 **NOTE:** The meaning of the setting has changed in 0.16.0. The default value of the Neovim
 [`background`](https://neovim.io/doc/user/options.html#'background') option is now always
@@ -1308,7 +1308,7 @@ Lua:
 vim.g.neovide_has_mouse_grid_detection = true
 ```
 
-**Unreleased yet.**
+**Nightly.**
 
 **Requires Neovim 0.12.0.**
 
