@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -11,6 +11,8 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
+    bridge::NeovimRuntime,
+    clipboard,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     settings::{Config, Settings},
@@ -91,6 +93,8 @@ pub struct UpdateLoop {
     proxy: EventLoopProxy<UserEvent>,
 
     settings: Arc<Settings>,
+    runtime: Option<NeovimRuntime>,
+    clipboard: Option<Arc<Mutex<clipboard::Clipboard>>>,
 }
 
 impl UpdateLoop {
@@ -99,6 +103,8 @@ impl UpdateLoop {
         initial_config: Config,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
+        runtime: NeovimRuntime,
+        clipboard: Arc<Mutex<clipboard::Clipboard>>,
     ) -> Self {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
@@ -133,6 +139,8 @@ impl UpdateLoop {
             proxy,
 
             settings,
+            runtime: Some(runtime),
+            clipboard: Some(clipboard),
         }
     }
 
@@ -321,6 +329,27 @@ impl UpdateLoop {
             // The OS itself asks us to redraw, so we need to prepare first
             self.should_render = ShouldRender::Immediately;
         }
+    }
+
+    fn teardown(&mut self) {
+        // Drop the clipboard while the event loop is still alive soWayland handles are released
+        // safely. see https://github.com/neovide/neovide/issues/3311
+        self.clipboard.take();
+
+        if let Some(runtime) = self.runtime.take() {
+            // Wait a little bit more and force Neovim to exit after that.
+            // This should not be required, but Neovim through libuv spawns child processes that inherit all the handles.
+            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+            // read will hang forever, waiting for more data to read.
+            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+        }
+    }
+}
+
+impl Drop for UpdateLoop {
+    fn drop(&mut self) {
+        self.teardown();
     }
 }
 
