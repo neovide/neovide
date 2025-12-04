@@ -24,6 +24,8 @@ use blink::*;
 
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 const ALIGNMENT_EPSILON: f32 = 0.01;
+// Ensures diagonal jumps always have at least some taper even when trail_size is large.
+const MIN_DIAGONAL_TRAIL_RATIO: f32 = 0.6;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
@@ -159,11 +161,13 @@ impl Corner {
         cursor_dimensions: GridScale,
         rank: f32,
         axis_aligned: bool,
+        alignment: f32,
     ) {
         let corner_destination = self.get_destination(destination, cursor_dimensions);
         let jump_vec = (corner_destination - self.previous_destination) / cursor_dimensions;
 
-        self.animation_length = if jump_vec.x.abs() <= 2.001 && jump_vec.y.abs_diff_eq(&0.0, 0.001)
+        let mut animation_length = if jump_vec.x.abs() <= 2.001
+            && jump_vec.y.abs_diff_eq(&0.0, 0.001)
         {
             // Use a fast animation time for short jumps less than two characters, typically when
             // typing or holding a key in insert mode
@@ -174,7 +178,7 @@ impl Corner {
             let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
             let trailing = settings.animation_length;
             let (rank_scale, rank_bias) = if axis_aligned {
-                // When the cursor moves straight along one axis we keep the trailing corners a bit
+                // when the cursor moves straight along one axis we keep the trailing corners a bit
                 // faster so the trail does not stretch into a very tall rectangle.
                 (0.5, 0.5)
             } else {
@@ -182,7 +186,21 @@ impl Corner {
             };
             let adjusted_rank = rank * rank_scale + rank_bias;
             trailing + (leading - trailing) * adjusted_rank
+        };
+
+        if !axis_aligned {
+            // recreate the diagonal ribbon lightning bolt effect by speeding up corners
+            // that travel in the motion direction while clamping the slowdown
+            // so the cursor never stalls.
+            let min_trail = (1.0 - settings.trail_size)
+                .clamp(0.0, 1.0)
+                .max(MIN_DIAGONAL_TRAIL_RATIO);
+            let direction_bonus =
+                lerp(1.0, min_trail, (-alignment).clamp(-1.0, 1.0)).clamp(min_trail, 2.0);
+            animation_length /= direction_bonus;
         }
+
+        self.animation_length = animation_length;
     }
 
     fn get_destination(
@@ -473,6 +491,8 @@ impl CursorRenderer {
                     })
                     .collect();
 
+                // Group corners with nearly identical alignment so we can detect pure vertical or
+                // horizontal motion where two corners share the lead, two lag behind.
                 let mut clusters: Vec<(f32, usize)> = Vec::new();
                 for &alignment in &alignments {
                     if let Some((_, count)) = clusters
@@ -484,6 +504,8 @@ impl CursorRenderer {
                         clusters.push((alignment, 1));
                     }
                 }
+
+                // two clusters of two corners => movement perfectly along one axis.
                 let axis_aligned =
                     clusters.len() == 2 && clusters.iter().all(|(_, count)| *count >= 2);
 
@@ -494,7 +516,6 @@ impl CursorRenderer {
                 };
 
                 let range = max_align - min_align;
-
                 for (corner, align) in self.corners.iter_mut().zip(alignments) {
                     let rank = if range < 0.001 {
                         1.0
@@ -508,9 +529,11 @@ impl CursorRenderer {
                         cursor_dimensions.into(),
                         rank,
                         axis_aligned,
+                        align,
                     )
                 }
             }
+
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
                     cursor_dimensions.into(),
@@ -523,7 +546,6 @@ impl CursorRenderer {
             }
 
             let mut vfx_animating = false;
-
             for vfx in self.cursor_vfxs.iter_mut() {
                 let ret = vfx.update(
                     &settings,
@@ -539,6 +561,7 @@ impl CursorRenderer {
 
             animating |= vfx_animating;
         }
+
         self.jumped = false;
 
         let blink_animating = settings.smooth_blink && self.blink_status.should_animate();
