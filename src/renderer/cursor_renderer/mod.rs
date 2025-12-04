@@ -23,6 +23,7 @@ use crate::{
 use blink::*;
 
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
+const ALIGNMENT_EPSILON: f32 = 0.01;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
@@ -156,7 +157,8 @@ impl Corner {
         settings: &CursorSettings,
         destination: PixelPos<f32>,
         cursor_dimensions: GridScale,
-        rank: usize,
+        rank: f32,
+        axis_aligned: bool,
     ) {
         let corner_destination = self.get_destination(destination, cursor_dimensions);
         let jump_vec = (corner_destination - self.previous_destination) / cursor_dimensions;
@@ -171,15 +173,15 @@ impl Corner {
         } else {
             let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
             let trailing = settings.animation_length;
-            match rank {
-                // The leading edge runs faster than the trailing edge, with a trail size of one
-                // it jumps to the destination
-                2..=3 => leading,
-                // One of the corner runs between the trailing corner and the leading edge, creating a triangular effect
-                1 => (leading + trailing) / 2.0,
-                0 => trailing,
-                _ => panic!("Invalid rank"),
-            }
+            let (rank_scale, rank_bias) = if axis_aligned {
+                // When the cursor moves straight along one axis we keep the trailing corners a bit
+                // faster so the trail does not stretch into a very tall rectangle.
+                (0.5, 0.5)
+            } else {
+                (0.75, 0.25)
+            };
+            let adjusted_rank = rank * rank_scale + rank_bias;
+            trailing + (leading - trailing) * adjusted_rank
         }
     }
 
@@ -460,9 +462,7 @@ impl CursorRenderer {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && !changed_to_from_cmdline;
             if self.jumped {
-                // Caclculate the direction alignment for each corner and generate a sorted list
-                // This way we know which corner is the front and which is the back
-                let corner_ranks = self
+                let alignments: Vec<f32> = self
                     .corners
                     .iter()
                     .map(|corner| {
@@ -471,23 +471,43 @@ impl CursorRenderer {
                             center_destination,
                         )
                     })
-                    .enumerate()
-                    .sorted_by(|a, b| {
-                        a.1.partial_cmp(&b.1)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                            .then(a.0.cmp(&b.0))
-                    })
-                    .enumerate()
-                    .sorted_by_key(|(_, (id, _))| *id)
-                    .map(|(rank, (_, _))| rank)
-                    .collect_array::<4>()
-                    .unwrap();
-                for (id, corner) in self.corners.iter_mut().enumerate() {
+                    .collect();
+
+                let mut clusters: Vec<(f32, usize)> = Vec::new();
+                for &alignment in &alignments {
+                    if let Some((_, count)) = clusters
+                        .iter_mut()
+                        .find(|(value, _)| (alignment - *value).abs() <= ALIGNMENT_EPSILON)
+                    {
+                        *count += 1;
+                    } else {
+                        clusters.push((alignment, 1));
+                    }
+                }
+                let axis_aligned =
+                    clusters.len() == 2 && clusters.iter().all(|(_, count)| *count >= 2);
+
+                let (min_align, max_align) = match alignments.iter().minmax() {
+                    itertools::MinMaxResult::MinMax(min, max) => (*min, *max),
+                    itertools::MinMaxResult::OneElement(e) => (*e, *e),
+                    itertools::MinMaxResult::NoElements => (0.0, 0.0),
+                };
+
+                let range = max_align - min_align;
+
+                for (corner, align) in self.corners.iter_mut().zip(alignments) {
+                    let rank = if range < 0.001 {
+                        1.0
+                    } else {
+                        (align - min_align) / range
+                    };
+
                     corner.jump(
                         &settings,
                         center_destination,
                         cursor_dimensions.into(),
-                        corner_ranks[id],
+                        rank,
+                        axis_aligned,
                     )
                 }
             }
