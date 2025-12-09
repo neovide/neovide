@@ -149,7 +149,13 @@ async fn launch(
         settings.set::<WindowSettings>(&window_settings);
     }
 
-    start_ui_command_handler(session.neovim.clone(), settings.clone());
+    let can_support_ime_api = api_information.has_function("nvim__exec_lua_fast");
+
+    start_ui_command_handler(
+        session.neovim.clone(),
+        settings.clone(),
+        can_support_ime_api,
+    );
     settings.read_initial_values(&session.neovim).await?;
 
     let colorscheme = timeout(Duration::from_millis(200), colorscheme_stream.next()).await;

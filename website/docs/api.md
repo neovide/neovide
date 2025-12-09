@@ -41,6 +41,8 @@ the redrawing is enabled again, so it might be hard to type in the command.**
 
 ## IME handling
 
+**Requires Neovim Nightly Dec 2 2025 or later.**
+
 `neovide.preedit_handler(
     preedit_raw_text:string,
     cursor_offset:[start_col:integer, end_col:integer]

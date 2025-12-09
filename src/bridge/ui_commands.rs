@@ -56,7 +56,7 @@ pub enum SerialCommand {
 }
 
 impl SerialCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>, can_support_ime_api: bool) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -73,35 +73,46 @@ impl SerialCommand {
             SerialCommand::KeyboardImeCommit { formatted, raw } => {
                 // Notified ime commit event, the text is guaranteed not to be None.
                 trace!("IME Input Sent: {}", &formatted);
-                nvim.call(
-                    "nvim__exec_lua_fast",
-                    call_args![
-                        "neovide.commit_handler(...)",
-                        vec![Value::from(raw), Value::from(formatted)],
-                    ],
-                )
-                .await
-                .map(|_| ())
-                .context("IME Commit failed")
+                if can_support_ime_api {
+                    nvim.call(
+                        "nvim__exec_lua_fast",
+                        call_args![
+                            "neovide.commit_handler(...)",
+                            vec![Value::from(raw), Value::from(formatted)],
+                        ],
+                    )
+                    .await
+                    .map(|_| ())
+                    .context("IME Commit failed")
+                } else {
+                    trace!("Keyboard Input Sent: {formatted}");
+                    nvim.input(&formatted)
+                        .await
+                        .map(|_| ())
+                        .context("Input failed")
+                }
             }
             SerialCommand::KeyboardImePreedit { raw, cursor_offset } => {
                 trace!("IME Input Preedit");
+                if can_support_ime_api {
+                    let (start_col, end_col) = cursor_offset
+                        .map_or((Value::Nil, Value::Nil), |(start_col, end_col)| {
+                            (Value::from(start_col), Value::from(end_col))
+                        });
 
-                let (start_col, end_col) = cursor_offset
-                    .map_or((Value::Nil, Value::Nil), |(start_col, end_col)| {
-                        (Value::from(start_col), Value::from(end_col))
-                    });
-
-                nvim.call(
-                    "nvim__exec_lua_fast",
-                    call_args![
-                        "neovide.preedit_handler(...)",
-                        vec![Value::from(raw), start_col, end_col],
-                    ],
-                )
-                .await
-                .map(|_| ())
-                .context("IME Preedit failed")
+                    nvim.call(
+                        "nvim__exec_lua_fast",
+                        call_args![
+                            "neovide.preedit_handler(...)",
+                            vec![Value::from(raw), start_col, end_col],
+                        ],
+                    )
+                    .await
+                    .map(|_| ())
+                    .context("IME Preedit failed")
+                } else {
+                    Ok(())
+                }
             }
             SerialCommand::MouseButton {
                 button,
@@ -315,7 +326,11 @@ impl AsRef<str> for UiCommand {
 
 static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settings>) {
+pub fn start_ui_command_handler(
+    nvim: Neovim<NeovimWriter>,
+    settings: Arc<Settings>,
+    can_support_ime_api: bool,
+) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     let (sender, mut ui_command_receiver) = unbounded_channel();
@@ -356,7 +371,7 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settin
                 Some(serial_command) => {
                     tracy_dynamic_zone!(serial_command.as_ref());
                     tracy_fiber_leave();
-                    serial_command.execute(&nvim).await;
+                    serial_command.execute(&nvim, can_support_ime_api).await;
                     tracy_fiber_enter!("Serial command");
                 }
                 None => break,
