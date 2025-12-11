@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use skia_safe::{
     canvas::{Canvas, SaveLayerRec},
@@ -21,7 +21,7 @@ use winit::{
 };
 
 use crate::{
-    clipboard::ClipboardHandle,
+    clipboard::{Clipboard, ClipboardHandle},
     cmd_line::{CmdLineSettings, SRGB_DEFAULT},
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
@@ -40,7 +40,7 @@ pub fn show_error_window(
     message: &str,
     event_loop: EventLoop<UserEvent>,
     settings: Arc<Settings>,
-    clipboard: ClipboardHandle,
+    clipboard: Arc<Mutex<Clipboard>>,
 ) {
     let mut error_window = ErrorWindow::new(message, settings, clipboard);
     event_loop.run_app(&mut error_window).ok();
@@ -85,16 +85,16 @@ struct ErrorWindow<'a> {
     state: Option<State>,
     message: &'a str,
     settings: Arc<Settings>,
-    clipboard: ClipboardHandle,
+    clipboard: Option<Arc<Mutex<Clipboard>>>,
 }
 
 impl<'a> ErrorWindow<'a> {
-    fn new(message: &'a str, settings: Arc<Settings>, clipboard: ClipboardHandle) -> Self {
+    fn new(message: &'a str, settings: Arc<Settings>, clipboard: Arc<Mutex<Clipboard>>) -> Self {
         Self {
             state: None,
             message,
             settings,
-            clipboard,
+            clipboard: Some(clipboard),
         }
     }
 }
@@ -112,13 +112,20 @@ impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_none() {
-            self.state = Some(State::new(
-                self.message,
-                event_loop,
-                self.settings.clone(),
-                self.clipboard.clone(),
-            ));
+            if let Some(clipboard) = self.clipboard.as_ref() {
+                self.state = Some(State::new(
+                    self.message,
+                    event_loop,
+                    self.settings.clone(),
+                    ClipboardHandle::new(clipboard),
+                ));
+            }
         }
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        // Drop the clipboard while the event loop is still alive.
+        self.clipboard.take();
     }
 }
 
