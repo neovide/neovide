@@ -425,6 +425,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
+        self.teardown();
         self.window_wrapper.exit();
         self.schedule_next_event(event_loop);
     }
