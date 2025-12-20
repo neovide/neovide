@@ -484,6 +484,10 @@ impl WinitWindowWrapper {
         }
     }
 
+    pub fn clear_renderer(&mut self) {
+        self.renderer.clear();
+    }
+
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
         if self.skia_renderer.is_none() {

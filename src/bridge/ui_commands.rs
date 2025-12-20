@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use anyhow::{Context, Result};
 use indoc::indoc;
@@ -7,7 +7,7 @@ use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{show_error_message, Settings};
+use super::{set_background_if_allowed, show_error_message, Settings};
 use crate::{
     bridge::{nvim_dict, NeovimWriter},
     cmd_line::CmdLineSettings,
@@ -132,6 +132,7 @@ pub enum ParallelCommand {
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
     ShowError { lines: Vec<String> },
+    SetBackground { background: String },
 }
 
 async fn display_available_fonts(
@@ -236,6 +237,10 @@ impl ParallelCommand {
                     .await
                     .context("ShowError failed")
             }
+            ParallelCommand::SetBackground { background } => {
+                set_background_if_allowed(&background, nvim).await;
+                Ok(())
+            }
         };
 
         if let Err(error) = result {
@@ -271,56 +276,86 @@ impl AsRef<str> for UiCommand {
     }
 }
 
+static CURRENT_NEOVIM: OnceLock<Arc<RwLock<Option<Neovim<NeovimWriter>>>>> = OnceLock::new();
 static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
+fn neovim_holder() -> &'static Arc<RwLock<Option<Neovim<NeovimWriter>>>> {
+    CURRENT_NEOVIM.get_or_init(|| Arc::new(RwLock::new(None)))
+}
+
+fn update_current_neovim(nvim: Neovim<NeovimWriter>) {
+    let holder = neovim_holder();
+    if let Ok(mut guard) = holder.write() {
+        *guard = Some(nvim);
+    }
+}
+
+fn clone_neovim(
+    holder: &Arc<RwLock<Option<Neovim<NeovimWriter>>>>,
+) -> Option<Neovim<NeovimWriter>> {
+    holder.read().ok().and_then(|guard| guard.as_ref().cloned())
+}
+
 pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settings>) {
+    update_current_neovim(nvim);
+    if UI_COMMAND_CHANNEL.get().is_some() {
+        return;
+    }
+
+    let neovim_holder = neovim_holder().clone();
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
-    let ui_command_nvim = nvim.clone();
     let (sender, mut ui_command_receiver) = unbounded_channel();
     UI_COMMAND_CHANNEL
         .set(LoggingSender::attach(sender, "UIComand"))
         .expect("The UI command channel is already created");
-    tokio::spawn(async move {
-        loop {
-            match ui_command_receiver.recv().await {
-                Some(UiCommand::Serial(serial_command)) => {
-                    tracy_dynamic_zone!(serial_command.as_ref());
-                    // This can fail if the serial_rx loop exits before this one, so ignore the errors
-                    let _ = serial_tx.send(serial_command);
+    tokio::spawn({
+        let neovim_holder = neovim_holder.clone();
+        let settings = settings.clone();
+        async move {
+            loop {
+                match ui_command_receiver.recv().await {
+                    Some(UiCommand::Serial(serial_command)) => {
+                        tracy_dynamic_zone!(serial_command.as_ref());
+                        // This can fail if the serial_rx loop exits before this one, so ignore the errors
+                        let _ = serial_tx.send(serial_command);
+                    }
+                    Some(UiCommand::Parallel(parallel_command)) => {
+                        tracy_dynamic_zone!(parallel_command.as_ref());
+                        let neovim_holder = neovim_holder.clone();
+                        let settings = settings.clone();
+                        tokio::spawn(async move {
+                            if let Some(ui_command_nvim) = clone_neovim(&neovim_holder) {
+                                parallel_command
+                                    .execute(&ui_command_nvim, settings.as_ref())
+                                    .await;
+                            }
+                        });
+                    }
+                    None => break,
                 }
-                Some(UiCommand::Parallel(parallel_command)) => {
-                    tracy_dynamic_zone!(parallel_command.as_ref());
-                    let ui_command_nvim = ui_command_nvim.clone();
-                    let settings = settings.clone();
-                    tokio::spawn(async move {
-                        parallel_command
-                            .execute(&ui_command_nvim, settings.as_ref())
-                            .await;
-                    });
-                }
-                None => break,
             }
+            log::info!("ui command receiver finished");
         }
-        log::info!("ui command receiver finished");
     });
 
-    tokio::spawn(async move {
-        tracy_fiber_enter!("Serial command");
-        loop {
-            tracy_fiber_leave();
-            let res = serial_rx.recv().await;
+    tokio::spawn({
+        let neovim_holder = neovim_holder.clone();
+        async move {
             tracy_fiber_enter!("Serial command");
-            match res {
-                Some(serial_command) => {
-                    tracy_dynamic_zone!(serial_command.as_ref());
-                    tracy_fiber_leave();
-                    serial_command.execute(&nvim).await;
-                    tracy_fiber_enter!("Serial command");
+            while let Some(serial_command) = serial_rx.recv().await {
+                tracy_dynamic_zone!(serial_command.as_ref());
+                tracy_fiber_leave();
+                match clone_neovim(&neovim_holder) {
+                    Some(serial_nvim) => serial_command.execute(&serial_nvim).await,
+                    None => {
+                        log::warn!("Serial command received without an active Neovim handle");
+                        break;
+                    }
                 }
-                None => break,
+                tracy_fiber_enter!("Serial command");
             }
+            log::info!("serial command receiver finished");
         }
-        log::info!("serial command receiver finished");
     });
 }
 
