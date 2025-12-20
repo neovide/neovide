@@ -499,6 +499,14 @@ impl Renderer {
             .for_each(|(_, w)| w.flush(renderer_settings));
     }
 
+    pub fn clear(&mut self) {
+        self.rendered_windows.clear();
+        self.window_regions.clear();
+        self.cursor_renderer = CursorRenderer::new(self.settings.clone());
+        self.progress_bar = ProgressBar::new();
+        self.current_mode = EditorMode::Unknown(String::new());
+    }
+
     pub fn get_cursor_destination(&self) -> PixelPos<f32> {
         self.cursor_renderer.get_destination()
     }

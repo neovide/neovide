@@ -3,7 +3,7 @@ use std::os::windows::process::CommandExt;
 use std::process::Command as StdCommand;
 use tokio::process::Command as TokioCommand;
 
-use crate::{cmd_line::CmdLineSettings, settings::*};
+use crate::{bridge::RestartDetails, cmd_line::CmdLineSettings, settings::*};
 
 #[derive(Clone)]
 struct CommandSpec {
@@ -33,6 +33,19 @@ impl CommandSpec {
 pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     let cmdline_settings = settings.get::<CmdLineSettings>();
     create_tokio_nvim_command(&cmdline_settings, true)
+}
+
+pub fn create_restart_nvim_command(details: &RestartDetails) -> TokioCommand {
+    let mut cmd = TokioCommand::new(&details.progpath);
+    cmd.arg("--embed");
+    for arg in details.argv.iter().skip(1) {
+        cmd.arg(arg);
+    }
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
+
+    cmd
 }
 
 pub fn create_blocking_nvim_command(cmdline_settings: &CmdLineSettings, embed: bool) -> StdCommand {

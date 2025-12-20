@@ -11,13 +11,15 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
-    bridge::NeovimRuntime,
+    bridge::{NeovimRuntime, RestartDetails},
     clipboard,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     settings::{Config, Settings},
+    units::GridSize,
     WindowSize,
 };
+use log::error;
 
 enum FocusedState {
     Focused,
@@ -76,6 +78,12 @@ impl ShouldRender {
 
 const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
+#[derive(Clone)]
+struct RestartRequest {
+    details: RestartDetails,
+    grid_size: GridSize<u32>,
+}
+
 pub struct UpdateLoop {
     idle: bool,
     previous_frame_start: Instant,
@@ -95,6 +103,7 @@ pub struct UpdateLoop {
     settings: Arc<Settings>,
     runtime: Option<NeovimRuntime>,
     clipboard: Option<Arc<Mutex<clipboard::Clipboard>>>,
+    pending_restart: Option<RestartRequest>,
 }
 
 impl UpdateLoop {
@@ -141,7 +150,51 @@ impl UpdateLoop {
             settings,
             runtime: Some(runtime),
             clipboard: Some(clipboard),
+            pending_restart: None,
         }
+    }
+
+    fn queue_restart(&mut self, details: RestartDetails) {
+        let grid_size = self.window_wrapper.get_grid_size();
+        self.pending_restart = Some(RestartRequest { details, grid_size });
+        self.pending_draw_commands.clear();
+        self.window_wrapper.clear_renderer();
+        self.should_render = ShouldRender::Immediately;
+    }
+
+    fn exit_application(&mut self, event_loop: &ActiveEventLoop) {
+        save_window_size(&self.window_wrapper, &self.settings);
+        event_loop.exit();
+    }
+
+    fn handle_neovim_exit(&mut self, event_loop: &ActiveEventLoop) {
+        match self.pending_restart.take() {
+            Some(restart) => self.restart_or_exit(restart, event_loop),
+            None => self.exit_application(event_loop),
+        }
+    }
+
+    fn restart_or_exit(&mut self, restart: RestartRequest, event_loop: &ActiveEventLoop) {
+        if self.restart(restart).is_err() {
+            self.exit_application(event_loop);
+        }
+    }
+
+    fn restart(&mut self, restart: RestartRequest) -> Result<(), ()> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Err(());
+        };
+
+        runtime
+            .restart(
+                self.proxy.clone(),
+                restart.grid_size,
+                self.settings.clone(),
+                restart.details,
+            )
+            .map_err(|error| {
+                error!("Failed to restart Neovim: {error:?}");
+            })
     }
 
     fn get_refresh_rate(&self) -> f32 {
@@ -396,8 +449,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
         tracy_zone!("user_event");
         match event {
             UserEvent::NeovimExited => {
-                save_window_size(&self.window_wrapper, &self.settings);
-                event_loop.exit();
+                self.handle_neovim_exit(event_loop);
             }
             UserEvent::RedrawRequested => {
                 self.redraw_requested();
@@ -407,6 +459,9 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 // draw, so it's not a good idea to process them now.
                 // They will be processed immediately after the rendering.
                 self.pending_draw_commands.push(batch);
+            }
+            UserEvent::NeovimRestart(details) => {
+                self.queue_restart(details);
             }
             _ => {
                 self.window_wrapper.handle_user_event(event);
