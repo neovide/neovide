@@ -395,6 +395,15 @@ impl RenderedWindow {
             WindowDrawCommand::DrawLine { row, line } => {
                 tracy_zone!("draw_line_cmd", 0);
 
+                if self.actual_lines.is_empty() || !self.valid {
+                    log::warn!(
+                        "Ignoring DrawLine for grid {} row {} because the window is not ready yet",
+                        self.id,
+                        row
+                    );
+                    return;
+                }
+
                 let line = RenderedLine {
                     line,
                     background_picture: None,
