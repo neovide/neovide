@@ -289,11 +289,6 @@ impl UpdateLoop {
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
         let should_prepare = !self.pending_render || skipped_frame;
         if !should_prepare {
-            self.window_wrapper
-                .renderer
-                .grid_renderer
-                .shaper
-                .cleanup_font_cache();
             return;
         }
 
@@ -308,6 +303,13 @@ impl UpdateLoop {
             self.animate();
             self.schedule_render(skipped_frame);
         } else {
+            if self.num_consecutive_rendered > 0 {
+                self.window_wrapper
+                    .renderer
+                    .grid_renderer
+                    .shaper
+                    .cleanup_font_cache();
+            }
             self.num_consecutive_rendered = 0;
             tracy_plot!(
                 "num_consecutive_rendered",

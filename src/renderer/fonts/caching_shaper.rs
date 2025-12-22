@@ -3,7 +3,10 @@ use std::{num::NonZeroUsize, rc::Rc};
 use itertools::Itertools;
 use log::{debug, error, info, trace};
 use lru::LruCache;
-use skia_safe::{graphics::set_font_cache_limit, TextBlob, TextBlobBuilder};
+use skia_safe::{
+    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
+    TextBlob, TextBlobBuilder,
+};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -362,9 +365,14 @@ impl CachingShaper {
     }
 
     pub fn cleanup_font_cache(&self) {
-        tracy_zone!("purge_font_cache");
-        set_font_cache_limit(FONT_CACHE_SIZE / 2);
-        set_font_cache_limit(FONT_CACHE_SIZE);
+        let limit = font_cache_limit();
+        let used = font_cache_used();
+
+        if used > limit * 9 / 10 {
+            tracy_zone!("purge_font_cache");
+            set_font_cache_limit(FONT_CACHE_SIZE / 2);
+            set_font_cache_limit(FONT_CACHE_SIZE);
+        }
     }
 
     pub fn shape(&mut self, word: Word<'_>, style: CoarseStyle) -> Vec<TextBlob> {
