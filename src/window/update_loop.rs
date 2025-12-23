@@ -303,6 +303,9 @@ impl UpdateLoop {
             self.animate();
             self.schedule_render(skipped_frame);
         } else {
+            // Cache purging should only happen once we become idle; doing it while throttling for
+            // vsync caused Skia to evict glyphs mid-animation and re-upload them every frame.
+            // See https://github.com/neovide/neovide/pull/3324
             if self.num_consecutive_rendered > 0 {
                 self.window_wrapper
                     .renderer

@@ -365,6 +365,11 @@ impl CachingShaper {
     }
 
     pub fn cleanup_font_cache(&self) {
+        // Only purge if we are truly about to exhaust the cache.
+        // See: https://github.com/neovide/neovide/issues/3299
+        // On high-DPI displays the old unconditional purge invalidated
+        // glyphs every frame, which forced the GPU to keep
+        // re-uploading textures and tanked performance.
         let limit = font_cache_limit();
         let used = font_cache_used();
 
