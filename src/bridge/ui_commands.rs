@@ -128,6 +128,14 @@ pub enum ParallelCommand {
     Quit,
     Resize { width: u64, height: u64 },
     FileDrop(String),
+    #[cfg(target_os = "macos")]
+    OpenTabAtPath(String),
+    #[cfg(target_os = "macos")]
+    NextTab,
+    #[cfg(target_os = "macos")]
+    PreviousTab,
+    #[cfg(target_os = "macos")]
+    ShowTabPicker,
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
@@ -224,6 +232,33 @@ impl ParallelCommand {
                 .await
                 .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
+            #[cfg(target_os = "macos")]
+            ParallelCommand::OpenTabAtPath(path) => nvim
+                .exec_lua(
+                    "local path = ...; if type(path) ~= 'string' or path == '' then return end; vim.cmd('tabnew'); vim.cmd('tcd ' .. vim.fn.fnameescape(path))",
+                    call_args![path],
+                )
+                .await
+                .map(|_| ())
+                .context("OpenTabAtPath failed"),
+            #[cfg(target_os = "macos")]
+            ParallelCommand::NextTab => nvim
+                .command("tabnext")
+                .await
+                .map(|_| ())
+                .context("NextTab failed"),
+            #[cfg(target_os = "macos")]
+            ParallelCommand::PreviousTab => nvim
+                .command("tabprevious")
+                .await
+                .map(|_| ())
+                .context("PreviousTab failed"),
+            #[cfg(target_os = "macos")]
+            ParallelCommand::ShowTabPicker => nvim
+                .exec_lua("neovide.show_tab_picker()", call_args![])
+                .await
+                .map(|_| ())
+                .context("ShowTabPicker failed"),
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),

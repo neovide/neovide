@@ -8,6 +8,7 @@ use super::{
 };
 use crate::{
     bridge::NeovimWriter,
+    cmd_line::CmdLineSettings,
     settings::{config::config_path, SettingLocation, Settings},
 };
 
@@ -84,6 +85,7 @@ pub async fn setup_neovide_specific_state(
             "register_clipboard" => register_clipboard,
             "register_right_click" => register_right_click,
             "remote" => remote,
+            "macos_tab_project_title" => settings.get::<CmdLineSettings>().macos_tab_project_title,
             "global_variable_settings" => global_variable_settings,
             "option_settings" => option_settings,
         }],

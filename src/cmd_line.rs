@@ -79,6 +79,62 @@ pub struct CmdLineSettings {
     #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
     pub title_hidden: bool,
 
+    /// macOS keybinding to open a new Neovim tab with a folder picker (e.g. "cmd+t")
+    #[cfg(target_os = "macos")]
+    #[arg(
+        long = "macos-tab-keybinding",
+        env = "NEOVIDE_MACOS_TAB_KEYBINDING",
+        default_value = "cmd+t"
+    )]
+    pub macos_tab_keybinding: String,
+
+    /// macOS keybinding to switch to the next Neovim tab (e.g. "cmd+shift+]")
+    #[cfg(target_os = "macos")]
+    #[arg(
+        long = "macos-tab-next-keybinding",
+        env = "NEOVIDE_MACOS_TAB_NEXT_KEYBINDING",
+        default_value = "cmd+shift+]"
+    )]
+    pub macos_tab_next_keybinding: String,
+
+    /// macOS keybinding to switch to the previous Neovim tab (e.g. "cmd+shift+[")
+    #[cfg(target_os = "macos")]
+    #[arg(
+        long = "macos-tab-prev-keybinding",
+        env = "NEOVIDE_MACOS_TAB_PREV_KEYBINDING",
+        default_value = "cmd+shift+["
+    )]
+    pub macos_tab_prev_keybinding: String,
+
+    /// macOS keybinding to show the tab picker (e.g. "cmd+shift+\\")
+    #[cfg(target_os = "macos")]
+    #[arg(
+        long = "macos-tab-picker-keybinding",
+        env = "NEOVIDE_MACOS_TAB_PICKER_KEYBINDING",
+        default_value = "cmd+shift+\\\\"
+    )]
+    pub macos_tab_picker_keybinding: String,
+
+    /// Use project name for the macOS window title instead of the active buffer
+    #[cfg(target_os = "macos")]
+    #[arg(
+        long = "macos-tab-project-title",
+        env = "NEOVIDE_MACOS_TAB_PROJECT_TITLE",
+        action = ArgAction::SetTrue,
+        default_value = "1",
+        value_parser = FalseyValueParser::new()
+    )]
+    pub macos_tab_project_title: bool,
+
+    /// Disable project-name window title for macOS tabs
+    #[cfg(target_os = "macos")]
+    #[arg(
+        long = "no-macos-tab-project-title",
+        action = ArgAction::SetTrue,
+        value_parser = FalseyValueParser::new()
+    )]
+    _no_macos_tab_project_title: bool,
+
     /// Spawn a child process and leak it
     #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
     pub fork: bool,
@@ -219,6 +275,10 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
 
     if cmdline._no_vsync {
         cmdline.vsync = false;
+    }
+    #[cfg(target_os = "macos")]
+    if cmdline._no_macos_tab_project_title {
+        cmdline.macos_tab_project_title = false;
     }
 
     cmdline.neovim_args = cmdline

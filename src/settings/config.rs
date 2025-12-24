@@ -56,6 +56,11 @@ pub struct Config {
     pub tabs: Option<bool>,
     pub mouse_cursor_icon: Option<String>,
     pub title_hidden: Option<bool>,
+    pub macos_tab_keybinding: Option<String>,
+    pub macos_tab_next_keybinding: Option<String>,
+    pub macos_tab_prev_keybinding: Option<String>,
+    pub macos_tab_picker_keybinding: Option<String>,
+    pub macos_tab_project_title: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
     pub backtraces_path: Option<PathBuf>,
@@ -119,6 +124,33 @@ impl Config {
         }
         if let Some(title_hidden) = &self.title_hidden {
             env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string());
+        }
+        if let Some(macos_tab_keybinding) = &self.macos_tab_keybinding {
+            env::set_var("NEOVIDE_MACOS_TAB_KEYBINDING", macos_tab_keybinding);
+        }
+        if let Some(macos_tab_next_keybinding) = &self.macos_tab_next_keybinding {
+            env::set_var(
+                "NEOVIDE_MACOS_TAB_NEXT_KEYBINDING",
+                macos_tab_next_keybinding,
+            );
+        }
+        if let Some(macos_tab_prev_keybinding) = &self.macos_tab_prev_keybinding {
+            env::set_var(
+                "NEOVIDE_MACOS_TAB_PREV_KEYBINDING",
+                macos_tab_prev_keybinding,
+            );
+        }
+        if let Some(macos_tab_picker_keybinding) = &self.macos_tab_picker_keybinding {
+            env::set_var(
+                "NEOVIDE_MACOS_TAB_PICKER_KEYBINDING",
+                macos_tab_picker_keybinding,
+            );
+        }
+        if let Some(macos_tab_project_title) = &self.macos_tab_project_title {
+            env::set_var(
+                "NEOVIDE_MACOS_TAB_PROJECT_TITLE",
+                macos_tab_project_title.to_string(),
+            );
         }
         if let Some(tabs) = &self.tabs {
             env::set_var("NEOVIDE_TABS", tabs.to_string());

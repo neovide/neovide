@@ -5,6 +5,7 @@
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
 ---@field remote boolean
+---@field macos_tab_project_title boolean
 ---@field enable_focus_command boolean
 ---@field global_variable_settings string[]
 ---@field option_settings string[]
@@ -14,6 +15,64 @@ local args = ...
 
 local M = {}
 M.private = {}
+
+M.show_tab_picker = function()
+    vim.schedule(function()
+        local tabs = vim.api.nvim_list_tabpages()
+        if #tabs == 0 then
+            return
+        end
+
+        local lines = { "Select a tab number:" }
+        for index, tab in ipairs(tabs) do
+            local cwd = vim.fn.fnamemodify(vim.fn.getcwd(-1, tab), ":t")
+            lines[#lines + 1] = string.format("%d: %s", index, cwd)
+        end
+
+        local buf = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+        vim.api.nvim_buf_set_option(buf, "modifiable", false)
+        vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+        local width = 0
+        for _, line in ipairs(lines) do
+            if #line > width then
+                width = #line
+            end
+        end
+        local height = #lines
+        local ui = vim.api.nvim_list_uis()[1] or { width = vim.o.columns, height = vim.o.lines }
+        local editor_width = ui.width or vim.o.columns
+        local editor_height = ui.height or vim.o.lines
+        local row = math.max(0, math.floor((editor_height - height) / 2) - 1)
+        local col = math.max(0, math.floor((editor_width - width) / 2))
+
+        local win = vim.api.nvim_open_win(buf, true, {
+            relative = "editor",
+            row = row,
+            col = col,
+            width = width,
+            height = height,
+            style = "minimal",
+            border = "rounded",
+        })
+
+        vim.cmd("redraw")
+
+        local function close_picker()
+            if vim.api.nvim_win_is_valid(win) then
+                vim.api.nvim_win_close(win, true)
+            end
+        end
+
+        local ch = vim.fn.getcharstr()
+        close_picker()
+        local idx = tonumber(ch)
+        if idx and tabs[idx] then
+            vim.api.nvim_set_current_tabpage(tabs[idx])
+        end
+    end)
+end
 
 vim.g.neovide_channel_id = args.neovide_channel_id
 vim.g.neovide_version = args.neovide_version
@@ -179,6 +238,40 @@ if vim.fn.has("mac") == 1 then
         local col, row, entity, guifont, entity_kind = take_entity_under_cursor()
         rpcnotify("neovide.force_click", col, row, entity, guifont, entity_kind)
     end, {})
+end
+
+if vim.fn.has("mac") == 1 and args.macos_tab_project_title then
+    local title_value = "%{fnamemodify(getcwd(), ':t')}"
+    vim.o.title = true
+    vim.o.titlelen = 0
+    vim.o.titlestring = title_value
+
+    vim.o.showtabline = 2
+    vim.o.tabline = "%!v:lua.NeovideTabline()"
+
+    _G.NeovideTabline = function()
+        local tabs = vim.api.nvim_list_tabpages()
+        local current = vim.api.nvim_get_current_tabpage()
+        local chunks = {}
+        for _, tab in ipairs(tabs) do
+            local cwd = vim.fn.fnamemodify(vim.fn.getcwd(-1, tab), ":t")
+            local hl = (tab == current) and "%#TabLineSel#" or "%#TabLine#"
+            table.insert(chunks, hl .. " " .. cwd .. " ")
+        end
+        return table.concat(chunks) .. "%#TabLineFill#"
+    end
+
+    vim.api.nvim_create_autocmd({ "DirChanged", "TabEnter", "VimEnter" }, {
+        group = vim.api.nvim_create_augroup("NeovideProjectTitle", { clear = true }),
+        callback = function()
+            vim.o.titlestring = title_value
+        end,
+    })
+end
+
+if vim.fn.has("mac") == 1 then
+    vim.keymap.set("n", "<C-Tab>", ":tabnext<CR>", { silent = true })
+    vim.keymap.set("n", "<C-S-Tab>", ":tabprevious<CR>", { silent = true })
 end
 
 vim.api.nvim_exec2(

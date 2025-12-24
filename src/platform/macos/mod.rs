@@ -12,7 +12,7 @@ use objc2::{
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
     NSFontAttributeName, NSFontDescriptor, NSFontWeight, NSImage, NSMenu, NSMenuItem, NSView,
-    NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSOpenPanel, NSWindow, NSWindowStyleMask, NSWindowTabbingMode, NSModalResponseOK,
 };
 use objc2_core_foundation::CGFloat;
 use objc2_foundation::{
@@ -182,6 +182,46 @@ fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSIma
             load_icon_from_custom_path(&expanded)
         })
         .or_else(load_icon_from_default_bytes)
+}
+
+fn parse_key_equivalent(binding: &str) -> Option<(String, NSEventModifierFlags)> {
+    let trimmed = binding.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    if matches!(lower.as_str(), "none" | "off" | "disabled") {
+        return None;
+    }
+
+    let parts: Vec<&str> = trimmed
+        .split(|ch| ch == '+' || ch == '-')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return None;
+    }
+
+    let (modifiers, key) = parts.split_at(parts.len().saturating_sub(1));
+    let key = key.first()?.to_string();
+    if key.is_empty() {
+        return None;
+    }
+
+    let mut flags = NSEventModifierFlags::empty();
+    for modifier in modifiers {
+        match modifier.to_ascii_lowercase().as_str() {
+            "cmd" | "command" => flags |= NSEventModifierFlags::Command,
+            "ctrl" | "control" => flags |= NSEventModifierFlags::Control,
+            "alt" | "option" => flags |= NSEventModifierFlags::Option,
+            "shift" => flags |= NSEventModifierFlags::Shift,
+            _ => {}
+        }
+    }
+
+    Some((key.to_ascii_lowercase(), flags))
 }
 
 #[derive(Debug)]
@@ -611,7 +651,18 @@ impl MacosWindowFeature {
     pub fn ensure_app_initialized(&mut self) {
         let mtm = MainThreadMarker::new().expect("Menu must be created on the main thread");
         if self.menu.is_none() {
-            self.menu = Some(Menu::new(mtm));
+            let cmdline = self.settings.get::<CmdLineSettings>();
+            let tab_keybinding = Some(cmdline.macos_tab_keybinding.clone());
+            let tab_next_keybinding = Some(cmdline.macos_tab_next_keybinding.clone());
+            let tab_prev_keybinding = Some(cmdline.macos_tab_prev_keybinding.clone());
+            let tab_picker_keybinding = Some(cmdline.macos_tab_picker_keybinding.clone());
+            self.menu = Some(Menu::new(
+                mtm,
+                tab_keybinding,
+                tab_next_keybinding,
+                tab_prev_keybinding,
+                tab_picker_keybinding,
+            ));
             let app = NSApplication::sharedApplication(mtm);
             #[allow(deprecated)]
             app.activateIgnoringOtherApps(true);
@@ -644,15 +695,103 @@ impl QuitHandler {
     }
 }
 
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    struct TabNavigationHandler;
+
+    impl TabNavigationHandler {
+        #[unsafe(method(nextTab:))]
+        fn next_tab(&self, _event: &NSEvent) {
+            send_ui(ParallelCommand::NextTab);
+        }
+
+        #[unsafe(method(previousTab:))]
+        fn previous_tab(&self, _event: &NSEvent) {
+            send_ui(ParallelCommand::PreviousTab);
+        }
+
+        #[unsafe(method(showTabPicker:))]
+        fn show_tab_picker(&self, _event: &NSEvent) {
+            send_ui(ParallelCommand::ShowTabPicker);
+        }
+    }
+);
+
+impl TabNavigationHandler {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    struct NewTabHandler;
+
+    impl NewTabHandler {
+        #[unsafe(method(openNewTab:))]
+        fn open_new_tab(&self, _event: &NSEvent) {
+            let Some(mtm) = MainThreadMarker::new() else {
+                return;
+            };
+
+            let panel = NSOpenPanel::openPanel(mtm);
+            panel.setCanChooseDirectories(true);
+            panel.setCanChooseFiles(false);
+            panel.setAllowsMultipleSelection(false);
+            panel.setPrompt(Some(ns_string!("Open Tab")));
+            panel.setMessage(Some(ns_string!("Choose a folder for the new tab")));
+
+            if panel.runModal() != NSModalResponseOK {
+                return;
+            }
+
+            let urls = panel.URLs();
+            if let Some(url) = urls.firstObject() {
+                if let Some(path) = url.path() {
+                    send_ui(ParallelCommand::OpenTabAtPath(path.to_string()));
+                }
+            }
+        }
+    }
+);
+
+impl NewTabHandler {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
 #[derive(Debug)]
 struct Menu {
     quit_handler: Retained<QuitHandler>,
+    tab_navigation_handler: Retained<TabNavigationHandler>,
+    new_tab_handler: Retained<NewTabHandler>,
+    tab_keybinding: Option<String>,
+    tab_next_keybinding: Option<String>,
+    tab_prev_keybinding: Option<String>,
+    tab_picker_keybinding: Option<String>,
 }
 
 impl Menu {
-    fn new(mtm: MainThreadMarker) -> Self {
+    fn new(
+        mtm: MainThreadMarker,
+        tab_keybinding: Option<String>,
+        tab_next_keybinding: Option<String>,
+        tab_prev_keybinding: Option<String>,
+        tab_picker_keybinding: Option<String>,
+    ) -> Self {
         let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
+            tab_navigation_handler: TabNavigationHandler::new(mtm),
+            new_tab_handler: NewTabHandler::new(mtm),
+            tab_keybinding,
+            tab_next_keybinding,
+            tab_prev_keybinding,
+            tab_picker_keybinding,
         };
         menu.add_menus(mtm);
         menu
@@ -736,6 +875,61 @@ impl Menu {
         unsafe {
             let menu = NSMenu::new(mtm);
             menu.setTitle(ns_string!("Window"));
+
+            let new_tab_item = NSMenuItem::new(mtm);
+            new_tab_item.setTitle(ns_string!("New Tab..."));
+            new_tab_item.setAction(Some(sel!(openNewTab:)));
+            new_tab_item.setTarget(Some(&self.new_tab_handler));
+            if let Some(binding) = self.tab_keybinding.as_deref() {
+                if let Some((key, modifiers)) = parse_key_equivalent(binding) {
+                    let key = NSString::from_str(&key);
+                    new_tab_item.setKeyEquivalent(&key);
+                    new_tab_item.setKeyEquivalentModifierMask(modifiers);
+                }
+            }
+            menu.addItem(&new_tab_item);
+
+            let next_tab_item = NSMenuItem::new(mtm);
+            next_tab_item.setTitle(ns_string!("Next Tab"));
+            next_tab_item.setAction(Some(sel!(nextTab:)));
+            next_tab_item.setTarget(Some(&self.tab_navigation_handler));
+            if let Some(binding) = self.tab_next_keybinding.as_deref() {
+                if let Some((key, modifiers)) = parse_key_equivalent(binding) {
+                    let key = NSString::from_str(&key);
+                    next_tab_item.setKeyEquivalent(&key);
+                    next_tab_item.setKeyEquivalentModifierMask(modifiers);
+                }
+            }
+            menu.addItem(&next_tab_item);
+
+            let previous_tab_item = NSMenuItem::new(mtm);
+            previous_tab_item.setTitle(ns_string!("Previous Tab"));
+            previous_tab_item.setAction(Some(sel!(previousTab:)));
+            previous_tab_item.setTarget(Some(&self.tab_navigation_handler));
+            if let Some(binding) = self.tab_prev_keybinding.as_deref() {
+                if let Some((key, modifiers)) = parse_key_equivalent(binding) {
+                    let key = NSString::from_str(&key);
+                    previous_tab_item.setKeyEquivalent(&key);
+                    previous_tab_item.setKeyEquivalentModifierMask(modifiers);
+                }
+            }
+            menu.addItem(&previous_tab_item);
+
+            let tab_picker_item = NSMenuItem::new(mtm);
+            tab_picker_item.setTitle(ns_string!("Select Tab..."));
+            tab_picker_item.setAction(Some(sel!(showTabPicker:)));
+            tab_picker_item.setTarget(Some(&self.tab_navigation_handler));
+            if let Some(binding) = self.tab_picker_keybinding.as_deref() {
+                if let Some((key, modifiers)) = parse_key_equivalent(binding) {
+                    let key = NSString::from_str(&key);
+                    tab_picker_item.setKeyEquivalent(&key);
+                    tab_picker_item.setKeyEquivalentModifierMask(modifiers);
+                }
+            }
+            menu.addItem(&tab_picker_item);
+
+            let sep = NSMenuItem::separatorItem(mtm);
+            menu.addItem(&sep);
 
             let full_screen_item = NSMenuItem::new(mtm);
             full_screen_item.setTitle(ns_string!("Enter Full Screen"));
