@@ -75,7 +75,7 @@ impl Default for WindowSettings {
             remember_window_position: true,
             remember_window_size: true,
             scale_factor: 1.0,
-            show_border: false,
+            show_border: true,
             theme: ThemeSettings::Auto,
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,

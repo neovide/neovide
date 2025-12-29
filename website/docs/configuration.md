@@ -390,7 +390,7 @@ vim.g.neovide_show_border = true
 
 Draw a grey border around opaque windows only.
 
-Default: `false`
+Default: `true`
 
 #### Position Animation Length
 
