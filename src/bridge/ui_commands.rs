@@ -82,7 +82,9 @@ impl SerialCommand {
                         ],
                     )
                     .await
-                    .map(|_| ())
+                    .map(|_| {
+                        trace!("IME Commit Called");
+                    })
                     .context("IME Commit failed")
                 } else {
                     trace!("Keyboard Input Sent: {formatted}");
@@ -108,7 +110,9 @@ impl SerialCommand {
                         ],
                     )
                     .await
-                    .map(|_| ())
+                    .map(|_| {
+                        trace!("IME Preedit Called");
+                    })
                     .context("IME Preedit failed")
                 } else {
                     Ok(())
