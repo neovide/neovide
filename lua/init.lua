@@ -387,8 +387,9 @@ pcall(vim.api.nvim_create_autocmd, 'Progress', {
 })
 
 ---@param preedit_raw_text string
----@param cursor_offset? [integer, integer] (start_col, end_col) This values show the cursor begin position and end position. The position is byte-wise indexed.
-M.preedit_handler = function(preedit_raw_text, cursor_offset) end
+---@param cursor_offset_start integer This values show the cursor begin position. The position is byte-wise indexed.
+---@param cursor_offset_end integer This values show the cursor end position. The position is byte-wise indexed.
+M.preedit_handler = function(preedit_raw_text, cursor_offset_start, cursor_offset_end) end
 
 ---@param commit_raw_text string
 ---@param commit_formatted_text string It's escaped.
