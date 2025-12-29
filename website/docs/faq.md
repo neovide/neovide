@@ -154,16 +154,16 @@ Neovide also exposes a Lua function called commit_handler() in addition to preed
 details, see [IME handling on the API page](api.html#ime-handling).
 
 If you’d prefer not to set this up yourself, you can use
-[kanium3/neovide_ime.nvim](https://github.com/kanium3/neovide-ime.nvim). Please refer to that
+[sevenc-nanashi/neov-ime.nvim](https://github.com/sevenc-nanashi/neov-ime.nvim). Please refer to that
 repository for more information. Example: Installation with Lazy.nvim
 
 ```lua
 return {
-  "kanium3/neovide-ime.nvim"
+  "sevenc-nanashi/neov-ime.nvim",
 }
 ```
 
-Related: [PR #3110](https://github.com/neovide/neovide/pull/3110)
+Related: [PR #3110](https://github.com/neovide/neovide/pull/3110), [PR #3221](https://github.com/neovide/neovide/pull/3221)
 
 ## Neovide Is Not Picking Up Some Shell-configured Information
 
