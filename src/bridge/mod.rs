@@ -151,9 +151,7 @@ async fn launch(
 
     // NOTE: `api_information.has_function("nvim__exec_lua_fast")` does not return the correct
     // result so we check the version instead.
-    let can_support_ime_api = api_information
-        .version
-        .has_version(0, 12, 0, Some(1724));
+    let can_support_ime_api = api_information.version.has_version(0, 12, 0, Some(1724));
 
     start_ui_command_handler(
         session.neovim.clone(),
