@@ -192,46 +192,14 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
-#### Background Color (**Deprecated**, Currently macOS only)
+#### Background Color (Removed at Nightly, Previously macOS only)
 
-This configuration is deprecated now and might be removed in the future. In
-[#2168](https://github.com/neovide/neovide/issues/2168), we have made Neovide control the title bar
-color itself. The color of title bar now honors [`neovide_opacity`](#transparency). If you want
-a transparent title bar, setting `neovide_opacity` is sufficient.
+This legacy configuration has now been fully removed. Neovide controls the title bar color
+automatically, and setting `g:neovide_background_color` no longer has any effect.
 
-VimScript:
-
-```vim
-" g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
-let g:neovide_opacity = 0.0
-let g:transparency = 0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
-```
-
-Lua:
-
-```lua
--- Helper function for transparency formatting
-local alpha = function()
-  return string.format("%x", math.floor(255 * vim.g.transparency or 0.8))
-end
--- g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
-vim.g.neovide_opacity = 0.0
-vim.g.transparency = 0.8
-vim.g.neovide_background_color = "#0f1117" .. alpha()
-```
-
-**Available since 0.10.**
-**Deprecated in 0.12.2.**
-
-![BackgroundColor](assets/BackgroundColor.png)
-
-Setting `g:neovide_background_color` to a value that can be parsed by
-[csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set the color of the whole
-window to that value.
-
-Note that `g:neovide_opacity` should be 0 if you want to unify transparency of content and
-title bar.
+If you want a transparent title bar, simply configure [`g:neovide_opacity`](#transparency)
+(or its alias `g:neovide_transparency`) and, if needed, `g:neovide_normal_opacity` to tune how
+opaque the buffer content should remain.
 
 #### Title Bar Color (Currently Windows only)
 
@@ -390,7 +358,7 @@ vim.g.neovide_show_border = true
 
 Draw a grey border around opaque windows only.
 
-Default: `false`
+Default: `true`
 
 #### Position Animation Length
 

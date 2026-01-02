@@ -8,7 +8,6 @@ pub use crate::platform::macos::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
-    pub background_color: String,
     pub confirm_quit: bool,
     pub cursor_hack: bool,
     pub fullscreen: bool,
@@ -56,7 +55,6 @@ pub struct WindowSettings {
 impl Default for WindowSettings {
     fn default() -> Self {
         Self {
-            background_color: "".to_string(),
             confirm_quit: true,
             cursor_hack: true,
             fullscreen: false,
@@ -75,7 +73,7 @@ impl Default for WindowSettings {
             remember_window_position: true,
             remember_window_size: true,
             scale_factor: 1.0,
-            show_border: false,
+            show_border: true,
             theme: ThemeSettings::Auto,
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,

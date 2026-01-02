@@ -11,13 +11,15 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
-    bridge::NeovimRuntime,
+    bridge::{NeovimRuntime, RestartDetails},
     clipboard,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     settings::{Config, Settings},
+    units::GridSize,
     WindowSize,
 };
+use log::error;
 
 enum FocusedState {
     Focused,
@@ -76,7 +78,13 @@ impl ShouldRender {
 
 const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
-pub struct UpdateLoop {
+#[derive(Clone)]
+struct RestartRequest {
+    details: RestartDetails,
+    grid_size: GridSize<u32>,
+}
+
+pub struct Application {
     idle: bool,
     previous_frame_start: Instant,
     last_dt: f32,
@@ -95,9 +103,10 @@ pub struct UpdateLoop {
     settings: Arc<Settings>,
     runtime: Option<NeovimRuntime>,
     clipboard: Option<Arc<Mutex<clipboard::Clipboard>>>,
+    pending_restart: Option<RestartRequest>,
 }
 
-impl UpdateLoop {
+impl Application {
     pub fn new(
         initial_window_size: WindowSize,
         initial_config: Config,
@@ -141,7 +150,51 @@ impl UpdateLoop {
             settings,
             runtime: Some(runtime),
             clipboard: Some(clipboard),
+            pending_restart: None,
         }
+    }
+
+    fn queue_restart(&mut self, details: RestartDetails) {
+        let grid_size = self.window_wrapper.get_grid_size();
+        self.pending_restart = Some(RestartRequest { details, grid_size });
+        self.pending_draw_commands.clear();
+        self.window_wrapper.clear_renderer();
+        self.should_render = ShouldRender::Immediately;
+    }
+
+    fn exit_application(&mut self, event_loop: &ActiveEventLoop) {
+        save_window_size(&self.window_wrapper, &self.settings);
+        event_loop.exit();
+    }
+
+    fn handle_neovim_exit(&mut self, event_loop: &ActiveEventLoop) {
+        match self.pending_restart.take() {
+            Some(restart) => self.restart_or_exit(restart, event_loop),
+            None => self.exit_application(event_loop),
+        }
+    }
+
+    fn restart_or_exit(&mut self, restart: RestartRequest, event_loop: &ActiveEventLoop) {
+        if self.restart(restart).is_err() {
+            self.exit_application(event_loop);
+        }
+    }
+
+    fn restart(&mut self, restart: RestartRequest) -> Result<(), ()> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Err(());
+        };
+
+        runtime
+            .restart(
+                self.proxy.clone(),
+                restart.grid_size,
+                self.settings.clone(),
+                restart.details,
+            )
+            .map_err(|error| {
+                error!("Failed to restart Neovim: {error:?}");
+            })
     }
 
     fn get_refresh_rate(&self) -> f32 {
@@ -289,11 +342,6 @@ impl UpdateLoop {
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
         let should_prepare = !self.pending_render || skipped_frame;
         if !should_prepare {
-            self.window_wrapper
-                .renderer
-                .grid_renderer
-                .shaper
-                .cleanup_font_cache();
             return;
         }
 
@@ -308,6 +356,16 @@ impl UpdateLoop {
             self.animate();
             self.schedule_render(skipped_frame);
         } else {
+            // Cache purging should only happen once we become idle; doing it while throttling for
+            // vsync caused Skia to evict glyphs mid-animation and re-upload them every frame.
+            // See https://github.com/neovide/neovide/pull/3324
+            if self.num_consecutive_rendered > 0 {
+                self.window_wrapper
+                    .renderer
+                    .grid_renderer
+                    .shaper
+                    .cleanup_font_cache();
+            }
             self.num_consecutive_rendered = 0;
             tracy_plot!(
                 "num_consecutive_rendered",
@@ -347,13 +405,13 @@ impl UpdateLoop {
     }
 }
 
-impl Drop for UpdateLoop {
+impl Drop for Application {
     fn drop(&mut self) {
         self.teardown();
     }
 }
 
-impl ApplicationHandler<UserEvent> for UpdateLoop {
+impl ApplicationHandler<UserEvent> for Application {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -391,8 +449,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
         tracy_zone!("user_event");
         match event {
             UserEvent::NeovimExited => {
-                save_window_size(&self.window_wrapper, &self.settings);
-                event_loop.exit();
+                self.handle_neovim_exit(event_loop);
             }
             UserEvent::RedrawRequested => {
                 self.redraw_requested();
@@ -402,6 +459,9 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 // draw, so it's not a good idea to process them now.
                 // They will be processed immediately after the rendering.
                 self.pending_draw_commands.push(batch);
+            }
+            UserEvent::NeovimRestart(details) => {
+                self.queue_restart(details);
             }
             _ => {
                 self.window_wrapper.handle_user_event(event);
@@ -425,6 +485,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
+        self.teardown();
         self.window_wrapper.exit();
         self.schedule_next_event(event_loop);
     }

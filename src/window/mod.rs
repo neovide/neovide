@@ -1,8 +1,8 @@
+mod application;
 mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
 mod settings;
-mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
@@ -43,6 +43,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::{
+    bridge::RestartDetails,
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
     renderer::{build_window_config, DrawCommand, WindowConfig},
@@ -53,10 +54,10 @@ use crate::{
     units::GridSize,
     utils::expand_tilde,
 };
+pub use application::Application;
+pub use application::ShouldRender;
 pub use error_window::show_error_window;
 pub use settings::{ThemeSettings, WindowSettings, WindowSettingsChanged};
-pub use update_loop::ShouldRender;
-pub use update_loop::UpdateLoop;
 pub use window_wrapper::WinitWindowWrapper;
 
 static DEFAULT_ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
@@ -132,6 +133,7 @@ pub enum UserEvent {
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
+    NeovimRestart(RestartDetails),
     ShowProgressBar {
         percent: f32,
     },

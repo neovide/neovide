@@ -20,7 +20,6 @@ use objc2_foundation::{
     NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString, NSUserDefaults, NSURL,
 };
 
-use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
@@ -30,7 +29,7 @@ use crate::{
     renderer::fonts::font_options::FontOptions,
     settings::Settings,
 };
-use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
+use crate::{cmd_line::CmdLineSettings, frame::Frame};
 
 use crate::units::Pixel;
 #[cfg(target_os = "macos")]
@@ -257,7 +256,7 @@ impl MacosWindowFeature {
             definition_is_active: false,
         };
 
-        macos_window_feature.update_background(true);
+        macos_window_feature.update_background();
 
         macos_window_feature
     }
@@ -507,47 +506,6 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Print a deprecation warning for `neovide_background_color`
-    fn display_deprecation_warning(&self) {
-        error_msg!(concat!(
-            "neovide_background_color has now been deprecated. ",
-            "Use neovide_opacity instead if you want to get a transparent window titlebar. ",
-            "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
-        ));
-    }
-
-    fn update_ns_background_legacy(
-        &self,
-        color: Color,
-        show_border: bool,
-        ignore_deprecation_warning: bool,
-    ) {
-        if !ignore_deprecation_warning {
-            self.display_deprecation_warning();
-        }
-        let [red, green, blue, alpha] = color.to_array();
-        let opaque = alpha >= 1.0;
-        let ns_background = if opaque && show_border {
-            NSColor::colorWithSRGBRed_green_blue_alpha(
-                red.into(),
-                green.into(),
-                blue.into(),
-                alpha.into(),
-            )
-        } else if !opaque {
-            // Use white with very low alpha to make borders rendering properly
-            NSColor::whiteColor().colorWithAlphaComponent(0.001)
-        } else {
-            NSColor::clearColor()
-        };
-        self.ns_window.setBackgroundColor(Some(&ns_background));
-        // Show shadow if window is opaque OR has border decoration
-        self.ns_window.setHasShadow(opaque || show_border);
-        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-        self.ns_window.setOpaque(opaque && show_border);
-        self.ns_window.invalidateShadow();
-    }
-
     fn update_ns_background(&self, opaque: bool, show_border: bool) {
         // Setting the background color to `NSColor::windowBackgroundColor()`
         // makes the background opaque and draws a grey border around the window
@@ -568,40 +526,34 @@ impl MacosWindowFeature {
     }
 
     /// Update background color, opacity, shadow and blur of a window.
-    fn update_background(&self, ignore_deprecation_warning: bool) {
+    fn update_background(&self) {
         let WindowSettings {
-            background_color,
             show_border,
             opacity,
             normal_opacity,
             ..
         } = self.settings.get::<WindowSettings>();
         let opaque = opacity.min(normal_opacity) >= 1.0;
-        match background_color.parse::<Color>() {
-            Ok(color) => {
-                self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
-            }
-            _ => self.update_ns_background(opaque, show_border),
-        }
+        self.update_ns_background(opaque, show_border);
     }
 
     pub fn handle_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
         match changed_setting {
-            WindowSettingsChanged::BackgroundColor(background_color) => {
-                log::info!("background_color changed to {background_color}");
-                self.update_background(false);
-            }
             WindowSettingsChanged::ShowBorder(show_border) => {
                 log::info!("show_border changed to {show_border}");
-                self.update_background(true);
+                self.update_background();
             }
             WindowSettingsChanged::Opacity(opacity) => {
                 log::info!("opacity changed to {opacity}");
-                self.update_background(true);
+                self.update_background();
+            }
+            WindowSettingsChanged::NormalOpacity(normal_opacity) => {
+                log::info!("normal_opacity changed to {normal_opacity}");
+                self.update_background();
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
                 log::info!("window_blurred changed to {window_blurred}");
-                self.update_background(true);
+                self.update_background();
             }
             _ => {}
         }

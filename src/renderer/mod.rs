@@ -23,7 +23,6 @@ use std::{
 };
 
 use itertools::Itertools;
-use log::error;
 use progress_bar::{ProgressBar, ProgressBarSettings};
 use skia_safe::Canvas;
 
@@ -461,10 +460,10 @@ impl Renderer {
                         }
                         _ => {
                             let settings = self.settings.get::<CmdLineSettings>();
-                            // Ignore the errors when not using multigrid, since Neovim wrongly sends some of these
+                            // Neovim can emit draw commands before a window is positioned when using multigrid.
                             if !settings.no_multi_grid {
-                                error!(
-                                    "WindowDrawCommand: {command:?} sent for uninitialized grid {grid_id}"
+                                log::warn!(
+                                    "Ignoring {command:?} sent for uninitialized grid {grid_id}"
                                 );
                             }
                         }
@@ -498,6 +497,14 @@ impl Renderer {
         self.rendered_windows
             .iter_mut()
             .for_each(|(_, w)| w.flush(renderer_settings));
+    }
+
+    pub fn clear(&mut self) {
+        self.rendered_windows.clear();
+        self.window_regions.clear();
+        self.cursor_renderer = CursorRenderer::new(self.settings.clone());
+        self.progress_bar = ProgressBar::new();
+        self.current_mode = EditorMode::Unknown(String::new());
     }
 
     pub fn get_cursor_destination(&self) -> PixelPos<f32> {
