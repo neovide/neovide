@@ -4,7 +4,8 @@ The API fuctions are always available without any imports as long as Neovide is 
 
 ## Redraw Control
 
-`neovide.disable_redraw()` `neovide.enable_redraw()`
+`neovide.disable_redraw()`
+`neovide.enable_redraw()`
 
 These can be used to by plugins to temporarily disable redrawing while performing some update. They
 can for exapmple, be used to prevent the cursor from temporarily moving to the wrong location, or to
