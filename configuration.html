@@ -287,35 +287,12 @@ vim.g.neovide_padding_left = 0
 <p><strong>Available since 0.10.4.</strong></p>
 <p>Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.</p>
-<h4 id="background-color-deprecated-currently-macos-only"><a class="header" href="#background-color-deprecated-currently-macos-only">Background Color (<strong>Deprecated</strong>, Currently macOS only)</a></h4>
-<p>This configuration is deprecated now and might be removed in the future. In
-<a href="https://github.com/neovide/neovide/issues/2168">#2168</a>, we have made Neovide control the title bar
-color itself. The color of title bar now honors <a href="#transparency"><code>neovide_opacity</code></a>. If you want
-a transparent title bar, setting <code>neovide_opacity</code> is sufficient.</p>
-<p>VimScript:</p>
-<pre><code class="language-vim">&quot; g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
-let g:neovide_opacity = 0.0
-let g:transparency = 0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
-</code></pre>
-<p>Lua:</p>
-<pre><code class="language-lua">-- Helper function for transparency formatting
-local alpha = function()
-  return string.format(&quot;%x&quot;, math.floor(255 * vim.g.transparency or 0.8))
-end
--- g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
-vim.g.neovide_opacity = 0.0
-vim.g.transparency = 0.8
-vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
-</code></pre>
-<p><strong>Available since 0.10.</strong>
-<strong>Deprecated in 0.12.2.</strong></p>
-<p><img src="assets/BackgroundColor.png" alt="BackgroundColor" /></p>
-<p>Setting <code>g:neovide_background_color</code> to a value that can be parsed by
-<a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set the color of the whole
-window to that value.</p>
-<p>Note that <code>g:neovide_opacity</code> should be 0 if you want to unify transparency of content and
-title bar.</p>
+<h4 id="background-color-removed-at-nightly-previously-macos-only"><a class="header" href="#background-color-removed-at-nightly-previously-macos-only">Background Color (Removed at Nightly, Previously macOS only)</a></h4>
+<p>This legacy configuration has now been fully removed. Neovide controls the title bar color
+automatically, and setting <code>g:neovide_background_color</code> no longer has any effect.</p>
+<p>If you want a transparent title bar, simply configure <a href="#transparency"><code>g:neovide_opacity</code></a>
+(or its alias <code>g:neovide_transparency</code>) and, if needed, <code>g:neovide_normal_opacity</code> to tune how
+opaque the buffer content should remain.</p>
 <h4 id="title-bar-color-currently-windows-only"><a class="header" href="#title-bar-color-currently-windows-only">Title Bar Color (Currently Windows only)</a></h4>
 <p><strong>Available since 0.14.0.</strong></p>
 <p><img src="assets/TitleBackgroundColor.png" alt="TitleBackgroundColor" /></p>

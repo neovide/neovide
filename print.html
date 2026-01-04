@@ -594,35 +594,12 @@ vim.g.neovide_padding_left = 0
 <p><strong>Available since 0.10.4.</strong></p>
 <p>Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.</p>
-<h4 id="background-color-deprecated-currently-macos-only"><a class="header" href="#background-color-deprecated-currently-macos-only">Background Color (<strong>Deprecated</strong>, Currently macOS only)</a></h4>
-<p>This configuration is deprecated now and might be removed in the future. In
-<a href="https://github.com/neovide/neovide/issues/2168">#2168</a>, we have made Neovide control the title bar
-color itself. The color of title bar now honors <a href="configuration.html#transparency"><code>neovide_opacity</code></a>. If you want
-a transparent title bar, setting <code>neovide_opacity</code> is sufficient.</p>
-<p>VimScript:</p>
-<pre><code class="language-vim">&quot; g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
-let g:neovide_opacity = 0.0
-let g:transparency = 0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
-</code></pre>
-<p>Lua:</p>
-<pre><code class="language-lua">-- Helper function for transparency formatting
-local alpha = function()
-  return string.format(&quot;%x&quot;, math.floor(255 * vim.g.transparency or 0.8))
-end
--- g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
-vim.g.neovide_opacity = 0.0
-vim.g.transparency = 0.8
-vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
-</code></pre>
-<p><strong>Available since 0.10.</strong>
-<strong>Deprecated in 0.12.2.</strong></p>
-<p><img src="assets/BackgroundColor.png" alt="BackgroundColor" /></p>
-<p>Setting <code>g:neovide_background_color</code> to a value that can be parsed by
-<a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set the color of the whole
-window to that value.</p>
-<p>Note that <code>g:neovide_opacity</code> should be 0 if you want to unify transparency of content and
-title bar.</p>
+<h4 id="background-color-removed-at-nightly-previously-macos-only"><a class="header" href="#background-color-removed-at-nightly-previously-macos-only">Background Color (Removed at Nightly, Previously macOS only)</a></h4>
+<p>This legacy configuration has now been fully removed. Neovide controls the title bar color
+automatically, and setting <code>g:neovide_background_color</code> no longer has any effect.</p>
+<p>If you want a transparent title bar, simply configure <a href="configuration.html#transparency"><code>g:neovide_opacity</code></a>
+(or its alias <code>g:neovide_transparency</code>) and, if needed, <code>g:neovide_normal_opacity</code> to tune how
+opaque the buffer content should remain.</p>
 <h4 id="title-bar-color-currently-windows-only"><a class="header" href="#title-bar-color-currently-windows-only">Title Bar Color (Currently Windows only)</a></h4>
 <p><strong>Available since 0.14.0.</strong></p>
 <p><img src="assets/TitleBackgroundColor.png" alt="TitleBackgroundColor" /></p>
@@ -1898,40 +1875,39 @@ end)
 </code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/pull/1589">BHatGuy here</a>.</p>
 <h2 id="how-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#how-can-i-dynamically-change-the-transparency-at-runtime-macos">How can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
+<p>from Nightly release <code>g:neovide_background_color</code> has been removed. To adjust the window
+transparency at runtime on macOS you only need to update <code>g:neovide_opacity</code> (and optionally
+<code>g:neovide_normal_opacity</code> for the editor background). Here is a simple example that binds the
+Command-<code>]</code>/Command-<code>[</code> keys to tweak the opacity:</p>
 <p>VimScript:</p>
-<pre><code class="language-vim">&quot; Set transparency and background color (title bar color)
-let g:neovide_opacity=0.0
-let g:neovide_opacity_point=0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_opacity_point))
+<pre><code class="language-vim">let g:neovide_opacity = 0.8
 
-&quot; Add keybinds to change transparency
 function! ChangeTransparency(delta)
-  let g:neovide_opacity_point = g:neovide_opacity_point + a:delta
-  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_opacity_point))
+  let g:neovide_opacity = g:neovide_opacity + a:delta
+  if g:neovide_opacity &gt; 1
+    let g:neovide_opacity = 1
+  elseif g:neovide_opacity &lt; 0
+    let g:neovide_opacity = 0
+  endif
 endfunction
-noremap &lt;expr&gt;&lt;D-]&gt; ChangeTransparency(0.01)
-noremap &lt;expr&gt;&lt;D-[&gt; ChangeTransparency(-0.01)
+
+nnoremap &lt;silent&gt; &lt;D-]&gt; :call ChangeTransparency(0.01)&lt;CR&gt;
+nnoremap &lt;silent&gt; &lt;D-[&gt; :call ChangeTransparency(-0.01)&lt;CR&gt;
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">-- Helper function for transparency formatting
-local alpha = function()
-  return string.format(&quot;%x&quot;, math.floor(255 * vim.g.neovide_opacity_point or 0.8))
-end
--- Set transparency and background color (title bar color)
-vim.g.neovide_opacity = 0.0
-vim.g.neovide_opacity_point = 0.8
-vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
--- Add keybinds to change transparency
+<pre><code class="language-lua">vim.g.neovide_opacity = 0.8
+
 local change_transparency = function(delta)
-  vim.g.neovide_opacity_point = vim.g.neovide_opacity_point + delta
-  vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
+  local next_value = (vim.g.neovide_opacity or 1) + delta
+  vim.g.neovide_opacity = math.min(1, math.max(0, next_value))
 end
+
 vim.keymap.set({ &quot;n&quot;, &quot;v&quot;, &quot;o&quot; }, &quot;&lt;D-]&gt;&quot;, function()
   change_transparency(0.01)
-end)
+end, { desc = &quot;Increase Neovide opacity&quot; })
 vim.keymap.set({ &quot;n&quot;, &quot;v&quot;, &quot;o&quot; }, &quot;&lt;D-[&gt;&quot;, function()
   change_transparency(-0.01)
-end)
+end, { desc = &quot;Decrease Neovide opacity&quot; })
 </code></pre>
 <h2 id="neovide-is-not-picking-up-some-shell-configured-information"><a class="header" href="#neovide-is-not-picking-up-some-shell-configured-information">Neovide Is Not Picking Up Some Shell-configured Information</a></h2>
 <p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code>
