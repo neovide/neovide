@@ -39,3 +39,39 @@ if neovide and neovide.enable_redraw then neovide.enable_redraw() end
 
 **Don't call these functions as a regular user, since you won't see any updates on the screen until
 the redrawing is enabled again, so it might be hard to type in the command.**
+
+## IME handling
+
+**Requires Neovim Nightly Dec 2 2025 or later.**
+
+`neovide.preedit_handler(
+    preedit_raw_text:string,
+    cursor_offset:[start_col:integer, end_col:integer]
+)`
+`neovide.commit_handler(commit_raw_text:string, commit_formatted_text:string)`
+
+These can be used to by your plugin to handle IME events. The pre-edit handler is
+called when yourinput method, such as Fcitx, IBus and MS-IME, sends pre-edit event.
+So, you have to handle pre-edit texts if you would like to support pre-edit event.
+The commit handler is called when your inputmethod sends commit event,
+which you decide some text on enabled IME.
+
+In default, `preedit_handler()` is nothing to do and `commit_handler()` uses
+[`nvim_input()`](<https://neovim.io/doc/user/api.html#nvim_input()>)
+
+```lua
+---@param preedit_raw_text string
+--- This values show the cursor begin position. The position is byte-wise indexed.
+---@param cursor_offset_start integer
+--- This values show the cursor end position. The position is byte-wise indexed.
+---@param cursor_offset_end integer
+M.preedit_handler = function(preedit_raw_text, cursor_offset_start, cursor_offset_end) end
+    -- handle pre-edit event...
+end
+
+---@param commit_raw_text string
+---@param commit_formatted_text string It's escaped.
+neovide.commit_handler = function (commit_raw_text, commit_formatted_text)
+    -- handle commit event...
+end
+```
