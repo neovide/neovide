@@ -72,45 +72,45 @@ Credits to [BHatGuy here](https://github.com/neovide/neovide/pull/1589).
 
 ## How can I Dynamically Change The Transparency At Runtime? (macOS)
 
+from Nightly release `g:neovide_background_color` has been removed. To adjust the window
+transparency at runtime on macOS you only need to update `g:neovide_opacity` (and optionally
+`g:neovide_normal_opacity` for the editor background). Here is a simple example that binds the
+Command-`]`/Command-`[` keys to tweak the opacity:
+
 VimScript:
 
 ```vim
-" Set transparency and background color (title bar color)
-let g:neovide_opacity=0.0
-let g:neovide_opacity_point=0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_opacity_point))
+let g:neovide_opacity = 0.8
 
-" Add keybinds to change transparency
 function! ChangeTransparency(delta)
-  let g:neovide_opacity_point = g:neovide_opacity_point + a:delta
-  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_opacity_point))
+  let g:neovide_opacity = g:neovide_opacity + a:delta
+  if g:neovide_opacity > 1
+    let g:neovide_opacity = 1
+  elseif g:neovide_opacity < 0
+    let g:neovide_opacity = 0
+  endif
 endfunction
-noremap <expr><D-]> ChangeTransparency(0.01)
-noremap <expr><D-[> ChangeTransparency(-0.01)
+
+nnoremap <silent> <D-]> :call ChangeTransparency(0.01)<CR>
+nnoremap <silent> <D-[> :call ChangeTransparency(-0.01)<CR>
 ```
 
 Lua:
 
 ```lua
--- Helper function for transparency formatting
-local alpha = function()
-  return string.format("%x", math.floor(255 * vim.g.neovide_opacity_point or 0.8))
-end
--- Set transparency and background color (title bar color)
-vim.g.neovide_opacity = 0.0
-vim.g.neovide_opacity_point = 0.8
-vim.g.neovide_background_color = "#0f1117" .. alpha()
--- Add keybinds to change transparency
+vim.g.neovide_opacity = 0.8
+
 local change_transparency = function(delta)
-  vim.g.neovide_opacity_point = vim.g.neovide_opacity_point + delta
-  vim.g.neovide_background_color = "#0f1117" .. alpha()
+  local next_value = (vim.g.neovide_opacity or 1) + delta
+  vim.g.neovide_opacity = math.min(1, math.max(0, next_value))
 end
+
 vim.keymap.set({ "n", "v", "o" }, "<D-]>", function()
   change_transparency(0.01)
-end)
+end, { desc = "Increase Neovide opacity" })
 vim.keymap.set({ "n", "v", "o" }, "<D-[>", function()
   change_transparency(-0.01)
-end)
+end, { desc = "Decrease Neovide opacity" })
 ```
 
 ## Neovide Is Not Picking Up Some Shell-configured Information
