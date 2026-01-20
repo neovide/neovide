@@ -43,6 +43,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::{
+    bridge::RestartDetails,
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
     renderer::{build_window_config, DrawCommand, WindowConfig},
@@ -132,6 +133,7 @@ pub enum UserEvent {
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
+    NeovimRestart(RestartDetails),
     ShowProgressBar {
         percent: f32,
     },

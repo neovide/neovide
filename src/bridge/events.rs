@@ -9,6 +9,7 @@ use rmpv::Value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
+use super::RestartDetails;
 use crate::{
     editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle},
     window::UserEvent,
@@ -155,6 +156,10 @@ pub enum RedrawEvent {
     /// Set the window title.
     SetTitle {
         title: String,
+    },
+    /// Request the UI to restart Neovim.
+    Restart {
+        details: RestartDetails,
     },
     ModeInfoSet {
         cursor_modes: Vec<CursorMode>,
@@ -512,6 +517,17 @@ fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
     Ok(RedrawEvent::SetTitle {
         title: parse_string(title)?,
     })
+}
+
+fn parse_restart(arguments: Vec<Value>) -> Result<RedrawEvent> {
+    RestartDetails::from_values(&arguments).map_or_else(
+        || {
+            Err(ParseError::Format(format!(
+                "invalid restart event: {arguments:?}"
+            )))
+        },
+        |details| Ok(RedrawEvent::Restart { details }),
+    )
 }
 
 fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
@@ -1010,6 +1026,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
         let event_parameters_copy = event_parameters.clone();
         let possible_parsed_event = match event_name.as_str() {
             "set_title" => Some(parse_set_title(event_parameters)),
+            "restart" => Some(parse_restart(event_parameters)),
             "set_icon" => None, // Ignore set icon for now
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)),
             "option_set" => Some(parse_option_set(event_parameters)),

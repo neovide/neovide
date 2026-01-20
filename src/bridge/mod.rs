@@ -3,11 +3,17 @@ mod clipboard;
 mod command;
 mod events;
 mod handler;
+mod restart;
 pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{io::Error, ops::Add, sync::Arc, time::Duration};
+use std::{
+    io::Error,
+    ops::Add,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use futures::StreamExt;
@@ -31,7 +37,9 @@ use crate::{
     units::GridSize,
     window::{UserEvent, WindowSettings},
 };
+use command::create_restart_nvim_command;
 pub use handler::NeovimHandler;
+pub use restart::RestartDetails;
 use session::{NeovimInstance, NeovimSession};
 use setup::{get_api_information, setup_neovide_specific_state};
 
@@ -75,15 +83,23 @@ async fn nvim_exec_output(
 pub struct NeovimRuntime {
     pub runtime: Runtime,
     clipboard: ClipboardHandle,
+    handler: Option<NeovimHandler>,
+    background_preference: Arc<Mutex<String>>,
 }
 
-async fn neovim_instance(settings: &Settings) -> Result<NeovimInstance> {
-    if let Some(address) = settings.get::<CmdLineSettings>().server {
-        Ok(NeovimInstance::Server { address })
-    } else {
-        let cmd = create_nvim_command(settings);
-        Ok(NeovimInstance::Embedded(cmd))
+async fn neovim_instance(
+    settings: &Settings,
+    restart: Option<&RestartDetails>,
+) -> Result<NeovimInstance> {
+    if let Some(info) = restart {
+        return Ok(NeovimInstance::Embedded(create_restart_nvim_command(info)));
     }
+
+    if let Some(address) = settings.get::<CmdLineSettings>().server {
+        return Ok(NeovimInstance::Server { address });
+    }
+
+    Ok(NeovimInstance::Embedded(create_nvim_command(settings)))
 }
 
 pub async fn show_error_message(
@@ -114,9 +130,10 @@ async fn launch(
     handler: NeovimHandler,
     grid_size: Option<GridSize<u32>>,
     settings: Arc<Settings>,
-    colorscheme_stream: &mut mundy::PreferencesStream,
+    background: &str,
+    restart_details: Option<&RestartDetails>,
 ) -> Result<NeovimSession> {
-    let neovim_instance = neovim_instance(settings.as_ref()).await?;
+    let neovim_instance = neovim_instance(settings.as_ref(), restart_details).await?;
     #[allow(unused_mut)]
     let mut session = NeovimSession::new(neovim_instance, handler)
         .await
@@ -139,7 +156,8 @@ async fn launch(
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
 
-    let remote = cmdline_settings.wsl || cmdline_settings.server.is_some();
+    let remote =
+        cmdline_settings.wsl || (cmdline_settings.server.is_some() && restart_details.is_none());
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
     setup_neovide_specific_state(&session.neovim, remote, &api_information, &settings).await?;
@@ -151,17 +169,6 @@ async fn launch(
 
     start_ui_command_handler(session.neovim.clone(), settings.clone());
     settings.read_initial_values(&session.neovim).await?;
-
-    let colorscheme = timeout(Duration::from_millis(200), colorscheme_stream.next()).await;
-    let background = match colorscheme {
-        Ok(Some(preferences)) => match preferences.color_scheme {
-            mundy::ColorScheme::Dark => "dark",
-            mundy::ColorScheme::Light => "light",
-            mundy::ColorScheme::NoPreference => "dark",
-        },
-        Ok(None) => "dark",
-        Err(..) => "dark",
-    };
     set_background_if_allowed(background, &session.neovim).await;
 
     let mut options = UiAttachOptions::new();
@@ -224,7 +231,7 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
-async fn set_background_if_allowed(background: &str, neovim: &Neovim<NeovimWriter>) {
+pub async fn set_background_if_allowed(background: &str, neovim: &Neovim<NeovimWriter>) {
     // Unfortunately neovim does not set the last_set_chan for options when they are set through
     // exec_lua. The last_set_sid is also generic, so we are forced to do two calls.
     if let Ok(can_set) = neovim
@@ -240,16 +247,41 @@ async fn set_background_if_allowed(background: &str, neovim: &Neovim<NeovimWrite
     }
 }
 
-async fn update_colorscheme(mut stream: mundy::PreferencesStream, neovim: Neovim<NeovimWriter>) {
+fn background_from_preferences(preferences: &mundy::Preferences) -> Option<&'static str> {
+    match preferences.color_scheme {
+        mundy::ColorScheme::Dark => Some("dark"),
+        mundy::ColorScheme::Light => Some("light"),
+        // At least KDE Plasma sends this after sending the actual color scheme
+        // So do nothing
+        mundy::ColorScheme::NoPreference => None,
+    }
+}
+
+async fn initial_background_from_stream(stream: &mut mundy::PreferencesStream) -> String {
+    match timeout(Duration::from_millis(200), stream.next()).await {
+        Ok(Some(preferences)) => background_from_preferences(&preferences)
+            .unwrap_or("dark")
+            .to_string(),
+        Ok(None) => "dark".to_string(),
+        Err(_) => "dark".to_string(),
+    }
+}
+
+async fn update_colorscheme(
+    mut stream: mundy::PreferencesStream,
+    background_preference: Arc<Mutex<String>>,
+) {
     while let Some(preferences) = stream.next().await {
-        if let Some(background) = match preferences.color_scheme {
-            mundy::ColorScheme::Dark => Some("dark"),
-            mundy::ColorScheme::Light => Some("light"),
-            // At least KDE Plasma sends this after sending the actual color scheme
-            // So do nothing
-            mundy::ColorScheme::NoPreference => None,
-        } {
-            set_background_if_allowed(background, &neovim).await;
+        if let Some(background) = background_from_preferences(&preferences) {
+            {
+                if let Ok(mut guard) = background_preference.lock() {
+                    guard.clear();
+                    guard.push_str(background);
+                }
+            }
+            send_ui(ParallelCommand::SetBackground {
+                background: background.to_string(),
+            });
         }
     }
 }
@@ -258,7 +290,12 @@ impl NeovimRuntime {
     pub fn new(clipboard: ClipboardHandle) -> Result<Self, Error> {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
 
-        Ok(Self { runtime, clipboard })
+        Ok(Self {
+            runtime,
+            clipboard,
+            handler: None,
+            background_preference: Arc::new(Mutex::new("dark".to_string())),
+        })
     }
 
     pub fn launch(
@@ -269,23 +306,83 @@ impl NeovimRuntime {
         settings: Arc<Settings>,
         mut colorscheme_stream: mundy::PreferencesStream,
     ) -> Result<()> {
-        let handler = start_editor(
-            event_loop_proxy.clone(),
-            running_tracker,
-            settings.clone(),
-            self.clipboard.clone(),
-        );
+        let handler = self.handler(event_loop_proxy.clone(), running_tracker, settings.clone());
+        let initial_background = self
+            .runtime
+            .block_on(initial_background_from_stream(&mut colorscheme_stream));
+        self.set_background_preference(&initial_background);
+
         let session = self.runtime.block_on(launch(
             handler,
             grid_size,
             settings,
-            &mut colorscheme_stream,
+            &initial_background,
+            None,
         ))?;
         self.runtime.spawn(update_colorscheme(
             colorscheme_stream,
-            session.neovim.clone(),
+            self.background_preference.clone(),
         ));
         self.runtime.spawn(run(session, event_loop_proxy));
         Ok(())
+    }
+
+    pub fn restart(
+        &mut self,
+        event_loop_proxy: EventLoopProxy<UserEvent>,
+        grid_size: GridSize<u32>,
+        settings: Arc<Settings>,
+        restart_details: RestartDetails,
+    ) -> Result<()> {
+        let handler = self
+            .handler
+            .as_ref()
+            .expect("handler must be initialized before restart")
+            .clone();
+
+        let background = self.current_background();
+        let session = self.runtime.block_on(launch(
+            handler,
+            Some(grid_size),
+            settings,
+            &background,
+            Some(&restart_details),
+        ))?;
+
+        self.runtime.spawn(run(session, event_loop_proxy));
+
+        Ok(())
+    }
+
+    fn handler(
+        &mut self,
+        event_loop_proxy: EventLoopProxy<UserEvent>,
+        running_tracker: RunningTracker,
+        settings: Arc<Settings>,
+    ) -> NeovimHandler {
+        self.handler.clone().unwrap_or_else(|| {
+            let handler = start_editor(
+                event_loop_proxy,
+                running_tracker,
+                settings,
+                self.clipboard.clone(),
+            );
+            self.handler = Some(handler.clone());
+            handler
+        })
+    }
+
+    fn set_background_preference(&self, background: &str) {
+        if let Ok(mut guard) = self.background_preference.lock() {
+            guard.clear();
+            guard.push_str(background);
+        }
+    }
+
+    fn current_background(&self) -> String {
+        self.background_preference
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_else(|_| "dark".to_string())
     }
 }

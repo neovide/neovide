@@ -112,7 +112,18 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
-                        let _ = self.sender.send(parsed_event);
+                        match parsed_event {
+                            RedrawEvent::Restart { details } => {
+                                let _ = self
+                                    .proxy
+                                    .lock()
+                                    .unwrap()
+                                    .send_event(UserEvent::NeovimRestart(details));
+                            }
+                            _ => {
+                                let _ = self.sender.send(parsed_event);
+                            }
+                        }
                     }
                 }
             }
