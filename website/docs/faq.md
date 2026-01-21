@@ -10,12 +10,19 @@ this behavior by adding keybindings in neovim.
 
 ```lua
 if vim.g.neovide then
-  vim.keymap.set('n', '<D-s>', ':w<CR>') -- Save
-  vim.keymap.set('v', '<D-c>', '"+y') -- Copy
-  vim.keymap.set('n', '<D-v>', '"+P') -- Paste normal mode
-  vim.keymap.set('v', '<D-v>', '"+P') -- Paste visual mode
-  vim.keymap.set('c', '<D-v>', '<C-R>+') -- Paste command mode
-  vim.keymap.set('i', '<D-v>', '<ESC>l"+Pli') -- Paste insert mode
+  -- Note: `<D-s>` is Mac `Cmd-S`.
+  vim.keymap.set({'n', 'i', 'v'}, '<D-s>',           -- Save
+    function() vim.cmd.write() end,
+    { desc = 'Save' }
+  )
+  vim.keymap.set('v', '<D-c>',                       -- Copy
+    function() vim.api.nvim_cmd({cmd='yank',reg='+'},{}) end,
+    { silent = true, desc = 'Copy' }
+  )
+  vim.keymap.set({'n', 'i', 'v', 'c', 't'}, '<D-v>', -- Paste
+    function() vim.api.nvim_paste(vim.fn.getreg('+'), false, -1) end,
+    { silent = true, desc = 'Paste' }
+  )
 end
 
 -- Allow clipboard copy paste in neovim
