@@ -257,6 +257,20 @@ configuring it to only be enabled in insert mode. See
 <p>Winit looks in multiple locations for the configured dpi.
 Make sure its set in at least one of them. More details
 here: <a href="https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685">#2010</a>.</p>
+<h2 id="neovide-fails-to-start-with-openglglx"><a class="header" href="#neovide-fails-to-start-with-openglglx">Neovide fails to start with OpenGL/GLX</a></h2>
+<p>If Neovide panics on startup with errors like the one below, or X11 errors such
+as <code>GLXBadFBConfig</code> or <code>BadMatch</code>, your system is likely exposing an older
+OpenGL version. Neovide requires OpenGL 3.3 and many virtualized setups
+(UTM/QEMU/virgl) only expose OpenGL 2.1.</p>
+<pre><code class="language-text">Neovide panicked with the message 'Failed to create OpenGL context'
+</code></pre>
+<p>A workaround for Mesa drivers exists:</p>
+<pre><code class="language-bash">MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330 neovide
+</code></pre>
+<p>If that does not work, your graphics stack may not support OpenGL 3.3</p>
+<p>See <a href="https://github.com/neovide/neovide/issues/2068">#2068</a> and
+<a href="https://github.com/neovide/neovide/issues/2008">#2008</a> for discussion
+about improving detection and/or lowering the requirement.</p>
 <h2 id="how-to-turn-off-all-animations"><a class="header" href="#how-to-turn-off-all-animations">How to turn off all animations?</a></h2>
 <p>Animations can be turned off by setting the following global
 variables:</p>
