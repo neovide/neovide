@@ -68,7 +68,7 @@ use renderer::{
 };
 use running_tracker::RunningTracker;
 use window::{
-    create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
+    create_event_loop, determine_window_size, Application, UserEvent, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -122,7 +122,7 @@ fn main() -> ExitCode {
     ) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone(), clipboard),
         Ok((window_size, initial_config, runtime)) => {
-            let mut update_loop = UpdateLoop::new(
+            let mut application = Application::new(
                 window_size,
                 initial_config,
                 event_loop.create_proxy(),
@@ -131,7 +131,7 @@ fn main() -> ExitCode {
                 clipboard,
             );
 
-            let result = event_loop.run_app(&mut update_loop);
+            let result = event_loop.run_app(&mut application);
 
             match result {
                 Ok(_) => running_tracker.exit_code(),
@@ -286,6 +286,7 @@ fn setup(
         settings,
         colorscheme_stream,
     )?;
+
     Ok((window_size, config, runtime))
 }
 
