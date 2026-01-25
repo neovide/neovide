@@ -72,7 +72,7 @@ jobs:
         uses: cargo-bins/cargo-binstall@main
 
       - name: Install cargo-nextest
-        run: cargo binstall -y cargo-nextest
+        run: cargo binstall -y --locked cargo-nextest
 
       - uses: Swatinem/rust-cache@v2
         with:
