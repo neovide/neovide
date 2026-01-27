@@ -10,27 +10,17 @@ this behavior by adding keybindings in neovim.
 
 ```lua
 if vim.g.neovide then
-  -- Note: `<D-s>` is Mac `Cmd-S`.
-  vim.keymap.set({'n', 'i', 'v'}, '<D-s>',           -- Save
-    function() vim.cmd.write() end,
-    { desc = 'Save' }
-  )
-  vim.keymap.set('v', '<D-c>',                       -- Copy
-    function() vim.api.nvim_cmd({cmd='yank',reg='+'},{}) end,
-    { silent = true, desc = 'Copy' }
-  )
-  vim.keymap.set({'n', 'i', 'v', 'c', 't'}, '<D-v>', -- Paste
-    function() vim.api.nvim_paste(vim.fn.getreg('+'), false, -1) end,
-    { silent = true, desc = 'Paste' }
-  )
-end
+  local function save() vim.cmd.write() end
+  local function copy() vim.api.nvim_cmd({ cmd = "yank", reg = "+" }, {}) end
+  local function paste() vim.api.nvim_paste(vim.fn.getreg("+"), true, -1) end
 
--- Allow clipboard copy paste in neovim
-vim.api.nvim_set_keymap('', '<D-v>', '+p<CR>', { noremap = true, silent = true})
-vim.api.nvim_set_keymap('!', '<D-v>', '<C-R>+', { noremap = true, silent = true})
-vim.api.nvim_set_keymap('t', '<D-v>', '<C-R>+', { noremap = true, silent = true})
-vim.api.nvim_set_keymap('v', '<D-v>', '<C-R>+', { noremap = true, silent = true})
+  vim.keymap.set({ "n", "i", "v" }, "<D-s>", save, { desc = "Save" })
+  vim.keymap.set("v", "<D-c>", copy, { silent = true, desc = "Copy" })
+  vim.keymap.set({ "n", "i", "v", "c", "t" }, "<D-v>", paste, { silent = true, desc = "Paste" })
+end
 ```
+
+On Windows/Linux, replace `<D-*>` with `<C-*>` (or `<S-C-*>` in terminals that capture Ctrl).
 
 ## How To Enable Floating And Popupmenu Transparency?
 
