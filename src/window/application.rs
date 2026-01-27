@@ -84,7 +84,7 @@ struct RestartRequest {
     grid_size: GridSize<u32>,
 }
 
-pub struct UpdateLoop {
+pub struct Application {
     idle: bool,
     previous_frame_start: Instant,
     last_dt: f32,
@@ -106,7 +106,7 @@ pub struct UpdateLoop {
     pending_restart: Option<RestartRequest>,
 }
 
-impl UpdateLoop {
+impl Application {
     pub fn new(
         initial_window_size: WindowSize,
         initial_config: Config,
@@ -405,13 +405,13 @@ impl UpdateLoop {
     }
 }
 
-impl Drop for UpdateLoop {
+impl Drop for Application {
     fn drop(&mut self) {
         self.teardown();
     }
 }
 
-impl ApplicationHandler<UserEvent> for UpdateLoop {
+impl ApplicationHandler<UserEvent> for Application {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,

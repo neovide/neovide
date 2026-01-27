@@ -150,6 +150,29 @@ Winit looks in multiple locations for the configured dpi.
 Make sure its set in at least one of them. More details
 here: [#2010](https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685).
 
+## Neovide fails to start with OpenGL/GLX
+
+If Neovide panics on startup with errors like the one below, or X11 errors such
+as `GLXBadFBConfig` or `BadMatch`, your system is likely exposing an older
+OpenGL version. Neovide requires OpenGL 3.3 and many virtualized setups
+(UTM/QEMU/virgl) only expose OpenGL 2.1.
+
+```text
+Neovide panicked with the message 'Failed to create OpenGL context'
+```
+
+A workaround for Mesa drivers exists:
+
+```bash
+MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330 neovide
+```
+
+If that does not work, your graphics stack may not support OpenGL 3.3
+
+See [#2068](https://github.com/neovide/neovide/issues/2068) and
+[#2008](https://github.com/neovide/neovide/issues/2008) for discussion
+about improving detection and/or lowering the requirement.
+
 ## How to turn off all animations?
 
 Animations can be turned off by setting the following global
