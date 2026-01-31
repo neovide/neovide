@@ -13,7 +13,7 @@ use std::{
     convert::TryInto,
     fmt::Debug,
 };
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{bridge::NeovimWriter, window::EventPayload};
 pub use from_value::ParseFromValue;
@@ -156,7 +156,10 @@ impl Settings {
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
             .unwrap()(self, value);
-        let _ = event_loop_proxy.send_event(EventPayload::all(event.into()));
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            WindowId::from(0),
+        ));
     }
 
     pub fn handle_option_changed_notification(
@@ -176,7 +179,10 @@ impl Settings {
             .get(&SettingLocation::NeovimOption(name))
             .unwrap()(self, value);
 
-        let _ = event_loop_proxy.send_event(EventPayload::all(event.into()));
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            WindowId::from(0),
+        ));
     }
 
     pub fn register<T: SettingGroup>(&self) {

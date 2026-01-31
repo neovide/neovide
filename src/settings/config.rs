@@ -4,7 +4,7 @@ use std::{env, fs, sync::mpsc, time::Duration};
 
 use notify_debouncer_full::{new_debouncer, notify::RecursiveMode};
 use serde::Deserialize;
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     error_msg,
@@ -217,16 +217,22 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
         // notify if font changed
         if config.font != previous_config.font {
             event_loop_proxy
-                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
-                    HotReloadConfigs::Font(config.font.clone()),
-                ))))
+                .send_event(EventPayload::new(
+                    UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::Font(
+                        config.font.clone(),
+                    ))),
+                    WindowId::from(0),
+                ))
                 .unwrap();
         }
         if config.box_drawing != previous_config.box_drawing {
             event_loop_proxy
-                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
-                    HotReloadConfigs::BoxDrawing(config.box_drawing.clone()),
-                ))))
+                .send_event(EventPayload::new(
+                    UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::BoxDrawing(
+                        config.box_drawing.clone(),
+                    ))),
+                    WindowId::from(0),
+                ))
                 .unwrap();
         }
         previous_config = config;

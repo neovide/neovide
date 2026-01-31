@@ -20,8 +20,8 @@ use winit::{
 };
 
 use super::{
-    EventPayload, EventTarget, KeyboardManager, MouseManager, UserEvent, WindowCommand,
-    WindowSettings, WindowSettingsChanged, WindowSize,
+    EventPayload, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
+    WindowSettingsChanged, WindowSize,
 };
 
 #[cfg(target_os = "macos")]
@@ -531,9 +531,9 @@ impl WinitWindowWrapper {
         window.set_ime_allowed(ime_enabled);
     }
 
-    pub fn handle_window_command(&mut self, target: EventTarget, command: WindowCommand) {
+    pub fn handle_window_command(&mut self, window_id: WindowId, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
-        let Some(target_window_id) = self.resolve_target_window_id(target) else {
+        let Some(target_window_id) = self.resolve_window_id(window_id) else {
             return;
         };
 
@@ -997,8 +997,7 @@ impl WinitWindowWrapper {
         self.ui_state >= UIState::FirstFrame && should_render
     }
 
-    pub fn handle_user_event(&mut self, event: EventPayload) {
-        let EventPayload { payload, target } = event;
+    pub fn handle_user_event(&mut self, payload: UserEvent, window_id: WindowId) {
         let needs_window = matches!(
             payload,
             UserEvent::DrawCommandBatch(_)
@@ -1007,20 +1006,20 @@ impl WinitWindowWrapper {
                 | UserEvent::ConfigsChanged(_)
         );
 
-        if needs_window && !self.has_routes_for_target(target) {
+        if needs_window && self.resolve_window_id(window_id).is_none() {
             return;
         }
 
         match payload {
             UserEvent::DrawCommandBatch(batch) => {
-                let EventTarget::Window(window_id) = target else {
+                let Some(window_id) = self.resolve_window_id(window_id) else {
                     log::warn!("DrawCommandBatch event missing window target");
                     return;
                 };
                 self.handle_draw_commands(window_id, batch);
             }
             UserEvent::WindowCommand(e) => {
-                self.handle_window_command(target, e);
+                self.handle_window_command(window_id, e);
             }
             UserEvent::SettingsChanged(SettingsChanged::Window(e)) => {
                 self.handle_window_settings_changed(e);
@@ -1782,27 +1781,22 @@ impl WinitWindowWrapper {
         self.routes.keys().next().copied()
     }
 
-    fn resolve_target_window_id(&self, target: EventTarget) -> Option<WindowId> {
-        match target {
-            EventTarget::Focused | EventTarget::All => self.get_focused_route(),
-            EventTarget::Window(window_id) => {
-                self.routes.contains_key(&window_id).then_some(window_id)
-            }
+    fn resolve_window_id(&self, window_id: WindowId) -> Option<WindowId> {
+        if window_id == WindowId::from(0) {
+            self.get_focused_route()
+        } else {
+            self.routes.contains_key(&window_id).then_some(window_id)
         }
     }
 
     fn focused_route(&self) -> Option<&Route> {
-        self.resolve_target_window_id(EventTarget::Focused)
-            .and_then(|id| self.routes.get(&id))
+        self.resolve_window_id(WindowId::from(0))
+            .and_then(|window_id| self.routes.get(&window_id))
     }
 
     fn focused_route_mut(&mut self) -> Option<&mut Route> {
-        let id = self.resolve_target_window_id(EventTarget::Focused)?;
-        self.routes.get_mut(&id)
-    }
-
-    fn has_routes_for_target(&self, target: EventTarget) -> bool {
-        self.resolve_target_window_id(target).is_some()
+        let window_id = self.resolve_window_id(WindowId::from(0))?;
+        self.routes.get_mut(&window_id)
     }
 
     pub fn prepare_frame(&mut self, window_id: WindowId) -> ShouldRender {

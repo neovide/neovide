@@ -13,10 +13,7 @@ use winit::{
     window::WindowId,
 };
 
-use super::{
-    save_window_size, CmdLineSettings, EventPayload, EventTarget, WindowSettings,
-    WinitWindowWrapper,
-};
+use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, WinitWindowWrapper};
 use crate::{
     clipboard::{Clipboard, ClipboardHandle},
     profiling::{tracy_plot, tracy_zone},
@@ -560,7 +557,6 @@ impl ApplicationHandler<EventPayload> for Application {
             }
         }
     }
-
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -601,10 +597,15 @@ impl ApplicationHandler<EventPayload> for Application {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
         tracy_zone!("user_event");
-        let EventPayload { payload, target } = event;
+        let EventPayload { payload, window_id } = event;
+        let resolved_window_id = if window_id == WindowId::from(0) {
+            self.window_wrapper.get_focused_route()
+        } else {
+            Some(window_id)
+        };
         match payload {
             UserEvent::NeovimExited => {
-                let EventTarget::Window(window_id) = target else {
+                let Some(window_id) = resolved_window_id else {
                     log::warn!("NeovimExited event missing window target");
                     return;
                 };
@@ -619,25 +620,19 @@ impl ApplicationHandler<EventPayload> for Application {
                     event_loop.exit();
                 }
             }
-            UserEvent::RedrawRequested => match target {
-                EventTarget::Window(window_id) => {
-                    self.redraw_requested(window_id);
-                }
-                EventTarget::Focused => {
-                    if let Some(window_id) = self.window_wrapper.get_focused_route() {
-                        self.redraw_requested(window_id);
-                    }
-                }
-                EventTarget::All => {
+            UserEvent::RedrawRequested => {
+                if window_id == WindowId::from(0) {
                     let window_ids: Vec<WindowId> =
                         self.window_wrapper.routes.keys().copied().collect();
                     for window_id in window_ids {
                         self.redraw_requested(window_id);
                     }
+                } else if self.window_wrapper.routes.contains_key(&window_id) {
+                    self.redraw_requested(window_id);
                 }
-            },
+            }
             UserEvent::DrawCommandBatch(batch) => {
-                let EventTarget::Window(window_id) = target else {
+                let Some(window_id) = resolved_window_id else {
                     log::warn!("DrawCommandBatch event missing window target");
                     return;
                 };
@@ -672,7 +667,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 self.mark_should_render_all();
             }
             UserEvent::NeovimRestart(details) => {
-                let EventTarget::Window(window_id) = target else {
+                let Some(window_id) = resolved_window_id else {
                     log::warn!("NeovimRestart event missing window target");
                     return;
                 };
@@ -683,16 +678,11 @@ impl ApplicationHandler<EventPayload> for Application {
                 }
             }
             payload => {
-                self.window_wrapper
-                    .handle_user_event(EventPayload { payload, target });
-                match target {
-                    EventTarget::Window(window_id) => self.mark_should_render_for_window(window_id),
-                    EventTarget::Focused => {
-                        if let Some(window_id) = self.window_wrapper.get_focused_route() {
-                            self.mark_should_render_for_window(window_id);
-                        }
-                    }
-                    EventTarget::All => self.mark_should_render_all(),
+                self.window_wrapper.handle_user_event(payload, window_id);
+                if window_id == WindowId::from(0) {
+                    self.mark_should_render_all();
+                } else if self.window_wrapper.routes.contains_key(&window_id) {
+                    self.mark_should_render_for_window(window_id);
                 }
             }
         }

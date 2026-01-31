@@ -239,10 +239,7 @@ async fn run(
 
     log::info!("Neovim has quit");
     proxy
-        .send_event(EventPayload::for_window(
-            UserEvent::NeovimExited,
-            winit_window_id,
-        ))
+        .send_event(EventPayload::new(UserEvent::NeovimExited, winit_window_id))
         .ok();
 }
 

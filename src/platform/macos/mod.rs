@@ -75,7 +75,10 @@ fn request_new_window() {
         return;
     };
 
-    if let Err(error) = proxy.send_event(EventPayload::all(UserEvent::CreateWindow)) {
+    if let Err(error) = proxy.send_event(EventPayload::new(
+        UserEvent::CreateWindow,
+        winit::window::WindowId::from(0),
+    )) {
         log::error!("Failed to request a new window: {:?}", error);
     }
 }

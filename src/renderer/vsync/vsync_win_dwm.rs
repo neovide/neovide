@@ -11,7 +11,7 @@ use spin_sleep::SpinSleeper;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Dwm::{DwmGetCompositionTimingInfo, DWM_TIMING_INFO};
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     profiling::{tracy_plot, tracy_zone},
@@ -91,7 +91,10 @@ impl VSyncWinDwm {
 
                     if redraw_requested.swap(false, Ordering::Relaxed) {
                         proxy
-                            .send_event(EventPayload::all(UserEvent::RedrawRequested))
+                            .send_event(EventPayload::new(
+                                UserEvent::RedrawRequested,
+                                WindowId::from(0),
+                            ))
                             .ok();
                     }
                 }
