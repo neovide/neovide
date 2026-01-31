@@ -560,6 +560,122 @@ impl ApplicationHandler<EventPayload> for Application {
                 self.schedule_next_event(event_loop);
             }
         }
+
+        if self.window_wrapper.handle_window_event(window_id, event) {
+            self.mark_should_render_for_window(window_id);
+        }
+        self.schedule_next_event(event_loop);
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
+        tracy_zone!("user_event");
+        let EventPayload { payload, target } = event;
+        match payload {
+            UserEvent::NeovimExited => {
+                let EventTarget::Window(window_id) = target else {
+                    log::warn!("NeovimExited event missing window target");
+                    return;
+                };
+                let remaining_before = self.window_wrapper.routes.len();
+                if remaining_before <= 1 {
+                    save_window_size(&self.window_wrapper, &self.settings);
+                }
+                self.window_wrapper
+                    .handle_neovim_exit(window_id, &self.proxy);
+                self.render_states.remove(&window_id);
+                if self.window_wrapper.routes.is_empty() {
+                    event_loop.exit();
+                }
+            }
+            UserEvent::RedrawRequested => match target {
+                EventTarget::Window(window_id) => {
+                    self.redraw_requested(window_id);
+                }
+                EventTarget::Focused => {
+                    if let Some(window_id) = self.window_wrapper.get_focused_route() {
+                        self.redraw_requested(window_id);
+                    }
+                }
+                EventTarget::All => {
+                    let window_ids: Vec<WindowId> =
+                        self.window_wrapper.routes.keys().copied().collect();
+                    for window_id in window_ids {
+                        self.redraw_requested(window_id);
+                    }
+                }
+            },
+            UserEvent::DrawCommandBatch(batch) => {
+                let EventTarget::Window(window_id) = target else {
+                    log::warn!("DrawCommandBatch event missing window target");
+                    return;
+                };
+                self.ensure_render_state(window_id);
+                let pending_render = self
+                    .render_states
+                    .get(&window_id)
+                    .map(|state| state.pending_render)
+                    .unwrap_or(false);
+                if pending_render {
+                    // Buffer the draw commands if we have a pending render, we have already decided what to
+                    // draw, so it's not a good idea to process them now.
+                    // They will be processed immediately after the rendering.
+                    if let Some(state) = self.render_states.get_mut(&window_id) {
+                        state.pending_draw_commands.push(batch);
+                    }
+                } else {
+                    self.window_wrapper.handle_draw_commands(window_id, batch);
+                    self.mark_should_render_for_window(window_id);
+                }
+            }
+            #[cfg(target_os = "macos")]
+            UserEvent::CreateWindow => {
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.sync_render_states();
+                self.mark_should_render_all();
+            }
+            #[cfg(target_os = "macos")]
+            UserEvent::MacShortcut(command) => {
+                self.window_wrapper.handle_mac_shortcut(command);
+                self.mark_should_render_all();
+            }
+            UserEvent::NeovimRestart(details) => {
+                let EventTarget::Window(window_id) = target else {
+                    log::warn!("NeovimRestart event missing window target");
+                    return;
+                };
+                self.window_wrapper.queue_restart(window_id, details);
+                if let Some(state) = self.render_states.get_mut(&window_id) {
+                    state.pending_draw_commands.clear();
+                    state.should_render = ShouldRender::Immediately;
+                }
+            }
+            payload => {
+                self.window_wrapper
+                    .handle_user_event(EventPayload { payload, target });
+                match target {
+                    EventTarget::Window(window_id) => self.mark_should_render_for_window(window_id),
+                    EventTarget::Focused => {
+                        if let Some(window_id) = self.window_wrapper.get_focused_route() {
+                            self.mark_should_render_for_window(window_id);
+                        }
+                    }
+                    EventTarget::All => self.mark_should_render_all(),
+                }
+            }
+        }
+        self.schedule_next_event(event_loop);
+    }
+
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        tracy_zone!("resumed");
+        self.schedule_next_event(event_loop);
+    }
+
+    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+        tracy_zone!("exiting");
+        self.window_wrapper.exit();
+        self.schedule_next_event(event_loop);
     }
     fn window_event(
         &mut self,
