@@ -20,8 +20,8 @@ use winit::{
 };
 
 use super::{
-    EventPayload, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
-    WindowSettingsChanged, WindowSize,
+    EventPayload, IpcRequest, IpcResponse, IpcWindowInfo, KeyboardManager, MouseManager, UserEvent,
+    WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
 };
 
 #[cfg(target_os = "macos")]
@@ -40,6 +40,7 @@ use crate::{
         send_ui, NeovimHandler, NeovimRuntime, ParallelCommand, RestartDetails, SerialCommand,
     },
     clipboard::ClipboardHandle,
+    ipc,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
@@ -452,6 +453,76 @@ impl WinitWindowWrapper {
         if self.routes.is_empty() && self.ui_state == UIState::Initing {
             self.ui_state = UIState::WaitingForWindowCreate;
         }
+    }
+
+    pub fn start_ipc(&mut self, address: String, proxy: EventLoopProxy<EventPayload>) {
+        let Some(runtime) = self.runtime.as_ref() else {
+            log::warn!("IPC server requested before runtime initialization");
+            return;
+        };
+        ipc::start_ipc_server(address, proxy, &runtime.runtime);
+    }
+
+    pub fn handle_ipc_request(
+        &mut self,
+        request: IpcRequest,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) {
+        match request {
+            IpcRequest::ListWindows(reply) => {
+                let windows = self.list_windows();
+                let _ = reply.send(IpcResponse::ListWindows(windows));
+            }
+            IpcRequest::ActivateWindow { window_id, reply } => {
+                let response = match self.activate_window(window_id) {
+                    Ok(()) => IpcResponse::Ok,
+                    Err(message) => IpcResponse::Error(message),
+                };
+                let _ = reply.send(response);
+            }
+            IpcRequest::CreateWindow { nvim_args, reply } => {
+                let response = match self.create_window_with_args(event_loop, proxy, nvim_args) {
+                    Ok(window_id) => IpcResponse::Created(window_id),
+                    Err(message) => IpcResponse::Error(message),
+                };
+                let _ = reply.send(response);
+            }
+        }
+    }
+
+    fn list_windows(&self) -> Vec<IpcWindowInfo> {
+        let active = self.get_focused_route();
+        self.routes
+            .keys()
+            .map(|window_id| IpcWindowInfo {
+                window_id: *window_id,
+                is_active: active == Some(*window_id),
+            })
+            .collect()
+    }
+
+    fn activate_window(&mut self, window_id: WindowId) -> Result<(), String> {
+        let Some(route) = self.routes.get(&window_id) else {
+            return Err("Window not found".to_string());
+        };
+
+        let window = route.window.winit_window.clone();
+        window.focus_window();
+        #[cfg(target_os = "macos")]
+        if let Some(feature) = &route.window.macos_feature {
+            feature.borrow().activate_application();
+        }
+        Ok(())
+    }
+
+    fn create_window_with_args(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<EventPayload>,
+        nvim_args: Vec<String>,
+    ) -> Result<WindowId, String> {
+        self.try_create_window(event_loop, proxy, Some(nvim_args))
     }
 
     fn take_colorscheme_stream(&mut self) -> mundy::PreferencesStream {
@@ -1276,11 +1347,12 @@ impl WinitWindowWrapper {
         &mut self,
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<EventPayload>,
-    ) {
-        let creating_initial_window = self.routes.is_empty();
-        if creating_initial_window && self.ui_state != UIState::WaitingForWindowCreate {
-            return;
+        override_nvim_args: Option<Vec<String>>,
+    ) -> Result<WindowId, String> {
+        if self.routes.is_empty() && self.ui_state != UIState::WaitingForWindowCreate {
+            return Err("Window creation not ready".to_string());
         }
+        let creating_initial_window = self.routes.is_empty();
         tracy_zone!("try_create_window");
         let persisted_window_settings = load_last_window_settings().ok();
         let mut desired_window_size =
@@ -1468,7 +1540,7 @@ impl WinitWindowWrapper {
         let runtime = self
             .runtime
             .as_mut()
-            .expect("Neovim runtime has not been initialized");
+            .ok_or_else(|| "Neovim runtime has not been initialized".to_string())?;
         let neovim_handler = runtime
             .launch(
                 window.id(),
@@ -1477,8 +1549,9 @@ impl WinitWindowWrapper {
                 self.runtime_tracker.clone(),
                 self.settings.clone(),
                 colorscheme_stream,
+                override_nvim_args,
             )
-            .expect("Failed to launch neovim runtime");
+            .map_err(|error| error.to_string())?;
 
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
@@ -1526,6 +1599,8 @@ impl WinitWindowWrapper {
         self.set_macos_option_as_meta(input_macos_option_key_is_meta);
         #[cfg(target_os = "macos")]
         self.set_simple_fullscreen(macos_simple_fullscreen);
+
+        Ok(window.id())
     }
 
     pub fn handle_draw_commands(&mut self, window_id: WindowId, batch: Vec<DrawCommand>) {

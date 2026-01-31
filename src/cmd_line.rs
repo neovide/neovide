@@ -54,6 +54,10 @@ pub struct CmdLineSettings {
     #[arg(long, alias = "remote-tcp", value_name = "ADDRESS")]
     pub server: Option<String>,
 
+    /// Start Neovide IPC server at ADDRESS (e.g. unix:/tmp/neovide.sock, pipe:neovide-ipc)
+    #[arg(long = "neovide-ipc", value_name = "ADDRESS", env = "NEOVIDE_IPC")]
+    pub neovide_ipc: Option<String>,
+
     /// Run NeoVim in WSL rather than on the host
     #[arg(long, env = "NEOVIDE_WSL")]
     pub wsl: bool,
@@ -252,6 +256,10 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
 
     if cmdline._no_vsync {
         cmdline.vsync = false;
+    }
+
+    if matches!(cmdline.neovide_ipc.as_deref(), Some(value) if value.trim().is_empty()) {
+        cmdline.neovide_ipc = None;
     }
 
     cmdline.neovim_args = cmdline

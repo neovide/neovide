@@ -40,8 +40,10 @@ use tokio::{
 };
 use winit::event_loop::EventLoopProxy;
 
-use command::create_restart_nvim_command;
-pub use command::{create_blocking_nvim_command, create_nvim_command};
+use command::{create_nvim_command_with_args, create_restart_nvim_command};
+pub use command::create_blocking_nvim_command;
+#[cfg(test)]
+pub use command::create_nvim_command;
 pub use events::*;
 pub use restart::RestartDetails;
 pub use session::NeovimWriter;
@@ -90,16 +92,23 @@ pub struct NeovimRuntime {
 async fn neovim_instance(
     settings: &Settings,
     restart: Option<&RestartDetails>,
+    override_nvim_args: Option<&[String]>,
 ) -> Result<NeovimInstance> {
     if let Some(info) = restart {
         return Ok(NeovimInstance::Embedded(create_restart_nvim_command(info)));
     }
 
     if let Some(address) = settings.get::<CmdLineSettings>().server {
+        if override_nvim_args.is_some() {
+            bail!("Cannot override nvim args when connecting to a server instance");
+        }
         return Ok(NeovimInstance::Server { address });
     }
 
-    Ok(NeovimInstance::Embedded(create_nvim_command(settings)))
+    Ok(NeovimInstance::Embedded(create_nvim_command_with_args(
+        settings,
+        override_nvim_args,
+    )))
 }
 
 pub async fn show_error_message(
@@ -135,8 +144,10 @@ async fn create_neovim_session(
     settings: Arc<Settings>,
     background: &str,
     restart_details: Option<&RestartDetails>,
+    override_nvim_args: Option<Vec<String>>,
 ) -> Result<NeovimSession> {
-    let neovim_instance = neovim_instance(settings.as_ref(), restart_details).await?;
+    let neovim_instance =
+        neovim_instance(settings.as_ref(), restart_details, override_nvim_args.as_deref()).await?;
     #[allow(unused_mut)]
     let mut session = NeovimSession::new(neovim_instance, handler.clone())
         .await
@@ -313,6 +324,7 @@ impl NeovimRuntime {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn launch(
         &mut self,
         winit_window_id: winit::window::WindowId,
@@ -321,6 +333,7 @@ impl NeovimRuntime {
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
         mut colorscheme_stream: mundy::PreferencesStream,
+        override_nvim_args: Option<Vec<String>>,
     ) -> Result<NeovimHandler> {
         let editor_handler = start_editor_handler(
             winit_window_id,
@@ -340,6 +353,7 @@ impl NeovimRuntime {
             settings,
             &initial_background,
             None,
+            override_nvim_args,
         ))?;
 
         self.runtime.spawn(update_colorscheme(
@@ -374,6 +388,7 @@ impl NeovimRuntime {
             settings,
             &background,
             Some(&restart_details),
+            None,
         ))?;
 
         self.runtime

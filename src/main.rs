@@ -22,6 +22,7 @@ mod dimensions;
 mod editor;
 mod error_handling;
 mod frame;
+mod ipc;
 mod platform;
 mod profiling;
 mod renderer;

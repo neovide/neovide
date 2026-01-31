@@ -69,6 +69,7 @@ pub struct Config {
     pub macos_tab_next_hotkey: Option<String>,
     pub icon: Option<String>,
     pub chdir: Option<PathBuf>,
+    pub neovide_ipc: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -151,6 +152,9 @@ impl Config {
         }
         if let Some(chdir) = &self.chdir {
             env::set_var("NEOVIDE_CHDIR", chdir.to_string_lossy().to_string());
+        }
+        if let Some(neovide_ipc) = &self.neovide_ipc {
+            env::set_var("NEOVIDE_IPC", neovide_ipc);
         }
     }
 

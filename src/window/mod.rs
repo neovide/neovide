@@ -40,8 +40,10 @@ use winit::platform::macos::EventLoopBuilderExtMacOS;
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
+use tokio::sync::oneshot;
 
 use crate::{
     bridge::RestartDetails,
@@ -132,7 +134,6 @@ pub enum MacShortcutCommand {
     ShowEditorSwitcher,
 }
 
-#[derive(Clone, Debug, PartialEq)]
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
@@ -145,13 +146,39 @@ pub enum UserEvent {
     ShowProgressBar {
         percent: f32,
     },
+    IpcRequest(IpcRequest),
     #[cfg(target_os = "macos")]
     CreateWindow,
     #[cfg(target_os = "macos")]
     MacShortcut(MacShortcutCommand),
 }
 
-#[derive(Debug, Clone)]
+pub struct IpcWindowInfo {
+    pub window_id: winit::window::WindowId,
+    pub is_active: bool,
+}
+
+pub enum IpcResponse {
+    ListWindows(Vec<IpcWindowInfo>),
+    Ok,
+    Created(winit::window::WindowId),
+    Error(String),
+}
+
+pub type IpcReply = oneshot::Sender<IpcResponse>;
+
+pub enum IpcRequest {
+    ListWindows(IpcReply),
+    ActivateWindow {
+        window_id: winit::window::WindowId,
+        reply: IpcReply,
+    },
+    CreateWindow {
+        nvim_args: Vec<String>,
+        reply: IpcReply,
+    },
+}
+
 pub struct EventPayload {
     pub payload: UserEvent,
     pub window_id: winit::window::WindowId,
@@ -160,6 +187,14 @@ pub struct EventPayload {
 impl EventPayload {
     pub fn new(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
         Self { payload, window_id }
+    }
+}
+
+impl fmt::Debug for EventPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EventPayload")
+            .field("window_id", &self.window_id)
+            .finish()
     }
 }
 

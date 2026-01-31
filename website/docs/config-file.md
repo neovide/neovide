@@ -38,6 +38,7 @@ icon = "/full/path/to/neovide.ico" # Example path. Default icon is bundled. Use 
 maximized = false
 mouse-cursor-icon = "arrow"
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
+neovide-ipc = "" # empty disables; examples: "unix:/tmp/neovide.sock", "pipe:neovide-ipc"
 no-multigrid = false
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true

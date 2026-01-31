@@ -30,9 +30,18 @@ impl CommandSpec {
     }
 }
 
+#[cfg(test)]
 pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     let cmdline_settings = settings.get::<CmdLineSettings>();
     create_tokio_nvim_command(&cmdline_settings, true)
+}
+
+pub fn create_nvim_command_with_args(
+    settings: &Settings,
+    override_args: Option<&[String]>,
+) -> TokioCommand {
+    let cmdline_settings = settings.get::<CmdLineSettings>();
+    create_tokio_nvim_command_with_args(&cmdline_settings, true, override_args)
 }
 
 pub fn create_restart_nvim_command(details: &RestartDetails) -> TokioCommand {
@@ -58,8 +67,23 @@ pub fn create_blocking_nvim_command(cmdline_settings: &CmdLineSettings, embed: b
     cmd
 }
 
+#[cfg(test)]
 fn create_tokio_nvim_command(cmdline_settings: &CmdLineSettings, embed: bool) -> TokioCommand {
     let (bin, args) = build_nvim_command_parts(cmdline_settings, embed);
+    let spec = create_command_spec(&bin, &args, cmdline_settings);
+    let mut cmd = tokio_command_from_spec(spec);
+    if let Some(dir) = &cmdline_settings.chdir {
+        cmd.current_dir(dir);
+    }
+    cmd
+}
+
+fn create_tokio_nvim_command_with_args(
+    cmdline_settings: &CmdLineSettings,
+    embed: bool,
+    override_args: Option<&[String]>,
+) -> TokioCommand {
+    let (bin, args) = build_nvim_command_parts_with_args(cmdline_settings, embed, override_args);
     let spec = create_command_spec(&bin, &args, cmdline_settings);
     let mut cmd = tokio_command_from_spec(spec);
     if let Some(dir) = &cmdline_settings.chdir {
@@ -72,6 +96,14 @@ fn build_nvim_command_parts(
     cmdline_settings: &CmdLineSettings,
     embed: bool,
 ) -> (String, Vec<String>) {
+    build_nvim_command_parts_with_args(cmdline_settings, embed, None)
+}
+
+fn build_nvim_command_parts_with_args(
+    cmdline_settings: &CmdLineSettings,
+    embed: bool,
+    override_args: Option<&[String]>,
+) -> (String, Vec<String>) {
     let bin = cmdline_settings
         .neovim_bin
         .clone()
@@ -80,7 +112,11 @@ fn build_nvim_command_parts(
     if embed {
         args.push("--embed".to_string());
     }
-    args.extend(cmdline_settings.neovim_args.clone());
+    if let Some(override_args) = override_args {
+        args.extend(override_args.iter().cloned());
+    } else {
+        args.extend(cmdline_settings.neovim_args.clone());
+    }
     (bin, args)
 }
 
