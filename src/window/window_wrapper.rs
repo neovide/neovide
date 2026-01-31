@@ -20,8 +20,8 @@ use winit::{
 };
 
 use super::{
-    EventPayload, IpcRequest, IpcResponse, IpcWindowInfo, KeyboardManager, MouseManager, UserEvent,
-    WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
+    EventPayload, EventTarget, IpcRequest, IpcResponse, IpcWindowInfo, KeyboardManager,
+    MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
 };
 
 #[cfg(target_os = "macos")]
@@ -66,8 +66,8 @@ use {
 
 #[cfg(target_os = "macos")]
 use super::macos::{
-    hide_application, is_focus_suppressed, native_tab_bar_enabled, trigger_tab_overview,
-    MacosWindowFeature, TouchpadStage,
+    hide_application, is_focus_suppressed, is_tab_overview_active, native_tab_bar_enabled,
+    trigger_tab_overview, MacosWindowFeature, TouchpadStage,
 };
 
 const GRID_TOLERANCE: f32 = 1e-3;
@@ -522,7 +522,7 @@ impl WinitWindowWrapper {
         proxy: &EventLoopProxy<EventPayload>,
         nvim_args: Vec<String>,
     ) -> Result<WindowId, String> {
-        self.try_create_window(event_loop, proxy, Some(nvim_args))
+        self.create_window_impl(event_loop, proxy, Some(nvim_args))
     }
 
     fn take_colorscheme_stream(&mut self) -> mundy::PreferencesStream {
@@ -602,9 +602,9 @@ impl WinitWindowWrapper {
         window.set_ime_allowed(ime_enabled);
     }
 
-    pub fn handle_window_command(&mut self, window_id: WindowId, command: WindowCommand) {
+    pub fn handle_window_command(&mut self, target: EventTarget, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
-        let Some(target_window_id) = self.resolve_window_id(window_id) else {
+        let Some(target_window_id) = self.resolve_target_window_id(target) else {
             return;
         };
 
@@ -1068,7 +1068,8 @@ impl WinitWindowWrapper {
         self.ui_state >= UIState::FirstFrame && should_render
     }
 
-    pub fn handle_user_event(&mut self, payload: UserEvent, window_id: WindowId) {
+    pub fn handle_user_event(&mut self, event: EventPayload) {
+        let EventPayload { payload, target } = event;
         let needs_window = matches!(
             payload,
             UserEvent::DrawCommandBatch(_)
@@ -1077,20 +1078,20 @@ impl WinitWindowWrapper {
                 | UserEvent::ConfigsChanged(_)
         );
 
-        if needs_window && self.resolve_window_id(window_id).is_none() {
+        if needs_window && !self.has_routes_for_target(target) {
             return;
         }
 
         match payload {
             UserEvent::DrawCommandBatch(batch) => {
-                let Some(window_id) = self.resolve_window_id(window_id) else {
+                let EventTarget::Window(window_id) = target else {
                     log::warn!("DrawCommandBatch event missing window target");
                     return;
                 };
                 self.handle_draw_commands(window_id, batch);
             }
             UserEvent::WindowCommand(e) => {
-                self.handle_window_command(window_id, e);
+                self.handle_window_command(target, e);
             }
             UserEvent::SettingsChanged(SettingsChanged::Window(e)) => {
                 self.handle_window_settings_changed(e);
@@ -1196,27 +1197,24 @@ impl WinitWindowWrapper {
 
         let window = route.window.winit_window.clone();
         let is_active = {
-            #[cfg(target_os = "macos")]
-            {
-                if let Some(feature) = &route.window.macos_feature {
-                    feature.borrow().is_key_window()
-                } else {
-                    window.has_focus()
-                }
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
+            if let Some(feature) = &route.window.macos_feature {
+                feature.borrow().is_key_window()
+            } else {
                 window.has_focus()
             }
         };
 
+        self.ignore_next_focus_gain = true;
+
         if is_active {
-            if let Some(feature) = &route.window.macos_feature {
-                feature.borrow().hide_window();
-            } else if !native_tab_bar_enabled() {
-                window.set_visible(false);
+            let uses_native_tabs = native_tab_bar_enabled()
+                && self.settings.get::<CmdLineSettings>().macos_native_tabs;
+
+            if uses_native_tabs {
+                hide_application();
+                return;
             }
-            self.ignore_next_focus_gain = true;
+
             if !self.restore_focus_target() {
                 hide_application();
             }
@@ -1233,6 +1231,10 @@ impl WinitWindowWrapper {
 
     #[cfg(target_os = "macos")]
     fn show_editor_switcher(&mut self) {
+        if is_tab_overview_active() {
+            trigger_tab_overview();
+            return;
+        }
         let window_count = self.routes.len();
         if window_count == 0 {
             return;
@@ -1344,6 +1346,16 @@ impl WinitWindowWrapper {
     // It’s identical to Rc, except it guarantees that modifications to the reference counter
     // are indivisible atomic operations, making it safe to use it with multiple threads.
     pub fn try_create_window(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) {
+        if let Err(error) = self.create_window_impl(event_loop, proxy, None) {
+            log::warn!("Failed to create window: {error}");
+        }
+    }
+
+    fn create_window_impl(
         &mut self,
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<EventPayload>,
@@ -1856,22 +1868,27 @@ impl WinitWindowWrapper {
         self.routes.keys().next().copied()
     }
 
-    fn resolve_window_id(&self, window_id: WindowId) -> Option<WindowId> {
-        if window_id == WindowId::from(0) {
-            self.get_focused_route()
-        } else {
-            self.routes.contains_key(&window_id).then_some(window_id)
+    fn resolve_target_window_id(&self, target: EventTarget) -> Option<WindowId> {
+        match target {
+            EventTarget::Focused | EventTarget::All => self.get_focused_route(),
+            EventTarget::Window(window_id) => {
+                self.routes.contains_key(&window_id).then_some(window_id)
+            }
         }
     }
 
     fn focused_route(&self) -> Option<&Route> {
-        self.resolve_window_id(WindowId::from(0))
-            .and_then(|window_id| self.routes.get(&window_id))
+        self.resolve_target_window_id(EventTarget::Focused)
+            .and_then(|id| self.routes.get(&id))
     }
 
     fn focused_route_mut(&mut self) -> Option<&mut Route> {
-        let window_id = self.resolve_window_id(WindowId::from(0))?;
-        self.routes.get_mut(&window_id)
+        let id = self.resolve_target_window_id(EventTarget::Focused)?;
+        self.routes.get_mut(&id)
+    }
+
+    fn has_routes_for_target(&self, target: EventTarget) -> bool {
+        self.resolve_target_window_id(target).is_some()
     }
 
     pub fn prepare_frame(&mut self, window_id: WindowId) -> ShouldRender {

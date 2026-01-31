@@ -65,6 +65,13 @@ fn should_show_native_tab_bar() -> bool {
     native_tabs_enabled() && SHOW_NATIVE_TAB_BAR.load(Ordering::Relaxed)
 }
 
+fn reset_tab_overview_state() {
+    TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
+    SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.set(false));
+    PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
+    ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
+}
+
 fn store_event_loop_proxy(proxy: EventLoopProxy<EventPayload>) {
     let _ = EVENT_LOOP_PROXY.set(proxy);
 }
@@ -75,10 +82,7 @@ fn request_new_window() {
         return;
     };
 
-    if let Err(error) = proxy.send_event(EventPayload::new(
-        UserEvent::CreateWindow,
-        winit::window::WindowId::from(0),
-    )) {
+    if let Err(error) = proxy.send_event(EventPayload::all(UserEvent::CreateWindow)) {
         log::error!("Failed to request a new window: {:?}", error);
     }
 }
@@ -358,7 +362,7 @@ impl MacosWindowFeature {
             .contains(NSWindowStyleMask::FullScreen);
 
         store_event_loop_proxy(proxy.clone());
-        let activation_hotkey = GlobalHotkeys::register(proxy);
+        let activation_hotkey = GlobalHotkeys::register(proxy, show_native_tabs);
 
         let macos_window_feature = MacosWindowFeature {
             ns_window,
@@ -904,10 +908,6 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn hide_window(&self) {
-        self.ns_window.orderOut(None);
-    }
-
     pub fn is_key_window(&self) -> bool {
         self.ns_window.isKeyWindow()
     }
@@ -1308,15 +1308,17 @@ impl Menu {
             create_new_window.setTarget(Some(&self.new_window_handler));
             menu.addItem(&create_new_window);
 
-            let show_all_tabs_item = NSMenuItem::new(mtm);
-            show_all_tabs_item.setTitle(ns_string!("Editors"));
-            show_all_tabs_item.setKeyEquivalent(ns_string!("e"));
-            show_all_tabs_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::Command | NSEventModifierFlags::Shift,
-            );
-            show_all_tabs_item.setAction(Some(sel!(neovideShowAllTabs:)));
-            show_all_tabs_item.setTarget(Some(&self.tab_overview_handler));
-            menu.addItem(&show_all_tabs_item);
+            if should_show_native_tab_bar() {
+                let show_all_tabs_item = NSMenuItem::new(mtm);
+                show_all_tabs_item.setTitle(ns_string!("Editors"));
+                show_all_tabs_item.setKeyEquivalent(ns_string!("e"));
+                show_all_tabs_item.setKeyEquivalentModifierMask(
+                    NSEventModifierFlags::Command | NSEventModifierFlags::Shift,
+                );
+                show_all_tabs_item.setAction(Some(sel!(neovideShowAllTabs:)));
+                show_all_tabs_item.setTarget(Some(&self.tab_overview_handler));
+                menu.addItem(&show_all_tabs_item);
+            }
 
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
@@ -1347,12 +1349,26 @@ impl Menu {
 }
 
 pub fn trigger_tab_overview() {
+    if !should_show_native_tab_bar() {
+        return;
+    }
     if let Some(mtm) = MainThreadMarker::new() {
         let app = NSApplication::sharedApplication(mtm);
         if let Some(window) = app.keyWindow() {
+            if let Some(tab_group) = window.tabGroup() {
+                if tab_group.isOverviewVisible() {
+                    reset_tab_overview_state();
+                    window.toggleTabOverview(None);
+                    return;
+                }
+            }
             MacosWindowFeature::begin_tab_overview(&window);
         }
     }
+}
+
+pub fn is_tab_overview_active() -> bool {
+    TAB_OVERVIEW_ACTIVE.with(|active| active.get())
 }
 
 pub fn register_file_handler() {

@@ -32,7 +32,7 @@ impl DrawCommandBatcher {
         if enabled && !self.enabled {
             for queued in self.queued.drain(..) {
                 proxy
-                    .send_event(EventPayload::new(queued.into(), winit_window_id))
+                    .send_event(EventPayload::for_window(queued.into(), winit_window_id))
                     .ok();
             }
         }
@@ -46,7 +46,7 @@ impl DrawCommandBatcher {
     ) {
         if self.enabled {
             proxy
-                .send_event(EventPayload::new(
+                .send_event(EventPayload::for_window(
                     self.batch.split_off(0).into(),
                     winit_window_id,
                 ))

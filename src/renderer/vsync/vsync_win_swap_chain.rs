@@ -6,7 +6,7 @@ use std::{
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Threading::WaitForSingleObjectEx;
 
-use winit::{event_loop::EventLoopProxy, window::WindowId};
+use winit::event_loop::EventLoopProxy;
 
 use crate::{
     profiling::tracy_zone,
@@ -47,10 +47,7 @@ impl VSyncWinSwapChain {
                     WaitForSingleObjectEx(handle.handle, 1000, true);
                 }
                 proxy
-                    .send_event(EventPayload::new(
-                        UserEvent::RedrawRequested,
-                        WindowId::from(0),
-                    ))
+                    .send_event(EventPayload::all(UserEvent::RedrawRequested))
                     .ok();
             }
         });

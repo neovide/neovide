@@ -9,7 +9,7 @@ use std::{
 
 use log::{info, warn};
 use objc2_app_kit::NSEventModifierFlags;
-use winit::{event_loop::EventLoopProxy, window::WindowId};
+use winit::event_loop::EventLoopProxy;
 
 use crate::window::{EventPayload, MacShortcutCommand, UserEvent};
 
@@ -140,10 +140,13 @@ impl fmt::Debug for GlobalHotkeys {
 }
 
 impl GlobalHotkeys {
-    pub fn register(proxy: EventLoopProxy<EventPayload>) -> Option<Self> {
+    pub fn register(proxy: EventLoopProxy<EventPayload>, enable_switcher: bool) -> Option<Self> {
         let mut prepared: Vec<PreparedShortcut> = Vec::new();
 
         for definition in HOTKEY_DEFINITIONS {
+            if !enable_switcher && matches!(definition.action, ShortcutAction::ShowEditorSwitcher) {
+                continue;
+            }
             let choice = shortcut_choice(definition.env_vars, definition.default);
             let Some(shortcut_definition) = choice else {
                 continue;
@@ -355,10 +358,7 @@ unsafe extern "C" fn hotkey_handler(
             "macOS activation shortcut detected; requesting focus ({})",
             entry.description
         );
-        let payload = EventPayload::new(
-            UserEvent::MacShortcut(entry.action.command()),
-            WindowId::from(0),
-        );
+        let payload = EventPayload::all(UserEvent::MacShortcut(entry.action.command()));
         let _ = context.proxy.send_event(payload);
     }
 

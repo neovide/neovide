@@ -13,7 +13,10 @@ use winit::{
     window::WindowId,
 };
 
-use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, WinitWindowWrapper};
+use super::{
+    save_window_size, CmdLineSettings, EventPayload, EventTarget, WindowSettings,
+    WinitWindowWrapper,
+};
 use crate::{
     clipboard::{Clipboard, ClipboardHandle},
     profiling::{tracy_plot, tracy_zone},
@@ -545,8 +548,7 @@ impl ApplicationHandler<EventPayload> for Application {
         match cause {
             winit::event::StartCause::Init => {
                 self.window_wrapper
-                    .try_create_window(event_loop, &self.proxy, None)
-                    .expect("Failed to create initial window");
+                    .try_create_window(event_loop, &self.proxy);
                 self.schedule_next_event(event_loop);
             }
             winit::event::StartCause::ResumeTimeReached { .. } => {
@@ -559,6 +561,39 @@ impl ApplicationHandler<EventPayload> for Application {
             winit::event::StartCause::Poll => {
                 self.schedule_next_event(event_loop);
             }
+        }
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        tracy_zone!("window_event");
+        self.ensure_render_state(window_id);
+        match event {
+            WindowEvent::RedrawRequested => {
+                self.redraw_requested(window_id);
+            }
+            WindowEvent::Focused(focused_event) => {
+                if let Some(state) = self.render_states.get_mut(&window_id) {
+                    state.focused = if focused_event {
+                        FocusedState::Focused
+                    } else {
+                        FocusedState::UnfocusedNotDrawn
+                    };
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    if let Some(route) = self.window_wrapper.routes.get(&window_id) {
+                        if let Some(macos_feature) = route.window.macos_feature.as_ref() {
+                            macos_feature.borrow_mut().ensure_app_initialized();
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
 
         if self.window_wrapper.handle_window_event(window_id, event) {
@@ -650,6 +685,12 @@ impl ApplicationHandler<EventPayload> for Application {
                     state.should_render = ShouldRender::Immediately;
                 }
             }
+            UserEvent::IpcRequest(request) => {
+                self.window_wrapper
+                    .handle_ipc_request(request, event_loop, &self.proxy);
+                self.sync_render_states();
+                self.mark_should_render_all();
+            }
             payload => {
                 self.window_wrapper
                     .handle_user_event(EventPayload { payload, target });
@@ -661,155 +702,6 @@ impl ApplicationHandler<EventPayload> for Application {
                         }
                     }
                     EventTarget::All => self.mark_should_render_all(),
-                }
-            }
-        }
-        self.schedule_next_event(event_loop);
-    }
-
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        tracy_zone!("resumed");
-        self.schedule_next_event(event_loop);
-    }
-
-    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
-        tracy_zone!("exiting");
-        self.window_wrapper.exit();
-        self.schedule_next_event(event_loop);
-    }
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        window_id: WindowId,
-        event: winit::event::WindowEvent,
-    ) {
-        tracy_zone!("window_event");
-        self.ensure_render_state(window_id);
-        match event {
-            WindowEvent::RedrawRequested => {
-                self.redraw_requested(window_id);
-            }
-            WindowEvent::Focused(focused_event) => {
-                if let Some(state) = self.render_states.get_mut(&window_id) {
-                    state.focused = if focused_event {
-                        FocusedState::Focused
-                    } else {
-                        FocusedState::UnfocusedNotDrawn
-                    };
-                }
-                #[cfg(target_os = "macos")]
-                {
-                    if let Some(route) = self.window_wrapper.routes.get(&window_id) {
-                        if let Some(macos_feature) = route.window.macos_feature.as_ref() {
-                            macos_feature.borrow_mut().ensure_app_initialized();
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-
-        if self.window_wrapper.handle_window_event(window_id, event) {
-            self.mark_should_render_for_window(window_id);
-        }
-        self.schedule_next_event(event_loop);
-    }
-
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
-        tracy_zone!("user_event");
-        let EventPayload { payload, window_id } = event;
-        let resolved_window_id = if window_id == WindowId::from(0) {
-            self.window_wrapper.get_focused_route()
-        } else {
-            Some(window_id)
-        };
-        match payload {
-            UserEvent::NeovimExited => {
-                let Some(window_id) = resolved_window_id else {
-                    log::warn!("NeovimExited event missing window target");
-                    return;
-                };
-                let remaining_before = self.window_wrapper.routes.len();
-                if remaining_before <= 1 {
-                    save_window_size(&self.window_wrapper, &self.settings);
-                }
-                self.window_wrapper
-                    .handle_neovim_exit(window_id, &self.proxy);
-                self.render_states.remove(&window_id);
-                if self.window_wrapper.routes.is_empty() {
-                    event_loop.exit();
-                }
-            }
-            UserEvent::RedrawRequested => {
-                if window_id == WindowId::from(0) {
-                    let window_ids: Vec<WindowId> =
-                        self.window_wrapper.routes.keys().copied().collect();
-                    for window_id in window_ids {
-                        self.redraw_requested(window_id);
-                    }
-                } else if self.window_wrapper.routes.contains_key(&window_id) {
-                    self.redraw_requested(window_id);
-                }
-            }
-            UserEvent::DrawCommandBatch(batch) => {
-                let Some(window_id) = resolved_window_id else {
-                    log::warn!("DrawCommandBatch event missing window target");
-                    return;
-                };
-                self.ensure_render_state(window_id);
-                let pending_render = self
-                    .render_states
-                    .get(&window_id)
-                    .map(|state| state.pending_render)
-                    .unwrap_or(false);
-                if pending_render {
-                    // Buffer the draw commands if we have a pending render, we have already decided what to
-                    // draw, so it's not a good idea to process them now.
-                    // They will be processed immediately after the rendering.
-                    if let Some(state) = self.render_states.get_mut(&window_id) {
-                        state.pending_draw_commands.push(batch);
-                    }
-                } else {
-                    self.window_wrapper.handle_draw_commands(window_id, batch);
-                    self.mark_should_render_for_window(window_id);
-                }
-            }
-            #[cfg(target_os = "macos")]
-            UserEvent::CreateWindow => {
-                self.window_wrapper
-                    .try_create_window(event_loop, &self.proxy, None)
-                    .expect("Failed to create window");
-                self.sync_render_states();
-                self.mark_should_render_all();
-            }
-            #[cfg(target_os = "macos")]
-            UserEvent::MacShortcut(command) => {
-                self.window_wrapper.handle_mac_shortcut(command);
-                self.mark_should_render_all();
-            }
-            UserEvent::NeovimRestart(details) => {
-                let Some(window_id) = resolved_window_id else {
-                    log::warn!("NeovimRestart event missing window target");
-                    return;
-                };
-                self.window_wrapper.queue_restart(window_id, details);
-                if let Some(state) = self.render_states.get_mut(&window_id) {
-                    state.pending_draw_commands.clear();
-                    state.should_render = ShouldRender::Immediately;
-                }
-            }
-            UserEvent::IpcRequest(request) => {
-                self.window_wrapper
-                    .handle_ipc_request(request, event_loop, &self.proxy);
-                self.sync_render_states();
-                self.mark_should_render_all();
-            }
-            payload => {
-                self.window_wrapper.handle_user_event(payload, window_id);
-                if window_id == WindowId::from(0) {
-                    self.mark_should_render_all();
-                } else if self.window_wrapper.routes.contains_key(&window_id) {
-                    self.mark_should_render_for_window(window_id);
                 }
             }
         }

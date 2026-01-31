@@ -153,6 +153,13 @@ pub enum UserEvent {
     MacShortcut(MacShortcutCommand),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventTarget {
+    Window(winit::window::WindowId),
+    Focused,
+    All,
+}
+
 pub struct IpcWindowInfo {
     pub window_id: winit::window::WindowId,
     pub is_active: bool,
@@ -181,19 +188,29 @@ pub enum IpcRequest {
 
 pub struct EventPayload {
     pub payload: UserEvent,
-    pub window_id: winit::window::WindowId,
+    pub target: EventTarget,
 }
 
 impl EventPayload {
-    pub fn new(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
-        Self { payload, window_id }
+    pub fn for_window(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
+        Self {
+            payload,
+            target: EventTarget::Window(window_id),
+        }
+    }
+
+    pub fn all(payload: UserEvent) -> Self {
+        Self {
+            payload,
+            target: EventTarget::All,
+        }
     }
 }
 
 impl fmt::Debug for EventPayload {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventPayload")
-            .field("window_id", &self.window_id)
+            .field("target", &self.target)
             .finish()
     }
 }
@@ -213,10 +230,7 @@ impl From<WindowCommand> for UserEvent {
 #[cfg(target_os = "macos")]
 impl From<MacShortcutCommand> for EventPayload {
     fn from(value: MacShortcutCommand) -> Self {
-        EventPayload::new(
-            UserEvent::MacShortcut(value),
-            winit::window::WindowId::from(0),
-        )
+        EventPayload::all(UserEvent::MacShortcut(value))
     }
 }
 

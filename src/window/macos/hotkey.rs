@@ -9,7 +9,7 @@ use std::{
 
 use log::{info, warn};
 use objc2_app_kit::NSEventModifierFlags;
-use winit::{event_loop::EventLoopProxy, window::WindowId};
+use winit::event_loop::EventLoopProxy;
 
 use crate::window::{EventPayload, MacShortcutCommand, UserEvent};
 
@@ -355,10 +355,7 @@ unsafe extern "C" fn hotkey_handler(
             "macOS activation shortcut detected; requesting focus ({})",
             entry.description
         );
-        let payload = EventPayload::new(
-            UserEvent::MacShortcut(entry.action.command()),
-            WindowId::from(0),
-        );
+        let payload = EventPayload::all(UserEvent::MacShortcut(entry.action.command()));
         let _ = context.proxy.send_event(payload);
     }
 

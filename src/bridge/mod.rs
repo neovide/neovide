@@ -43,6 +43,7 @@ use winit::event_loop::EventLoopProxy;
 use command::{create_nvim_command_with_args, create_restart_nvim_command};
 pub use command::create_blocking_nvim_command;
 #[cfg(test)]
+#[cfg(test)]
 pub use command::create_nvim_command;
 pub use events::*;
 pub use restart::RestartDetails;
@@ -250,7 +251,7 @@ async fn run(
 
     log::info!("Neovim has quit");
     proxy
-        .send_event(EventPayload::new(UserEvent::NeovimExited, winit_window_id))
+        .send_event(EventPayload::for_window(UserEvent::NeovimExited, winit_window_id))
         .ok();
 }
 

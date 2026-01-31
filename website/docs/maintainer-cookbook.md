@@ -5,7 +5,7 @@ General notes about collaborating/doing maintenance work on Neovide.
 ## How to keep your sanity
 
 - Don't think you need to solve, participate in or even notice everything
-  happening.
+    happening.
 
   Work on such a project where most things are already done and the things left
   aren't that fun anymore can be very gruesome, even if that might not be
@@ -28,7 +28,7 @@ General notes about collaborating/doing maintenance work on Neovide.
   it could be worded better/could be found better.
 
 - Ask for more information if you require so. Some investigation can be done by
-  the user.
+    the user.
 
   If some case requires some special environmental information which isn't given
   in the original report, ask for it. Or if you aren't sure what you're looking
@@ -53,23 +53,23 @@ see fit (and then update here with your findings).
 ### Preparing
 
 1. Head over to [the releases page][releases-page] and hit the `Draft a new
-release` button.
+    release` button.
 2. Keep the resulting page somewhere safe open, you'll need to work with it the
-   next half an hour and GitHub doesn't automatically save its contents.
+    next half an hour and GitHub doesn't automatically save its contents.
 3. Create a new tag with an appropriate version number.
 
-We're not fully following [SemVer][semver] here, but as of 0.10.1 larger
-changes should be an increase in the MINOR part, while fixups should be an
-increase in the PATCH part.
+  We're not fully following [SemVer][semver] here, but as of 0.10.1 larger
+  changes should be an increase in the MINOR part, while fixups should be an
+  increase in the PATCH part.
 
 1. Hit the `Generate release notes` button.
 2. Reformat to be similar to previous releases
 
-   - Rename the `What's Changed` section to `Changes`
-   - Rewrite each line in the `Changes` section to reflect what this change means
-     for the end user, linking to the relevant PR/commit
-   - Group all bug fix PRs/commits under a point named `Bug fixes`
-   - Have each line reflect what platform it applies to if not irrelevant
+    - Rename the `What's Changed` section to `Changes`
+    - Rewrite each line in the `Changes` section to reflect what this change means
+      for the end user, linking to the relevant PR/commit
+    - Group all bug fix PRs/commits under a point named `Bug fixes`
+    - Have each line reflect what platform it applies to if not irrelevant
 
 3. Hit the `Save draft` button
 
@@ -83,11 +83,11 @@ change is included.
 ### Actually releasing
 
 1. Announce a short period of time where last changes to be done or fixup work
-   can flow in (can be anything you imagine, though 24 hours to one week might
-   be enough depending on the blocker)
+    can flow in (can be anything you imagine, though 24 hours to one week might
+    be enough depending on the blocker)
 2. Wait for that period to pass
 3. Have a last look over the draft to make sure every new contributor and change has
-   been mentioned
+    been mentioned
 
 Now here's where the order becomes important:
 
@@ -96,16 +96,16 @@ Now here's where the order becomes important:
 3. Create a commit named `Run cargo update` or similar
 4. Bump the version to match the tag name everywhere
 
-   - `Cargo.toml` (do note it contains the version _twice_, one time in the
-     top, one time at the bottom in the bundling section)
-   - `extra/osx/Neovide.app/Contents/Resources/Info.plist`
-   - `website/docs/*.md` and update `Nightly` to `Available since $tag`
-     (where `$tag` is the tag name)
+    - `Cargo.toml` (do note it contains the version _twice_, one time in the
+        top, one time at the bottom in the bundling section)
+    - `extra/osx/Neovide.app/Contents/Resources/Info.plist`
+    - `website/docs/*.md` and update `Nightly` to `Available since $tag`
+      (where `$tag` is the tag name)
 
 5. Run `cargo build` and make sure it succeeds, **remember to `git add
-Cargo.lock` to make sure releases stay reproducible
-   ([#1628](https://github.com/neovide/neovide/issues/1628),
-   [#1482](https://github.com/neovide/neovide/issues/1482))**
+  Cargo.lock` to make sure releases stay reproducible
+  ([#1628](https://github.com/neovide/neovide/issues/1628),
+  [#1482](https://github.com/neovide/neovide/issues/1482))**
 6. Check that `cargo publish --workspace --dry-run` works
    If necessary, you might have to bump the version number for the
    `neovide-derive` crate as well.
@@ -119,13 +119,13 @@ anything.
 1. From the `Bump version to $tag` commit, download all the artifacts
 2. Unzip
 
-   - `neovide.AppImage.zip`
-   - `neovide.AppImage.zsync.zip`
-   - `neovide.msi.zip`
-   - `neovide-linux-x86_64.tar.gz.zip`
+    - `neovide.AppImage.zip`
+    - `neovide.AppImage.zsync.zip`
+    - `neovide.msi.zip`
+    - `neovide-linux-x86_64.tar.gz.zip`
 
 3. Head to the release draft, edit it and upload the produced artifacts (using
-   the unzipped versions if listed above)
+    the unzipped versions if listed above)
 4. Hit `Publish release`
 5. profit
 6. Publish `neovide-derive` to crates.io if necessary `cargo publish -p neovide-derive`

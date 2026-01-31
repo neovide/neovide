@@ -124,7 +124,7 @@ impl Editor {
     }
 
     fn send_window_command(&self, command: WindowCommand) {
-        let payload = EventPayload::new(UserEvent::WindowCommand(command), self.window_id);
+        let payload = EventPayload::for_window(UserEvent::WindowCommand(command), self.window_id);
         let _ = self.event_loop_proxy.send_event(payload);
     }
 

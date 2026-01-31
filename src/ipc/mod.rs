@@ -233,10 +233,7 @@ async fn handle_json_rpc_line(line: &str, proxy: &EventLoopProxy<EventPayload>) 
 
 async fn handle_list_windows(id: Value, proxy: &EventLoopProxy<EventPayload>) -> JsonRpcResponse {
     let (sender, receiver) = oneshot::channel();
-    let event = EventPayload::new(
-        UserEvent::IpcRequest(IpcRequest::ListWindows(sender)),
-        winit::window::WindowId::from(0),
-    );
+    let event = EventPayload::all(UserEvent::IpcRequest(IpcRequest::ListWindows(sender)));
     if proxy.send_event(event).is_err() {
         return rpc_error(id, -32000, "Failed to send IPC request".to_string());
     }
@@ -265,10 +262,10 @@ async fn handle_activate_window(
     };
 
     let (sender, receiver) = oneshot::channel();
-    let event = EventPayload::new(
-        UserEvent::IpcRequest(IpcRequest::ActivateWindow { window_id, reply: sender }),
-        winit::window::WindowId::from(0),
-    );
+    let event = EventPayload::all(UserEvent::IpcRequest(IpcRequest::ActivateWindow {
+        window_id,
+        reply: sender,
+    }));
 
     if proxy.send_event(event).is_err() {
         return rpc_error(id, -32000, "Failed to send IPC request".to_string());
@@ -301,10 +298,10 @@ async fn handle_create_window(
     };
 
     let (sender, receiver) = oneshot::channel();
-    let event = EventPayload::new(
-        UserEvent::IpcRequest(IpcRequest::CreateWindow { nvim_args, reply: sender }),
-        winit::window::WindowId::from(0),
-    );
+    let event = EventPayload::all(UserEvent::IpcRequest(IpcRequest::CreateWindow {
+        nvim_args,
+        reply: sender,
+    }));
 
     if proxy.send_event(event).is_err() {
         return rpc_error(id, -32000, "Failed to send IPC request".to_string());

@@ -647,6 +647,23 @@ This option changes the closing behavior of Neovide when it's used to connect to
 instance. It does this by switching between detaching from the remote instance and quitting Neovim
 entirely.
 
+#### Neovide IPC (Local)
+
+Neovide can optionally start a local IPC server for window-level control. Enable it via the command
+line or config file:
+
+```bash
+neovide --neovide-ipc unix:/tmp/neovide.sock
+```
+
+```toml
+neovide-ipc = "unix:/tmp/neovide.sock"
+```
+
+On macOS/Linux use a Unix socket (`unix:/path` or any path containing `/`). On Windows use a named
+pipe (`pipe:neovide-ipc` or `\\\\.\\pipe\\neovide-ipc`). The IPC server exposes JSON-RPC methods to
+list, activate, and create Neovide windows.
+
 #### Fullscreen
 
 VimScript:
@@ -819,35 +836,36 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 
 #### macOS Global Activation Shortcuts
 
-Neovide registers two system-wide shortcuts on macOS:
+Neovide registers system-wide shortcuts on macOS:
 
-- **Pinned** (<kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd>) toggles the most recently used Neovide
-  window. When that window is already active, the shortcut hides it; otherwise it brings the window
+- **Pinned** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd> toggles the most recently used Neovide
+  window. If that window is already active, the shortcut hides it; otherwise it brings the window
   to the front.
-- **Editors** (<kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd>) opens the Editors view so you can pick
-  another Neovide window. If only one window exists, it behaves the same as the pinned shortcut.
+- **Editors** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
+  you can pick another Neovide window. This shortcut is only available when
+  `macos-native-tabs = true` and if only one window exists, it behaves the same as the pinned
+  shortcut.
 
-Customize them by setting the environment variables `NEOVIDE_MACOS_PINNED_HOTKEY` and
-`NEOVIDE_MACOS_SWITCHER_HOTKEY` before launching Neovide:
+Customize them by setting the environment variables:
 
 ```bash
 launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY "ctrl+space"
 launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY "cmd+shift+space"
 ```
 
-Use `cmd`, `ctrl`, `alt`, and `shift` for modifiers and a single character for the key. To disable a
-shortcut entirely, set the corresponding variable to `off`, `none`, `disabled`, or leave it empty.
-The legacy `NEOVIDE_MACOS_ACTIVATION_HOTKEY` variable is still honored as an alias for the Editors
-shortcut.
+Use `cmd`, `ctrl`, `alt`, and `shift` for modifiers and a single character for the key.
 
-You can also configure them inside `config.toml`:
+To disable a shortcut entirely, set the corresponding variable to `off`, `none`, `disabled`
+or leave it empty.
+
+You can also configure them inside `config.toml`
 
 ```toml
 macos-pinned-hotkey = "ctrl+shift+z"
 macos-switcher-hotkey = "ctrl+shift+n"
 ```
 
-When `macos-native-tabs = true`, you can also customize the in-app tab navigation shortcuts:
+When `macos-native-tabs` is enabled, you can also customize the in-app tab navigation shortcuts:
 
 ```toml
 macos-tab-prev-hotkey = "cmd+shift+["

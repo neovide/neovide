@@ -80,7 +80,7 @@ impl NeovimHandler {
     }
 
     fn send_window_command(&self, command: WindowCommand) {
-        let payload = EventPayload::new(UserEvent::WindowCommand(command), self.window_id);
+        let payload = EventPayload::for_window(UserEvent::WindowCommand(command), self.window_id);
         let _ = self.proxy.lock().unwrap().send_event(payload);
     }
 
@@ -169,7 +169,7 @@ impl Handler for NeovimHandler {
                     for parsed_event in parsed_events {
                         match parsed_event {
                             RedrawEvent::Restart { details } => {
-                                let payload = EventPayload::new(
+                                let payload = EventPayload::for_window(
                                     UserEvent::NeovimRestart(details),
                                     self.window_id,
                                 );
@@ -247,7 +247,7 @@ impl Handler for NeovimHandler {
                             .proxy
                             .lock()
                             .unwrap()
-                            .send_event(EventPayload::new(event, WindowId::from(0)));
+                            .send_event(EventPayload::all(event));
                     })
                     .unwrap_or_else(|| {
                         log::info!(

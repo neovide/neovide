@@ -63,7 +63,7 @@ unsafe extern "C-unwind" fn display_link_callback(
     let context = unsafe { &mut *(displayLinkContext as *mut MacosDisplayLinkCallbackContext) };
 
     if context.redraw_requested.swap(false, Ordering::Relaxed) {
-        let _ = context.proxy.send_event(EventPayload::new(
+        let _ = context.proxy.send_event(EventPayload::for_window(
             UserEvent::RedrawRequested,
             context.window_id,
         ));
