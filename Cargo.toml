@@ -158,7 +158,9 @@ objc2-app-kit = { version = "0.3.1", default-features = false, features = [
 objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
   "std",
   "objc2-core-foundation",
+  "objc2-core-graphics",
   "objc2-metal",
+  "CATransaction",
   "CALayer",
   "CAMetalLayer",
 ] }
@@ -169,6 +171,7 @@ objc2-core-video = { version = "0.3.1", default-features = false, features = [
   "CVDisplayLink",
 ] }
 objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
+  "CGColor",
   "CGDirectDisplay",
 ] }
 objc2-metal = { version = "0.3.1", default-features = false, features = [

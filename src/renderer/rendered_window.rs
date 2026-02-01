@@ -13,6 +13,10 @@ use crate::{
     utils::RingBuffer,
 };
 
+#[cfg(target_os = "macos")]
+pub const BASE_GRID_ID: u64 = 1;
+pub const NO_MULTIGRID_GRID_ID: u64 = 0;
+
 #[derive(Debug)]
 pub struct ViewportMargins {
     pub top: u64,
@@ -98,7 +102,7 @@ pub struct WindowDrawDetails {
 impl WindowDrawDetails {
     pub fn event_grid_id(&self, settings: &Settings) -> u64 {
         if settings.get::<CmdLineSettings>().no_multi_grid {
-            0
+            NO_MULTIGRID_GRID_ID
         } else {
             self.id
         }

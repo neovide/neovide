@@ -11,13 +11,13 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
-    NSFontAttributeName, NSFontDescriptor, NSFontWeight, NSImage, NSMenu, NSMenuItem, NSView,
-    NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSFontAttributeName, NSFontDescriptor, NSFontWeight, NSFontWeightLight, NSImage, NSMenu,
+    NSMenuItem, NSTextView, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_core_foundation::CGFloat;
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSAttributedString, NSData, NSDictionary, NSInteger,
-    NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString, NSUserDefaults, NSURL,
+    NSObject, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString, NSUserDefaults, NSURL,
 };
 
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -31,7 +31,7 @@ use crate::{
 };
 use crate::{cmd_line::CmdLineSettings, frame::Frame};
 
-use crate::units::Pixel;
+use crate::units::{Pixel, PixelRect};
 #[cfg(target_os = "macos")]
 use crate::window::ForceClickKind;
 use crate::window::{WindowSettings, WindowSettingsChanged};
@@ -85,6 +85,31 @@ define_class!(
 impl TitlebarClickHandler {
     fn new(mtm: MainThreadMarker) -> Retained<Self> {
         unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSTextView)]
+    #[thread_kind = MainThreadOnly]
+    struct MatchParenIndicatorView;
+
+    impl MatchParenIndicatorView {
+        #[unsafe(method(acceptsFirstResponder))]
+        fn accepts_first_responder(&self) -> bool {
+            false
+        }
+
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, _point: NSPoint) -> *mut NSView {
+            std::ptr::null_mut()
+        }
+    }
+);
+
+impl MatchParenIndicatorView {
+    fn new(mtm: MainThreadMarker, frame: NSRect) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), initWithFrame: frame] }
     }
 }
 
@@ -194,6 +219,7 @@ pub struct MacosWindowFeature {
     menu: Option<Menu>,
     settings: Arc<Settings>,
     pub definition_is_active: bool,
+    match_paren_indicator_view: Option<Retained<MatchParenIndicatorView>>,
 }
 
 impl MacosWindowFeature {
@@ -254,6 +280,7 @@ impl MacosWindowFeature {
             menu: None,
             settings: settings.clone(),
             definition_is_active: false,
+            match_paren_indicator_view: None,
         };
 
         macos_window_feature.update_background();
@@ -434,6 +461,109 @@ impl MacosWindowFeature {
                 Some(attr_string.as_ref()),
                 translated_point,
             );
+        }
+    }
+
+    pub fn show_find_indicator_for_rect(&mut self, rect: PixelRect<f32>, text: Option<&str>) {
+        // just being defensive here in case of an invalid state.
+        let width = rect.max.x - rect.min.x;
+        let height = rect.max.y - rect.min.y;
+        if width <= 0.0 || height <= 0.0 {
+            return;
+        }
+
+        unsafe {
+            let ns_view = self.ns_window.contentView().unwrap();
+            let scale = self.ns_window.backingScaleFactor();
+            let size = NSSize::new(width as f64 / scale, height as f64 / scale);
+            let mut origin = NSPoint::new(rect.min.x as f64 / scale, rect.min.y as f64 / scale);
+
+            // future-proof for being defensive here.
+            //
+            // NSView flipped macOS standard value is false,
+            // https://developer.apple.com/documentation/appkit/nsview/isflipped
+            //
+            // but winit flips it since it uses the upper-left corner as the origin.
+            // https://docs.rs/crate/winit-appkit/0.31.0-beta.2/source/src/view.rs#149-153
+            if !ns_view.isFlipped() {
+                let view_height = ns_view.bounds().size.height;
+                origin.y = view_height - origin.y - size.height;
+            }
+
+            let ns_rect = NSRect::new(origin, size);
+            self.show_match_paren_indicator(ns_view.as_ref(), ns_rect, text)
+        }
+    }
+
+    unsafe fn show_match_paren_indicator(
+        &mut self,
+        ns_view: &NSView,
+        rect: NSRect,
+        text: Option<&str>,
+    ) {
+        let text = match text {
+            Some(text) if !text.is_empty() => text,
+            _ => return,
+        };
+
+        let indicator_view = self.ensure_match_paren_indicator_view(ns_view, rect);
+        indicator_view.setFrame(rect);
+
+        let ns_text = NSString::from_str(text);
+        indicator_view.setString(&ns_text);
+
+        let font_size = (rect.size.height * 0.85).max(1.0);
+        let font =
+            NSFont::monospacedSystemFontOfSize_weight(CGFloat::from(font_size), NSFontWeightLight);
+
+        indicator_view.setFont(Some(font.as_ref()));
+        indicator_view.setTextColor(Some(NSColor::textColor().as_ref()));
+
+        let show_range_selector = sel!(showFindIndicatorForRange:);
+        let can_show = msg_send![&*indicator_view, respondsToSelector: show_range_selector];
+        if can_show {
+            let length = text.encode_utf16().count();
+            indicator_view.showFindIndicatorForRange(NSRange::new(0, length));
+            let clear_color = NSColor::clearColor();
+            let _: () = msg_send![
+                &*indicator_view,
+                performSelector: sel!(setTextColor:),
+                withObject: clear_color.as_ref() as *const NSColor,
+                afterDelay: 0.35
+            ];
+        }
+    }
+
+    fn ensure_match_paren_indicator_view(
+        &mut self,
+        ns_view: &NSView,
+        rect: NSRect,
+    ) -> Retained<MatchParenIndicatorView> {
+        if let Some(view) = self.match_paren_indicator_view.as_ref() {
+            return view.clone();
+        }
+
+        let mtm = MainThreadMarker::new()
+            .expect("MatchParen indicator must be created on the main thread.");
+        let view = MatchParenIndicatorView::new(mtm, rect);
+        self.setup_match_paren_indicator_view(&view);
+
+        ns_view.addSubview(&view);
+        self.match_paren_indicator_view = Some(view.clone());
+
+        view
+    }
+
+    fn setup_match_paren_indicator_view(&self, view: &MatchParenIndicatorView) {
+        view.setEditable(false);
+        view.setSelectable(false);
+        view.setDrawsBackground(false);
+        view.setTextContainerInset(NSSize::new(0.0, 0.0));
+        view.setString(ns_string!(""));
+        view.setTextColor(Some(NSColor::clearColor().as_ref()));
+
+        if let Some(container) = unsafe { view.textContainer() } {
+            container.setLineFragmentPadding(CGFloat::from(0.0));
         }
     }
 

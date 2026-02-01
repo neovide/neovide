@@ -7,6 +7,12 @@ mod window;
 
 use std::{collections::HashMap, sync::Arc, thread};
 
+#[cfg(target_os = "macos")]
+use {
+    std::collections::HashSet,
+    std::time::{Duration, Instant},
+};
+
 use log::{error, trace, warn};
 use skia_safe::Color4f;
 use tokio::sync::mpsc::unbounded_channel;
@@ -67,6 +73,24 @@ pub struct AnchorInfo {
     pub sort_order: SortOrder,
 }
 
+#[cfg(target_os = "macos")]
+#[derive(Clone, Debug)]
+struct MatchParenCandidate {
+    row: u64,
+    column: u64,
+    text: Option<String>,
+    is_cursor: bool,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum MatchParenKind {
+    Paren,
+    Bracket,
+    Brace,
+    Angle,
+}
+
 impl WindowAnchor {
     fn modified_top_left(
         &self,
@@ -98,6 +122,16 @@ pub struct Editor {
     settings: Arc<Settings>,
     composition_order: u64,
     intro_message_extender: IntroMessageExtender,
+    #[cfg(target_os = "macos")]
+    match_paren_highlight_ids: HashSet<u64>,
+    #[cfg(target_os = "macos")]
+    last_match_paren_flash: Option<(u64, u64, u64, Instant)>,
+    #[cfg(target_os = "macos")]
+    match_paren_cache: HashMap<u64, HashMap<(u64, u64), Option<String>>>,
+    #[cfg(target_os = "macos")]
+    match_paren_dirty: bool,
+    #[cfg(target_os = "macos")]
+    match_paren_cache_cleared_in_batch: bool,
 }
 
 impl Editor {
@@ -106,6 +140,16 @@ impl Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
+            #[cfg(target_os = "macos")]
+            match_paren_highlight_ids: HashSet::new(),
+            #[cfg(target_os = "macos")]
+            last_match_paren_flash: None,
+            #[cfg(target_os = "macos")]
+            match_paren_cache: HashMap::new(),
+            #[cfg(target_os = "macos")]
+            match_paren_dirty: false,
+            #[cfg(target_os = "macos")]
+            match_paren_cache_cleared_in_batch: false,
             mode_list: Vec::new(),
             draw_command_batcher: DrawCommandBatcher::new(),
             current_mode_index: None,
@@ -179,9 +223,18 @@ impl Editor {
                 trace!("Image flushed");
                 tracy_named_frame!("neovim draw command flush");
                 self.send_cursor_info();
+
                 {
                     trace!("send_batch");
                     self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+                }
+
+                #[cfg(target_os = "macos")]
+                self.maybe_flash_match_paren_from_cache();
+
+                #[cfg(target_os = "macos")]
+                {
+                    self.match_paren_cache_cleared_in_batch = false;
                 }
             }
             RedrawEvent::DefaultColorsSet { colors } => {
@@ -196,9 +249,25 @@ impl Editor {
                 self.redraw_screen();
                 self.draw_command_batcher.send_batch(&self.event_loop_proxy);
             }
-            RedrawEvent::HighlightAttributesDefine { id, style } => {
+            RedrawEvent::HighlightAttributesDefine { id, style, name } => {
                 tracy_zone!("EditorHighlightAttributesDefine");
                 self.defined_styles.insert(id, Arc::new(style));
+
+                #[cfg(target_os = "macos")]
+                self.update_match_paren_highlight(id, name.as_deref());
+
+                #[cfg(not(target_os = "macos"))]
+                let _ = name;
+            }
+            RedrawEvent::HighlightGroupSet { name, id } => {
+                tracy_zone!("EditorHighlightGroupSet");
+                #[cfg(target_os = "macos")]
+                if name.starts_with("MatchParen") {
+                    self.register_match_paren_highlight_id(id);
+                }
+
+                #[cfg(not(target_os = "macos"))]
+                let _ = (name, id);
             }
             RedrawEvent::CursorGoto {
                 grid,
@@ -227,17 +296,49 @@ impl Editor {
                 self.draw_grid_line(grid, row, column_start, &cells);
                 self.handle_intro_banner_for_line(grid, row, &cells);
             }
+            RedrawEvent::GridHighlight {
+                grid,
+                row,
+                column_start,
+                column_end,
+                highlight_id,
+            } => {
+                tracy_zone!("EditorGridHighlight");
+                #[cfg(target_os = "macos")]
+                self.handle_match_paren_grid_highlight(
+                    grid,
+                    row,
+                    column_start,
+                    column_end,
+                    highlight_id,
+                );
+
+                #[cfg(not(target_os = "macos"))]
+                let _ = (grid, row, column_start, column_end, highlight_id);
+            }
             RedrawEvent::Clear { grid } => {
                 tracy_zone!("EditorClear");
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
                     window.clear(&mut self.draw_command_batcher);
                 }
+                #[cfg(target_os = "macos")]
+                {
+                    self.match_paren_cache.remove(&grid);
+                    self.match_paren_dirty = false;
+                    self.match_paren_cache_cleared_in_batch = false;
+                }
                 self.intro_message_extender.reset(grid);
             }
             RedrawEvent::Destroy { grid } => {
                 tracy_zone!("EditorDestroy");
                 self.intro_message_extender.reset(grid);
+                #[cfg(target_os = "macos")]
+                {
+                    self.match_paren_cache.remove(&grid);
+                    self.match_paren_dirty = false;
+                    self.match_paren_cache_cleared_in_batch = false;
+                }
                 self.close_window(grid)
             }
             RedrawEvent::Scroll {
@@ -250,6 +351,12 @@ impl Editor {
                 columns,
             } => {
                 tracy_zone!("EditorScroll");
+                #[cfg(target_os = "macos")]
+                {
+                    self.match_paren_cache.remove(&grid);
+                    self.match_paren_dirty = false;
+                    self.match_paren_cache_cleared_in_batch = false;
+                }
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
                     window.scroll_region(
@@ -630,6 +737,9 @@ impl Editor {
     }
 
     fn draw_grid_line(&mut self, grid: u64, row: u64, column_start: u64, cells: &[GridLineCell]) {
+        #[cfg(target_os = "macos")]
+        self.update_match_paren_cache_from_grid_line(grid, row, column_start, cells);
+
         if let Some(window) = self.windows.get_mut(&grid) {
             window.draw_grid_line(
                 &mut self.draw_command_batcher,
@@ -638,6 +748,435 @@ impl Editor {
                 cells.to_vec(),
                 &self.defined_styles,
             );
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn reset_match_paren_cache_state(&mut self) {
+        self.match_paren_cache.clear();
+        self.match_paren_dirty = false;
+        self.match_paren_cache_cleared_in_batch = false;
+    }
+
+    #[cfg(target_os = "macos")]
+    fn update_match_paren_highlight_id(&mut self, id: u64, name: &str) {
+        if name.starts_with("MatchParen") {
+            log::info!("MatchParen highlight id defined: {id} ({name})");
+            self.match_paren_highlight_ids.insert(id);
+        } else {
+            self.match_paren_highlight_ids.remove(&id);
+        }
+
+        self.reset_match_paren_cache_state();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn update_match_paren_highlight(&mut self, id: u64, name: Option<&str>) {
+        let Some(name) = name else {
+            return;
+        };
+
+        self.update_match_paren_highlight_id(id, name);
+    }
+
+    #[cfg(target_os = "macos")]
+    fn register_match_paren_highlight_id(&mut self, id: u64) {
+        self.match_paren_highlight_ids.insert(id);
+        self.reset_match_paren_cache_state();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn grid_cell_text(&self, grid: u64, row: u64, column: u64) -> Option<String> {
+        self.windows.get(&grid).and_then(|window| {
+            let (text, _, _) = window.get_cursor_grid_cell(column, row);
+            (!text.is_empty()).then_some(text)
+        })
+    }
+
+    #[cfg(target_os = "macos")]
+    fn match_paren_expected_char(&self) -> Option<char> {
+        let (cursor_column, cursor_row) = self.cursor.grid_position;
+        let cursor_grid = self.cursor.parent_window_id;
+        if let Some(text) = self.grid_cell_text(cursor_grid, cursor_row, cursor_column) {
+            if let Some(expected_char) = Self::match_paren_expected_char_from_text(&text) {
+                return Some(expected_char);
+            }
+        }
+
+        if let Some(left_column) = cursor_column.checked_sub(1) {
+            if let Some(text) = self.grid_cell_text(cursor_grid, cursor_row, left_column) {
+                if let Some(expected_char) = Self::match_paren_expected_char_from_text(&text) {
+                    return Some(expected_char);
+                }
+            }
+        }
+
+        Self::match_paren_expected_char_from_text(&self.cursor.grid_cell.0)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn text_matches_expected_char(text: &Option<String>, expected: char) -> bool {
+        text.as_deref().and_then(|value| value.chars().next()) == Some(expected)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn match_paren_expected_char_from_text(text: &str) -> Option<char> {
+        let cursor_char = text.chars().next()?;
+        match cursor_char {
+            '(' => Some(')'),
+            ')' => Some('('),
+            '[' => Some(']'),
+            ']' => Some('['),
+            '{' => Some('}'),
+            '}' => Some('{'),
+            '<' => Some('>'),
+            '>' => Some('<'),
+            _ => None,
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn match_paren_kind_for_char(cursor_char: char) -> Option<MatchParenKind> {
+        match cursor_char {
+            '(' | ')' => Some(MatchParenKind::Paren),
+            '[' | ']' => Some(MatchParenKind::Bracket),
+            '{' | '}' => Some(MatchParenKind::Brace),
+            '<' | '>' => Some(MatchParenKind::Angle),
+            _ => None,
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn remove_match_paren_cache_range(
+        &mut self,
+        grid: u64,
+        row: u64,
+        column_start: u64,
+        column_end: u64,
+    ) {
+        let Some(cache) = self.match_paren_cache.get_mut(&grid) else {
+            return;
+        };
+
+        let mut to_remove = Vec::new();
+        for &(cached_row, cached_column) in cache.keys() {
+            if cached_row == row && cached_column >= column_start && cached_column < column_end {
+                to_remove.push((cached_row, cached_column));
+            }
+        }
+
+        for key in to_remove {
+            cache.remove(&key);
+        }
+
+        if cache.is_empty() {
+            self.match_paren_cache.remove(&grid);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn update_match_paren_cache_range_with_text(
+        &mut self,
+        grid: u64,
+        row: u64,
+        column_start: u64,
+        column_end: u64,
+        highlight_id: u64,
+        text: Option<&str>,
+    ) {
+        if !self.match_paren_highlight_ids.contains(&highlight_id) {
+            return;
+        }
+
+        let cache = self.match_paren_cache.entry(grid).or_default();
+        let value = text.map(str::to_string);
+        for column in column_start..column_end {
+            cache.insert((row, column), value.clone());
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn update_match_paren_cache_range_from_grid(
+        &mut self,
+        grid: u64,
+        row: u64,
+        column_start: u64,
+        column_end: u64,
+        highlight_id: u64,
+    ) {
+        if !self.match_paren_highlight_ids.contains(&highlight_id) {
+            self.remove_match_paren_cache_range(grid, row, column_start, column_end);
+            return;
+        }
+
+        let mut values = Vec::new();
+        for column in column_start..column_end {
+            let text = self.grid_cell_text(grid, row, column);
+            values.push((column, text));
+        }
+
+        let cache = self.match_paren_cache.entry(grid).or_default();
+        for (column, text) in values {
+            cache.insert((row, column), text);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn handle_match_paren_grid_highlight(
+        &mut self,
+        grid: u64,
+        row: u64,
+        column_start: u64,
+        column_end: u64,
+        highlight_id: u64,
+    ) {
+        let is_match_paren = self.match_paren_highlight_ids.contains(&highlight_id);
+        if is_match_paren && !self.match_paren_cache_cleared_in_batch {
+            self.match_paren_cache.clear();
+            self.match_paren_cache_cleared_in_batch = true;
+        }
+
+        self.update_match_paren_cache_range_from_grid(
+            grid,
+            row,
+            column_start,
+            column_end,
+            highlight_id,
+        );
+
+        if is_match_paren {
+            self.match_paren_dirty = true;
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn match_paren_candidates_from_cache(&self, grid: u64) -> Vec<MatchParenCandidate> {
+        if self.cursor.parent_window_id != grid {
+            return Vec::new();
+        }
+
+        let Some(cache) = self.match_paren_cache.get(&grid) else {
+            return Vec::new();
+        };
+
+        let cursor_column = self.cursor.grid_position.0;
+        let cursor_row = self.cursor.grid_position.1;
+        let cursor_span = if self.cursor.double_width { 2 } else { 1 };
+
+        cache
+            .iter()
+            .map(|(&(row, column), text)| {
+                let text = text
+                    .clone()
+                    .or_else(|| self.grid_cell_text(grid, row, column));
+
+                let is_cursor = row == cursor_row
+                    && column >= cursor_column
+                    && column < cursor_column.saturating_add(cursor_span);
+
+                MatchParenCandidate {
+                    row,
+                    column,
+                    text,
+                    is_cursor,
+                }
+            })
+            .collect()
+    }
+
+    #[cfg(target_os = "macos")]
+    fn match_paren_candidate_from_cache(&self, grid: u64) -> Option<MatchParenCandidate> {
+        let candidates = self.match_paren_candidates_from_cache(grid);
+        self.select_match_paren_candidate(candidates)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn select_match_paren_candidate(
+        &self,
+        candidates: Vec<MatchParenCandidate>,
+    ) -> Option<MatchParenCandidate> {
+        if candidates.is_empty() {
+            return None;
+        }
+
+        let cursor_column = self.cursor.grid_position.0;
+        let cursor_row = self.cursor.grid_position.1;
+        let distance = |candidate: &MatchParenCandidate| {
+            (
+                candidate.row.abs_diff(cursor_row),
+                candidate.column.abs_diff(cursor_column),
+            )
+        };
+
+        let expected = self.match_paren_expected_char().or_else(|| {
+            candidates
+                .iter()
+                .find_map(|candidate| {
+                    candidate.is_cursor.then(|| {
+                        candidate
+                            .text
+                            .as_deref()
+                            .and_then(Self::match_paren_expected_char_from_text)
+                    })
+                })
+                .flatten()
+        });
+
+        let mut non_cursor: Vec<MatchParenCandidate> = candidates
+            .into_iter()
+            .filter(|candidate| !candidate.is_cursor)
+            .collect();
+
+        if non_cursor.is_empty() {
+            return None;
+        }
+
+        let expected = expected?;
+
+        let expected_kind = Self::match_paren_kind_for_char(expected);
+        if let Some(expected_kind) = expected_kind {
+            non_cursor.retain(|candidate| {
+                candidate
+                    .text
+                    .as_deref()
+                    .and_then(|value| value.chars().next())
+                    .and_then(Self::match_paren_kind_for_char)
+                    == Some(expected_kind)
+            });
+        }
+
+        let matching_candidates: Vec<MatchParenCandidate> = non_cursor
+            .into_iter()
+            .filter(|candidate| Self::text_matches_expected_char(&candidate.text, expected))
+            .collect();
+
+        if matching_candidates.is_empty() {
+            return None;
+        }
+
+        matching_candidates.into_iter().min_by_key(distance)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn update_match_paren_cache_from_grid_line(
+        &mut self,
+        grid: u64,
+        row: u64,
+        column_start: u64,
+        cells: &[GridLineCell],
+    ) {
+        if self.match_paren_highlight_ids.is_empty() {
+            return;
+        }
+
+        let mut column = column_start;
+        let mut current_highlight = None;
+        let mut saw_match_paren = false;
+
+        for cell in cells {
+            current_highlight = cell.highlight_id.or(current_highlight);
+            let repeat = cell.repeat.unwrap_or(1);
+            if repeat == 0 {
+                continue;
+            }
+
+            let column_end = column.saturating_add(repeat);
+            let Some(highlight_id) = current_highlight else {
+                column = column_end;
+                continue;
+            };
+
+            if self.match_paren_highlight_ids.contains(&highlight_id) {
+                if !self.match_paren_cache_cleared_in_batch {
+                    self.match_paren_cache.clear();
+                    self.match_paren_cache_cleared_in_batch = true;
+                }
+                saw_match_paren = true;
+            }
+
+            let text = if cell.text.is_empty() {
+                None
+            } else {
+                Some(cell.text.as_str())
+            };
+
+            self.update_match_paren_cache_range_with_text(
+                grid,
+                row,
+                column,
+                column_end,
+                highlight_id,
+                text,
+            );
+
+            column = column_end;
+        }
+
+        if !saw_match_paren {
+            return;
+        }
+
+        self.match_paren_dirty = true;
+    }
+
+    #[cfg(target_os = "macos")]
+    fn maybe_flash_match_paren(&mut self, grid: u64, row: u64, column: u64, text: Option<String>) {
+        if self.cursor.parent_window_id == grid && self.cursor.grid_position.1 == row {
+            let cursor_column = self.cursor.grid_position.0;
+            let cursor_span = if self.cursor.double_width { 2 } else { 1 };
+            let cursor_end = cursor_column.saturating_add(cursor_span);
+            if column >= cursor_column && column < cursor_end {
+                return;
+            }
+        }
+
+        const MATCH_PAREN_FLASH_MIN_INTERVAL: Duration = Duration::from_millis(200);
+        let now = Instant::now();
+        let match_position = (grid, row, column);
+        let should_flash = !matches!(
+            self.last_match_paren_flash,
+            Some((last_grid, last_row, last_column, last_time))
+                if (last_grid, last_row, last_column) == match_position
+                    && now.duration_since(last_time) < MATCH_PAREN_FLASH_MIN_INTERVAL
+        );
+
+        self.last_match_paren_flash = Some((grid, row, column, now));
+        if should_flash {
+            let _ = self.event_loop_proxy.send_event(
+                WindowCommand::HighlightMatchingPair {
+                    grid,
+                    row,
+                    column,
+                    text,
+                }
+                .into(),
+            );
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn maybe_flash_match_paren_from_cache(&mut self) {
+        if !self.match_paren_dirty {
+            return;
+        }
+
+        if !self
+            .settings
+            .get::<WindowSettings>()
+            .highlight_matching_pair
+        {
+            return;
+        }
+
+        self.match_paren_dirty = false;
+
+        if self.match_paren_expected_char().is_none() {
+            return;
+        }
+
+        let grid = self.cursor.parent_window_id;
+        if let Some(candidate) = self.match_paren_candidate_from_cache(grid) {
+            self.maybe_flash_match_paren(grid, candidate.row, candidate.column, candidate.text);
         }
     }
 

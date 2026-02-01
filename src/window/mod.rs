@@ -116,6 +116,13 @@ pub enum WindowCommand {
         guifont: String,
         kind: ForceClickKind,
     },
+    #[cfg(target_os = "macos")]
+    HighlightMatchingPair {
+        grid: u64,
+        row: u64,
+        column: u64,
+        text: Option<String>,
+    },
     Minimize,
     ThemeChanged(Option<Theme>),
     #[cfg(windows)]
