@@ -11,7 +11,7 @@ this behavior by adding keybindings in neovim.
 ```lua
 if vim.g.neovide then
   local function save() vim.cmd.write() end
-  local function copy() vim.api.nvim_cmd({ cmd = "yank", reg = "+" }, {}) end
+  local function copy() vim.cmd([[normal! "+y]]) end
   local function paste() vim.api.nvim_paste(vim.fn.getreg("+"), true, -1) end
 
   vim.keymap.set({ "n", "i", "v" }, "<D-s>", save, { desc = "Save" })
