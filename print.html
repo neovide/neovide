@@ -1830,7 +1830,7 @@ your terminal adds these keybindings, as neovim doesn't have them by default. We
 this behavior by adding keybindings in neovim.</p>
 <pre><code class="language-lua">if vim.g.neovide then
   local function save() vim.cmd.write() end
-  local function copy() vim.api.nvim_cmd({ cmd = &quot;yank&quot;, reg = &quot;+&quot; }, {}) end
+  local function copy() vim.cmd([[normal! &quot;+y]]) end
   local function paste() vim.api.nvim_paste(vim.fn.getreg(&quot;+&quot;), true, -1) end
 
   vim.keymap.set({ &quot;n&quot;, &quot;i&quot;, &quot;v&quot; }, &quot;&lt;D-s&gt;&quot;, save, { desc = &quot;Save&quot; })
