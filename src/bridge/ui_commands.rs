@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use indoc::indoc;
 use log::trace;
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim};
+use rmpv::Value;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -16,6 +17,19 @@ use crate::{
     LoggingSender,
 };
 
+async fn ime_call(
+    nvim: &Neovim<NeovimWriter>,
+    func: &str,
+    args: Vec<Value>,
+    context: &'static str,
+    trace_msg: &'static str,
+) -> Result<()> {
+    nvim.call("nvim__exec_lua_fast", call_args![func, args])
+        .await
+        .map(|_| trace!("{trace_msg}"))
+        .context(context)
+}
+
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
@@ -23,6 +37,14 @@ use crate::{
 #[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
+    KeyboardImeCommit {
+        formatted: String,
+        raw: String,
+    },
+    KeyboardImePreedit {
+        raw: String,
+        cursor_offset: Option<(usize, usize)>,
+    },
     MouseButton {
         button: String,
         action: String,
@@ -47,7 +69,7 @@ pub enum SerialCommand {
 }
 
 impl SerialCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>, can_support_ime_api: bool) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -60,6 +82,46 @@ impl SerialCommand {
                     .await
                     .map(|_| ())
                     .context("Input failed")
+            }
+            SerialCommand::KeyboardImeCommit { formatted, raw } => {
+                // Notified ime commit event, the text is guaranteed not to be None.
+                trace!("IME Input Sent: {formatted}");
+                if can_support_ime_api {
+                    ime_call(
+                        nvim,
+                        "neovide.commit_handler(...)",
+                        vec![Value::from(raw), Value::from(formatted)],
+                        "IME Commit failed",
+                        "IME Commit Called",
+                    )
+                    .await
+                } else {
+                    trace!("Keyboard Input Sent: {formatted}");
+                    nvim.input(&formatted)
+                        .await
+                        .map(|_| ())
+                        .context("Input failed")
+                }
+            }
+            SerialCommand::KeyboardImePreedit { raw, cursor_offset } => {
+                trace!("IME Input Preedit");
+                if can_support_ime_api {
+                    let (start_col, end_col) = cursor_offset
+                        .map_or((Value::Nil, Value::Nil), |(start, end)| {
+                            (Value::from(start), Value::from(end))
+                        });
+
+                    ime_call(
+                        nvim,
+                        "neovide.preedit_handler(...)",
+                        vec![Value::from(raw), start_col, end_col],
+                        "IME Preedit failed",
+                        "IME Preedit Called",
+                    )
+                    .await
+                } else {
+                    Ok(())
+                }
             }
             SerialCommand::MouseButton {
                 button,
@@ -276,28 +338,52 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-static CURRENT_NEOVIM: OnceLock<Arc<RwLock<Option<Neovim<NeovimWriter>>>>> = OnceLock::new();
-static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
-
-fn neovim_holder() -> &'static Arc<RwLock<Option<Neovim<NeovimWriter>>>> {
-    CURRENT_NEOVIM.get_or_init(|| Arc::new(RwLock::new(None)))
+#[derive(Default)]
+struct NeovimState {
+    nvim: Option<Neovim<NeovimWriter>>,
+    can_support_ime_api: bool,
 }
 
-fn update_current_neovim(nvim: Neovim<NeovimWriter>) {
+static CURRENT_NEOVIM: OnceLock<Arc<RwLock<NeovimState>>> = OnceLock::new();
+static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
+
+fn neovim_holder() -> &'static Arc<RwLock<NeovimState>> {
+    CURRENT_NEOVIM.get_or_init(|| Arc::new(RwLock::new(NeovimState::default())))
+}
+
+fn update_current_neovim(nvim: Neovim<NeovimWriter>, can_support_ime_api: bool) {
     let holder = neovim_holder();
     if let Ok(mut guard) = holder.write() {
-        *guard = Some(nvim);
+        guard.nvim = Some(nvim);
+        guard.can_support_ime_api = can_support_ime_api;
     }
 }
 
-fn clone_neovim(
-    holder: &Arc<RwLock<Option<Neovim<NeovimWriter>>>>,
-) -> Option<Neovim<NeovimWriter>> {
-    holder.read().ok().and_then(|guard| guard.as_ref().cloned())
+fn clone_neovim(holder: &Arc<RwLock<NeovimState>>) -> Option<Neovim<NeovimWriter>> {
+    holder
+        .read()
+        .ok()
+        .and_then(|guard| guard.nvim.as_ref().cloned())
 }
 
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settings>) {
-    update_current_neovim(nvim);
+fn clone_neovim_with_ime(
+    holder: &Arc<RwLock<NeovimState>>,
+) -> Option<(Neovim<NeovimWriter>, bool)> {
+    holder.read().ok().and_then(|guard| {
+        guard
+            .nvim
+            .as_ref()
+            .cloned()
+            .map(|nvim| (nvim, guard.can_support_ime_api))
+    })
+}
+
+pub fn start_ui_command_handler(
+    nvim: Neovim<NeovimWriter>,
+    settings: Arc<Settings>,
+    can_support_ime_api: bool,
+) {
+    update_current_neovim(nvim, can_support_ime_api);
     if UI_COMMAND_CHANNEL.get().is_some() {
         return;
     }
@@ -345,8 +431,10 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settin
             while let Some(serial_command) = serial_rx.recv().await {
                 tracy_dynamic_zone!(serial_command.as_ref());
                 tracy_fiber_leave();
-                match clone_neovim(&neovim_holder) {
-                    Some(serial_nvim) => serial_command.execute(&serial_nvim).await,
+                match clone_neovim_with_ime(&neovim_holder) {
+                    Some((serial_nvim, ime_api)) => {
+                        serial_command.execute(&serial_nvim, ime_api).await;
+                    }
                     None => {
                         log::warn!("Serial command received without an active Neovim handle");
                         break;

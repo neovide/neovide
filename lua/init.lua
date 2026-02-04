@@ -386,4 +386,15 @@ pcall(vim.api.nvim_create_autocmd, 'Progress', {
     end,
 })
 
+---@param preedit_raw_text string
+---@param cursor_offset_start integer This values show the cursor begin position. The position is byte-wise indexed.
+---@param cursor_offset_end integer This values show the cursor end position. The position is byte-wise indexed.
+M.preedit_handler = function(preedit_raw_text, cursor_offset_start, cursor_offset_end) end
+
+---@param commit_raw_text string
+---@param commit_formatted_text string It's escaped.
+M.commit_handler = function(commit_raw_text, commit_formatted_text)
+    vim.api.nvim_input(commit_formatted_text)
+end
+
 _G["neovide"] = M

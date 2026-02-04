@@ -191,6 +191,11 @@ impl ApiInformation {
     pub fn has_event(&self, event_name: &str) -> bool {
         self.ui_events.iter().any(|event| event.name == event_name)
     }
+
+    #[allow(dead_code)]
+    pub fn has_function(&self, name: &str) -> bool {
+        self.functions.iter().any(|func| func.name == name)
+    }
 }
 
 fn parse_version(
