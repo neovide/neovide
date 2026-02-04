@@ -226,6 +226,50 @@ vim.keymap.set({ &quot;n&quot;, &quot;v&quot;, &quot;o&quot; }, &quot;&lt;D-[&gt
   change_transparency(-0.01)
 end, { desc = &quot;Decrease Neovide opacity&quot; })
 </code></pre>
+<h2 id="how-to-enable-preedit-support-of-ime"><a class="header" href="#how-to-enable-preedit-support-of-ime">How To Enable Preedit Support Of IME?</a></h2>
+<p>By default, the IME preedit event—that is, the preview of the text being composed—is not
+implemented. You can implement this preview yourself by using preedit_handler().</p>
+<p>Example:</p>
+<pre><code class="language-lua">local ime_context = {
+  base_col = 0,
+  base_row = 0,
+  preedit_col = 0,
+  preedit_row = 0,
+}
+
+---@param preedit_raw_text string
+---@param cursor_offset [integer, integer]: [start_col, end_col]
+preedit_handler = function(preedit_raw_text, cursor_offset)
+    vim.api.nvim_buf_set_text(
+      0,
+      ime_context.base_row - 1,
+      ime_context.base_col,
+      ime_context.preedit_row - 1,
+      ime_context.preedit_col,
+      {}
+    )
+    ime_context.preedit_col = ime_context.base_col + string.len(preedit_raw_text)
+    vim.api.nvim_buf_set_text(
+      0,
+      ime_context.base_row - 1,
+      ime_context.base_col,
+      ime_context.base_row - 1,
+      ime_context.base_col,
+      { preedit_raw_text }
+    )
+    vim.api.nvim_win_set_cursor(0, { ime_context.preedit_row, ime_context.preedit_col })
+end
+</code></pre>
+<p>Neovide also exposes a Lua function called commit_handler() in addition to preedit_handler(). For
+details, see <a href="api.html#ime-handling">IME handling on the API page</a>.</p>
+<p>If you’d prefer not to set this up yourself, you can use
+<a href="https://github.com/sevenc-nanashi/neov-ime.nvim">sevenc-nanashi/neov-ime.nvim</a>. Please refer to that
+repository for more information. Example: Installation with Lazy.nvim</p>
+<pre><code class="language-lua">return {
+  &quot;sevenc-nanashi/neov-ime.nvim&quot;,
+}
+</code></pre>
+<p>Related: <a href="https://github.com/neovide/neovide/pull/3110">PR #3110</a>, <a href="https://github.com/neovide/neovide/pull/3221">PR #3221</a></p>
 <h2 id="neovide-is-not-picking-up-some-shell-configured-information"><a class="header" href="#neovide-is-not-picking-up-some-shell-configured-information">Neovide Is Not Picking Up Some Shell-configured Information</a></h2>
 <p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code>
 is ignored by Neovide.</p>
