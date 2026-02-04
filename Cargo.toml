@@ -63,7 +63,7 @@ image = { version = "0.25.5", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.14.0"
 log = "0.4.22"
-lru = "0.16.0"
+lru = "0.16.3"
 mundy = { version = "0.2.0", default-features = false, features = [
   "tokio",
   "color-scheme",
