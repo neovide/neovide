@@ -17,6 +17,19 @@ use crate::{
     LoggingSender,
 };
 
+async fn ime_call(
+    nvim: &Neovim<NeovimWriter>,
+    func: &str,
+    args: Vec<Value>,
+    context: &'static str,
+    trace_msg: &'static str,
+) -> Result<()> {
+    nvim.call("nvim__exec_lua_fast", call_args![func, args])
+        .await
+        .map(|_| trace!("{trace_msg}"))
+        .context(context)
+}
+
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
@@ -72,20 +85,16 @@ impl SerialCommand {
             }
             SerialCommand::KeyboardImeCommit { formatted, raw } => {
                 // Notified ime commit event, the text is guaranteed not to be None.
-                trace!("IME Input Sent: {}", &formatted);
+                trace!("IME Input Sent: {formatted}");
                 if can_support_ime_api {
-                    nvim.call(
-                        "nvim__exec_lua_fast",
-                        call_args![
-                            "neovide.commit_handler(...)",
-                            vec![Value::from(raw), Value::from(formatted)],
-                        ],
+                    ime_call(
+                        nvim,
+                        "neovide.commit_handler(...)",
+                        vec![Value::from(raw), Value::from(formatted)],
+                        "IME Commit failed",
+                        "IME Commit Called",
                     )
                     .await
-                    .map(|_| {
-                        trace!("IME Commit Called");
-                    })
-                    .context("IME Commit failed")
                 } else {
                     trace!("Keyboard Input Sent: {formatted}");
                     nvim.input(&formatted)
@@ -98,22 +107,18 @@ impl SerialCommand {
                 trace!("IME Input Preedit");
                 if can_support_ime_api {
                     let (start_col, end_col) = cursor_offset
-                        .map_or((Value::Nil, Value::Nil), |(start_col, end_col)| {
-                            (Value::from(start_col), Value::from(end_col))
+                        .map_or((Value::Nil, Value::Nil), |(start, end)| {
+                            (Value::from(start), Value::from(end))
                         });
 
-                    nvim.call(
-                        "nvim__exec_lua_fast",
-                        call_args![
-                            "neovide.preedit_handler(...)",
-                            vec![Value::from(raw), start_col, end_col],
-                        ],
+                    ime_call(
+                        nvim,
+                        "neovide.preedit_handler(...)",
+                        vec![Value::from(raw), start_col, end_col],
+                        "IME Preedit failed",
+                        "IME Preedit Called",
                     )
                     .await
-                    .map(|_| {
-                        trace!("IME Preedit Called");
-                    })
-                    .context("IME Preedit failed")
                 } else {
                     Ok(())
                 }
@@ -355,7 +360,10 @@ fn update_current_neovim(nvim: Neovim<NeovimWriter>, can_support_ime_api: bool) 
 }
 
 fn clone_neovim(holder: &Arc<RwLock<NeovimState>>) -> Option<Neovim<NeovimWriter>> {
-    holder.read().ok().and_then(|guard| guard.nvim.as_ref().cloned())
+    holder
+        .read()
+        .ok()
+        .and_then(|guard| guard.nvim.as_ref().cloned())
 }
 
 fn clone_neovim_with_ime(
