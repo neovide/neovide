@@ -915,6 +915,16 @@ default when Neovim properly sends the UI busy events and the hack is no longer 
 some cases the hack itself is buggy and prevents the cursor from moving to the command line when it
 should. In that case you can try to disable it, especially if you are not using cursor animations
 and the flickering does not bother as much.</p>
+<h4 id="highlight-matching-pair-macos-only"><a class="header" href="#highlight-matching-pair-macos-only">Highlight Matching Pair (macOS only)</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_highlight_matching_pair = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_highlight_matching_pair = true
+</code></pre>
+<p><strong>Nightly.</strong></p>
+<p>When enabled, Neovide highlights the matching pair using the system find indicator. The
+default is <code>false</code>.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
 <h4 id="macos-option-key-is-meta"><a class="header" href="#macos-option-key-is-meta">macOS Option Key is Meta</a></h4>
 <p>Possible values are <code>both</code>, <code>only_left</code>, <code>only_right</code>, <code>none</code>. Set to <code>none</code> by default.</p>
