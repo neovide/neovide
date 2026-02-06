@@ -38,11 +38,34 @@
       </Directory>
     </Directory>
 
+    <DirectoryRef Id="TARGETDIR">
+      <Component Guid="*" Id="RegistryExplorerContextMenu">
+        <RegistryKey Key="Software\Classes\*\shell\Neovide" Root="HKCU">
+          <RegistryValue Type="string" Value="Open with Neovide" />
+          <RegistryValue Type="string" Name="Icon" Value="[INSTALLDIR]neovide.exe" />
+          <RegistryKey Key="command">
+            <RegistryValue Type="string" Value="[INSTALLDIR]neovide.exe &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+        <RegistryKey Key="Software\Classes\Directory\Background\shell\Neovide" Root="HKCU">
+          <RegistryValue Type="string" Value="Open with Neovide" />
+          <RegistryValue Type="string" Name="Icon" Value="[INSTALLDIR]neovide.exe" />
+            <RegistryKey Key="command">
+            <RegistryValue Type="string" Value="[INSTALLDIR]neovide.exe &quot;%V&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
     <Feature Absent="disallow" AllowAdvertise="no" ConfigurableDirectory="INSTALLDIR" Description="Install the executable of [ProductName]." Display="expand" Id="BinaryFeature" Title="Executable">
       <ComponentRef Id="NeovideComponent" />
 
       <Feature Absent="allow" Description="Add the executable of [ProductName] to the system path." Id="PathFeature" Title="Path">
         <ComponentRef Id="PathComponent" />
+      </Feature>
+
+      <Feature Absent="allow" Description="Add &quot;Open with Neovide&quot; action to Windows Explorer context menu" Id="ExplorerContextMenu" Title="Open with Neovide">
+        <ComponentRef Id="RegistryExplorerContextMenu" />
       </Feature>
     </Feature>
 
