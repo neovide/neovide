@@ -15,7 +15,7 @@ use super::{
 
 #[cfg(target_os = "macos")]
 use {
-    crate::units::{GridPos, Pixel},
+    crate::units::{GridPos, Pixel, PixelRect},
     crate::{error_msg, window::settings},
     glamour::Point2,
     winit::platform::macos::{self, WindowExtMacOS},
@@ -234,6 +234,38 @@ impl WinitWindowWrapper {
                     guifont,
                     grid_scale_height,
                 );
+            }
+            #[cfg(target_os = "macos")]
+            WindowCommand::HighlightMatchingPair {
+                grid,
+                row,
+                column,
+                text,
+            } => {
+                use crate::renderer::rendered_window::BASE_GRID_ID;
+                use crate::renderer::rendered_window::NO_MULTIGRID_GRID_ID;
+                let target_grid = if grid == NO_MULTIGRID_GRID_ID {
+                    BASE_GRID_ID
+                } else {
+                    grid
+                };
+
+                let grid_scale = self.renderer.grid_renderer.grid_scale;
+                let cell_size = PixelSize::new(grid_scale.width(), grid_scale.height());
+                let grid_pos = GridPos::new(column as f32, row as f32);
+                let rect = if let Some(window) = self.renderer.rendered_windows.get(&target_grid) {
+                    let mut adjusted_grid = grid_pos + window.grid_current_position.to_vector();
+                    adjusted_grid.y -= window.scroll_animation.position;
+                    let origin = adjusted_grid * grid_scale;
+                    Some(PixelRect::from_origin_and_size(origin, cell_size))
+                } else {
+                    None
+                };
+
+                if let Some(rect) = rect {
+                    self.macos_feature_mut()
+                        .show_find_indicator_for_rect(rect, text.as_deref());
+                }
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
