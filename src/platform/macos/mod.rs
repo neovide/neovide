@@ -12,7 +12,7 @@ use objc2::{
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
     NSFontAttributeName, NSFontDescriptor, NSFontWeight, NSFontWeightLight, NSImage, NSMenu,
-    NSMenuItem, NSTextView, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSMenuItem, NSTextView, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode, NSWorkspace,
 };
 use objc2_core_foundation::CGFloat;
 use objc2_foundation::{
@@ -41,6 +41,10 @@ extern "C" {}
 
 static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
     include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+
+const NEOVIDE_WEBSITE_URL: &str = "https://neovide.dev/";
+const NEOVIDE_CREATE_ISSUE_URL: &str =
+    "https://github.com/neovide/neovide/issues/new?template=bug_report.md";
 
 thread_local! {
     static QUICKLOOK_PREVIEW_ITEM: RefCell<Option<Retained<NSURL>>> = const { RefCell::new(None) };
@@ -206,6 +210,16 @@ fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSIma
             load_icon_from_custom_path(&expanded)
         })
         .or_else(load_icon_from_default_bytes)
+}
+
+fn open_external_url(url: &str) {
+    let ns_url_string = NSString::from_str(url);
+    if let Some(ns_url) = NSURL::URLWithString(&ns_url_string) {
+        let workspace = NSWorkspace::sharedWorkspace();
+        workspace.openURL(&ns_url);
+    } else {
+        log::warn!("Failed to open URL from Help menu: {url}");
+    }
 }
 
 #[derive(Debug)]
@@ -726,15 +740,42 @@ impl QuitHandler {
     }
 }
 
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    struct HelpMenuHandler;
+
+    impl HelpMenuHandler {
+        #[unsafe(method(createIssueReport:))]
+        fn create_issue_report(&self, _sender: &AnyObject) {
+            open_external_url(NEOVIDE_CREATE_ISSUE_URL);
+        }
+
+        #[unsafe(method(openNeovideWebsite:))]
+        fn open_neovide_website(&self, _sender: &AnyObject) {
+            open_external_url(NEOVIDE_WEBSITE_URL);
+        }
+    }
+);
+
+impl HelpMenuHandler {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
 #[derive(Debug)]
 struct Menu {
     quit_handler: Retained<QuitHandler>,
+    help_menu_handler: Retained<HelpMenuHandler>,
 }
 
 impl Menu {
     fn new(mtm: MainThreadMarker) -> Self {
         let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
+            help_menu_handler: HelpMenuHandler::new(mtm),
         };
         menu.add_menus(mtm);
         menu
@@ -811,6 +852,13 @@ impl Menu {
         win_menu_item.setSubmenu(Some(&win_menu));
         main_menu.addItem(&win_menu_item);
         app.setWindowsMenu(Some(&win_menu));
+
+        let help_menu = self.add_help_menu(mtm);
+        let help_menu_item = NSMenuItem::new(mtm);
+        help_menu_item.setSubmenu(Some(&help_menu));
+        main_menu.addItem(&help_menu_item);
+        app.setHelpMenu(Some(&help_menu));
+
         app.setMainMenu(Some(&main_menu));
     }
 
@@ -833,6 +881,27 @@ impl Menu {
             min_item.setKeyEquivalent(ns_string!("m"));
             min_item.setAction(Some(sel!(performMiniaturize:)));
             menu.addItem(&min_item);
+            menu
+        }
+    }
+
+    fn add_help_menu(&self, mtm: MainThreadMarker) -> Retained<NSMenu> {
+        unsafe {
+            let menu = NSMenu::new(mtm);
+            menu.setTitle(ns_string!("Help"));
+
+            let create_issue_item = NSMenuItem::new(mtm);
+            create_issue_item.setTitle(ns_string!("Create Issue Report"));
+            create_issue_item.setAction(Some(sel!(createIssueReport:)));
+            create_issue_item.setTarget(Some(&self.help_menu_handler));
+            menu.addItem(&create_issue_item);
+
+            let website_item = NSMenuItem::new(mtm);
+            website_item.setTitle(ns_string!("Neovide Website"));
+            website_item.setAction(Some(sel!(openNeovideWebsite:)));
+            website_item.setTarget(Some(&self.help_menu_handler));
+            menu.addItem(&website_item);
+
             menu
         }
     }
