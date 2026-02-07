@@ -3,7 +3,7 @@ mod from_value;
 mod window_size;
 
 use anyhow::{Context, Result};
-use log::trace;
+use log::{trace, warn};
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 use rmpv::Value;
@@ -146,16 +146,30 @@ impl Settings {
         event_loop_proxy: &EventLoopProxy<UserEvent>,
     ) {
         let mut arguments = arguments.into_iter();
-        let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
+        let (Some(name), Some(value)) = (arguments.next(), arguments.next()) else {
+            warn!("Ignoring malformed setting_changed notification: expected [name, value]");
+            return;
+        };
 
         let name: Result<String, _> = name.try_into();
-        let name = name.unwrap();
+        let name = match name {
+            Ok(name) => name,
+            Err(error) => {
+                warn!("Ignoring setting_changed notification with invalid name: {error}");
+                return;
+            }
+        };
 
-        let event = self
-            .updaters
-            .read()
-            .get(&SettingLocation::NeovideGlobal(name))
-            .unwrap()(self, value);
+        let location = SettingLocation::NeovideGlobal(name.clone());
+        let update_handler = match self.updaters.read().get(&location).copied() {
+            Some(handler) => handler,
+            None => {
+                warn!("Ignoring setting_changed notification for unknown setting: {name}");
+                return;
+            }
+        };
+
+        let event = update_handler(self, value);
         let _ = event_loop_proxy.send_event(event.into());
     }
 
@@ -165,16 +179,30 @@ impl Settings {
         event_loop_proxy: &EventLoopProxy<UserEvent>,
     ) {
         let mut arguments = arguments.into_iter();
-        let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
+        let (Some(name), Some(value)) = (arguments.next(), arguments.next()) else {
+            warn!("Ignoring malformed option_changed notification: expected [name, value]");
+            return;
+        };
 
         let name: Result<String, _> = name.try_into();
-        let name = name.unwrap();
+        let name = match name {
+            Ok(name) => name,
+            Err(error) => {
+                warn!("Ignoring option_changed notification with invalid name: {error}");
+                return;
+            }
+        };
 
-        let event = self
-            .updaters
-            .read()
-            .get(&SettingLocation::NeovimOption(name))
-            .unwrap()(self, value);
+        let location = SettingLocation::NeovimOption(name.clone());
+        let update_handler = match self.updaters.read().get(&location).copied() {
+            Some(handler) => handler,
+            None => {
+                warn!("Ignoring option_changed notification for unknown option: {name}");
+                return;
+            }
+        };
+
+        let event = update_handler(self, value);
 
         let _ = event_loop_proxy.send_event(event.into());
     }
