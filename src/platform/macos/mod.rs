@@ -43,6 +43,7 @@ static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
     include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 const NEOVIDE_WEBSITE_URL: &str = "https://neovide.dev/";
+const NEOVIDE_SPONSOR_URL: &str = "https://github.com/sponsors/neovide";
 const NEOVIDE_CREATE_ISSUE_URL: &str =
     "https://github.com/neovide/neovide/issues/new?template=bug_report.md";
 
@@ -756,6 +757,11 @@ define_class!(
         fn open_neovide_website(&self, _sender: &AnyObject) {
             open_external_url(NEOVIDE_WEBSITE_URL);
         }
+
+        #[unsafe(method(openSponsorPage:))]
+        fn open_sponsor_page(&self, _sender: &AnyObject) {
+            open_external_url(NEOVIDE_SPONSOR_URL);
+        }
     }
 );
 
@@ -897,10 +903,16 @@ impl Menu {
             menu.addItem(&create_issue_item);
 
             let website_item = NSMenuItem::new(mtm);
-            website_item.setTitle(ns_string!("Neovide Website"));
+            website_item.setTitle(ns_string!("Documentation"));
             website_item.setAction(Some(sel!(openNeovideWebsite:)));
             website_item.setTarget(Some(&self.help_menu_handler));
             menu.addItem(&website_item);
+
+            let sponsor_item = NSMenuItem::new(mtm);
+            sponsor_item.setTitle(ns_string!("Sponsor"));
+            sponsor_item.setAction(Some(sel!(openSponsorPage:)));
+            sponsor_item.setTarget(Some(&self.help_menu_handler));
+            menu.addItem(&sponsor_item);
 
             menu
         }
