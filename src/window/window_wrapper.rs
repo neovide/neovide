@@ -447,7 +447,16 @@ impl WinitWindowWrapper {
             }
             WindowEvent::DroppedFile(path) => {
                 tracy_zone!("DroppedFile");
-                let file_path = path.into_os_string().into_string().unwrap();
+                let file_path = match path.into_os_string().into_string() {
+                    Ok(path) => path,
+                    Err(path) => {
+                        log::warn!(
+                            "Dropped file path is not valid UTF-8; skipping to avoid path corruption: {:?}",
+                            path
+                        );
+                        return false;
+                    }
+                };
                 send_ui(ParallelCommand::FileDrop(file_path));
             }
             WindowEvent::Focused(focus) => {

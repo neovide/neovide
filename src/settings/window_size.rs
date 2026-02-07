@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
@@ -56,7 +57,12 @@ fn load_settings() -> Result<PersistentSettings, String> {
 }
 
 pub fn neovide_std_datapath() -> PathBuf {
-    dirs::data_local_dir().unwrap().join("neovide")
+    dirs::data_local_dir()
+        .unwrap_or_else(|| {
+            warn!("Could not determine local data directory, falling back to current directory");
+            PathBuf::from(".")
+        })
+        .join("neovide")
 }
 
 pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
@@ -104,11 +110,24 @@ pub fn save_window_size(window_wrapper: &WinitWindowWrapper, settings: &Settings
     };
 
     let settings_path = settings_path();
-    std::fs::create_dir_all(neovide_std_datapath()).unwrap();
-    let json = serde_json::to_string(&settings).unwrap();
+
+    if let Err(write_error) = std::fs::create_dir_all(neovide_std_datapath()) {
+        error!("Could not create settings directory: {write_error}");
+        return;
+    }
+
+    let json = match serde_json::to_string(&settings) {
+        Ok(json) => json,
+        Err(serialize_error) => {
+            error!("Could not serialize window settings: {serialize_error}");
+            return;
+        }
+    };
+
     log::debug!("Saved Window Settings: {json}");
-    std::fs::write(&settings_path, json)
-        .unwrap_or_else(|_| panic!("Can't write to {settings_path:?}"));
+    if let Err(write_error) = std::fs::write(&settings_path, json) {
+        error!("Can't write to {settings_path:?}: {write_error}");
+    }
 }
 
 pub fn clamped_grid_size(grid_size: &GridSize<u32>) -> GridSize<u32> {
