@@ -100,7 +100,7 @@ scoped-env = "2.1.0"
 serial_test = "3.2.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-skia-safe = { version = "0.90.0", features = ["gl", "d3d", "textlayout"] }
+skia-safe = { version = "0.91.1", features = ["gl", "d3d", "textlayout"] }
 # This needs to match the version used by skia
 windows = { version = "0.62.0", features = [
   "Win32_Graphics_Direct3D",
@@ -179,11 +179,11 @@ objc2-metal = { version = "0.3.1", default-features = false, features = [
   "MTLCommandQueue",
   "MTLCommandBuffer",
 ] }
-skia-safe = { version = "0.90.0", features = ["metal", "gl", "textlayout"] }
+skia-safe = { version = "0.91.1", features = ["metal", "gl", "textlayout"] }
 uzers = "0.12.1"
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.90.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.91.1", features = ["gl", "textlayout"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 csscolorparser = "0.7.0"

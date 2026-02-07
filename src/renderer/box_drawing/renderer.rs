@@ -7,7 +7,7 @@ use glamour::{Box2, Size2, Vector2};
 use itertools::Itertools;
 use num::{Integer, ToPrimitive};
 use skia_safe::{
-    paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect,
+    paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathBuilder, PathEffect,
     PathFillType, Point, Rect,
 };
 
@@ -152,27 +152,30 @@ impl<'a> Context<'a> {
     }
 
     fn draw_arrow(&self, side: Side) {
-        let mut path = Path::default();
         let min = self.bounding_box.min.align_outside();
         let max = self.bounding_box.max.align_outside();
         let mut mid = self.bounding_box.center();
         mid.y = mid
             .y
             .align_mid_line(self.get_stroke_width_pixels(Thickness::Thin));
-        path.set_fill_type(PathFillType::Winding);
+        let mut builder = PathBuilder::new();
+        builder.set_fill_type(PathFillType::Winding);
         match side {
             Side::Left => {
-                path.move_to((max.x, min.y));
-                path.line_to((min.x, mid.y));
-                path.line_to((max.x, max.y));
+                builder
+                    .move_to((max.x, min.y))
+                    .line_to((min.x, mid.y))
+                    .line_to((max.x, max.y));
             }
             Side::Right => {
-                path.move_to((min.x, min.y));
-                path.line_to((max.x, mid.y));
-                path.line_to((min.x, max.y));
+                builder
+                    .move_to((min.x, min.y))
+                    .line_to((max.x, mid.y))
+                    .line_to((min.x, max.y));
             }
         }
-        path.close();
+        builder.close();
+        let path = builder.detach();
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Fill);
         fg.set_anti_alias(true);
@@ -180,61 +183,67 @@ impl<'a> Context<'a> {
     }
 
     fn draw_quarter_triangle(&self, corner: Corner, height: Height) {
-        let mut path = Path::default();
         let min = self.bounding_box.min.align_outside();
         let max = self.bounding_box.max.align_outside();
         let mid = self
             .bounding_box
             .center()
             .align_mid_line(self.get_stroke_width_pixels(Thickness::Thin));
-        path.set_fill_type(PathFillType::Winding);
+
+        let mut builder = PathBuilder::new();
+        builder.set_fill_type(PathFillType::Winding);
         match corner {
             Corner::TopLeft => {
-                path.move_to((min.x, min.y));
-                path.line_to((max.x, min.y));
-                path.line_to((
-                    min.x,
-                    match height {
-                        Height::Tall => max.y,
-                        Height::Short => mid.y,
-                    },
-                ));
+                builder
+                    .move_to((min.x, min.y))
+                    .line_to((max.x, min.y))
+                    .line_to((
+                        min.x,
+                        match height {
+                            Height::Tall => max.y,
+                            Height::Short => mid.y,
+                        },
+                    ));
             }
             Corner::TopRight => {
-                path.move_to((max.x, min.y));
-                path.line_to((
-                    max.x,
-                    match height {
-                        Height::Tall => max.y,
-                        Height::Short => mid.y,
-                    },
-                ));
-                path.line_to((min.x, min.y));
+                builder
+                    .move_to((max.x, min.y))
+                    .line_to((
+                        max.x,
+                        match height {
+                            Height::Tall => max.y,
+                            Height::Short => mid.y,
+                        },
+                    ))
+                    .line_to((min.x, min.y));
             }
             Corner::BottomRight => {
-                path.move_to((max.x, max.y));
-                path.line_to((min.x, max.y));
-                path.line_to((
-                    max.x,
-                    match height {
-                        Height::Tall => min.y,
-                        Height::Short => mid.y,
-                    },
-                ));
+                builder
+                    .move_to((max.x, max.y))
+                    .line_to((min.x, max.y))
+                    .line_to((
+                        max.x,
+                        match height {
+                            Height::Tall => min.y,
+                            Height::Short => mid.y,
+                        },
+                    ));
             }
             Corner::BottomLeft => {
-                path.move_to((min.x, max.y));
-                path.line_to((max.x, max.y));
-                path.line_to((
-                    min.x,
-                    match height {
-                        Height::Tall => min.y,
-                        Height::Short => mid.y,
-                    },
-                ));
+                builder
+                    .move_to((min.x, max.y))
+                    .line_to((max.x, max.y))
+                    .line_to((
+                        min.x,
+                        match height {
+                            Height::Tall => min.y,
+                            Height::Short => mid.y,
+                        },
+                    ));
             }
         }
-        path.close();
+        builder.close();
+        let path = builder.detach();
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Fill);
         fg.set_anti_alias(true);
@@ -292,12 +301,14 @@ impl<'a> Context<'a> {
                 ]
             }
         };
-        let mut path = Path::default();
-        path.move_to(to_skia_point(vertices[0]));
+
+        let mut builder = PathBuilder::new();
+        builder.move_to(to_skia_point(vertices[0]));
         for v in &vertices[1..] {
-            path.line_to(to_skia_point(*v));
+            builder.line_to(to_skia_point(*v));
         }
-        path.close();
+        builder.close();
+        let path = builder.detach();
 
         let mut paint = self.fg_paint();
         paint.set_anti_alias(true);
@@ -305,29 +316,26 @@ impl<'a> Context<'a> {
     }
 
     fn draw_half_cross_line(&self, start_corner: Corner) {
-        let mut path = Path::default();
         let min = self.bounding_box.min.align_outside();
         let max = self.bounding_box.max.align_outside();
         let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
         let mid = self.bounding_box.center().align_mid_line(stroke_width);
+        let mut builder = PathBuilder::new();
         match start_corner {
             Corner::TopLeft => {
-                path.move_to((min.x, min.y));
-                path.line_to((max.x, mid.y));
+                builder.move_to((min.x, min.y)).line_to((max.x, mid.y));
             }
             Corner::TopRight => {
-                path.move_to((max.x, min.y));
-                path.line_to((min.x, mid.y));
+                builder.move_to((max.x, min.y)).line_to((min.x, mid.y));
             }
             Corner::BottomRight => {
-                path.move_to((max.x, max.y));
-                path.line_to((min.x, mid.y));
+                builder.move_to((max.x, max.y)).line_to((min.x, mid.y));
             }
             Corner::BottomLeft => {
-                path.move_to((min.x, max.y));
-                path.line_to((max.x, mid.y));
+                builder.move_to((min.x, max.y)).line_to((max.x, mid.y));
             }
         }
+        let path = builder.detach();
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Stroke);
         fg.set_stroke_width(stroke_width);
@@ -336,9 +344,9 @@ impl<'a> Context<'a> {
     }
 
     fn draw_d(&self, side: Side, fill: PaintStyle, close_path: bool) {
-        let mut path = Path::default();
         let mut bounds = self.bounding_box.align_outside();
         let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
+        let mut builder = PathBuilder::new();
 
         if matches!(side, Side::Left) {
             bounds.max.x += bounds.size().width;
@@ -356,18 +364,19 @@ impl<'a> Context<'a> {
                 let rect = to_skia_rect(&bounds);
                 let start_angle = 90.0;
                 let sweep_angle = 180.0;
-                path.arc_to(rect, start_angle, sweep_angle, true);
+                builder.arc_to(rect, start_angle, sweep_angle, true);
             }
             Side::Right => {
                 let rect = to_skia_rect(&bounds);
                 let start_angle = 270.0;
                 let sweep_angle = 180.0;
-                path.arc_to(rect, start_angle, sweep_angle, true);
+                builder.arc_to(rect, start_angle, sweep_angle, true);
             }
         }
         if close_path {
-            path.close();
+            builder.close();
         }
+        let path = builder.detach();
         let mut fg = self.fg_paint();
         fg.set_stroke_width(stroke_width);
         fg.set_style(fill);
@@ -537,16 +546,20 @@ impl<'a> Context<'a> {
         paint.set_style(PaintStyle::Stroke);
         paint.set_stroke_width(stroke_width);
         paint.set_path_effect(effect);
-        let mut path = Path::default();
+        let mut builder = PathBuilder::new();
         if o == Orientation::Horizontal {
             let y = self.bounding_box.center().y.align_mid_line(stroke_width);
-            path.move_to((self.bounding_box.min.x, y));
-            path.line_to((self.bounding_box.max.x, y));
+            builder
+                .move_to((self.bounding_box.min.x, y))
+                .line_to((self.bounding_box.max.x, y));
         } else {
             let x = self.bounding_box.center().x.align_mid_line(stroke_width);
-            path.move_to((x, self.bounding_box.min.y));
-            path.line_to((x, self.bounding_box.max.y));
+            builder
+                .move_to((x, self.bounding_box.min.y))
+                .line_to((x, self.bounding_box.max.y));
         }
+
+        let path = builder.detach();
         self.canvas.draw_path(&path, &paint);
     }
 
@@ -664,41 +677,44 @@ impl<'a> Context<'a> {
     }
 
     fn triangle_path(&self, corner: Corner) -> Path {
-        let mut path = Path::default();
         let bb = to_skia_rect(&self.bounding_box);
         let top_left = (bb.left, bb.top);
         let top_right = (bb.right, bb.top);
         let bottom_left = (bb.left, bb.bottom);
         let bottom_right = (bb.right, bb.bottom);
+        let mut builder = PathBuilder::new();
         match corner {
             Corner::TopLeft => {
-                path.move_to(top_left);
-                path.line_to(top_right);
-                path.line_to(bottom_left);
+                builder
+                    .move_to(top_left)
+                    .line_to(top_right)
+                    .line_to(bottom_left);
             }
             Corner::TopRight => {
-                path.move_to(top_right);
-                path.line_to(top_left);
-                path.line_to(bottom_right);
+                builder
+                    .move_to(top_right)
+                    .line_to(top_left)
+                    .line_to(bottom_right);
             }
             Corner::BottomRight => {
-                path.move_to(bottom_right);
-                path.line_to(top_right);
-                path.line_to(bottom_left);
+                builder
+                    .move_to(bottom_right)
+                    .line_to(top_right)
+                    .line_to(bottom_left);
             }
             Corner::BottomLeft => {
-                path.move_to(bottom_left);
-                path.line_to(top_left);
-                path.line_to(bottom_right);
+                builder
+                    .move_to(bottom_left)
+                    .line_to(top_left)
+                    .line_to(bottom_right);
             }
         }
-        path.close();
-        path
+        builder.close();
+        builder.detach()
     }
 
     fn draw_rounded_corner(&self, corner: Corner) {
         let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
-        let mut path = Path::new();
         let (mut x1, mut y1, mut x2, mut y2) = match corner {
             Corner::TopLeft => (
                 self.bounding_box.max.x,
@@ -730,9 +746,14 @@ impl<'a> Context<'a> {
         x2 = x2.align_mid_line(stroke_width);
         y2 = y2.align_outside();
         let radius = (x1 - x2).abs();
-        path.move_to((x1, y1));
-        path.arc_to_tangent((x2, y1), (x2, y2), radius);
-        path.line_to((x2, y2));
+
+        let mut builder = PathBuilder::new();
+        builder
+            .move_to((x1, y1))
+            .arc_to_tangent((x2, y1), (x2, y2), radius)
+            .line_to((x2, y2));
+
+        let path = builder.detach();
         let mut fg = self.fg_paint();
         fg.set_anti_alias(true);
         fg.set_style(PaintStyle::Stroke);
