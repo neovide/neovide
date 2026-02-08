@@ -155,26 +155,25 @@ impl Config {
 }
 
 fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
+    let config_path = config_path();
+    let parent_path = match config_path.parent() {
+        Some(dir) => dir,
+        None => return,
+    };
+
     let (tx, rx) = mpsc::channel();
     let mut debouncer = new_debouncer(Duration::from_millis(500), None, tx).unwrap();
 
     if let Err(e) = debouncer.watch(
         // watching the directory rather than the config file itself to also allow it to be deleted/created later on
-        config_path()
-            .parent()
-            .expect("config path to point to a file which must be in some directory"),
+        parent_path,
         RecursiveMode::NonRecursive,
     ) {
-        log::error!("Could not watch config file, chances are it just doesn't exist: {e}");
+        log::warn!("Error while trying to watch config file parent directory for changes: {e}");
         return;
     }
 
     let mut previous_config = init_config;
-    // XXX: compiler can't really know that the config_path() function result basically cannot change
-    // if that turns out to be a problem for someone, please open an issue and describe why you're modifying
-    // the env variables of processes on the fly
-    let config_path = config_path();
-
     loop {
         if let Err(e) = rx.recv() {
             eprintln!("Error while watching config file: {e}");

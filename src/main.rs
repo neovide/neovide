@@ -107,8 +107,6 @@ fn main() -> ExitCode {
 
     let event_loop = create_event_loop();
     let clipboard = clipboard::Clipboard::new(&event_loop);
-    let colorscheme_stream = mundy::Preferences::stream(mundy::Interest::ColorScheme);
-
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
     let clipboard_handle = clipboard::ClipboardHandle::new(&clipboard);
@@ -118,7 +116,6 @@ fn main() -> ExitCode {
         running_tracker.clone(),
         settings.clone(),
         clipboard_handle.clone(),
-        colorscheme_stream,
     ) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone(), clipboard),
         Ok((window_size, initial_config, runtime)) => {
@@ -147,7 +144,6 @@ fn setup(
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
     clipboard: clipboard::ClipboardHandle,
-    colorscheme_stream: mundy::PreferencesStream,
 ) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
     // | Architecture |
@@ -279,13 +275,7 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new(clipboard)?;
-    runtime.launch(
-        proxy,
-        grid_size,
-        running_tracker,
-        settings,
-        colorscheme_stream,
-    )?;
+    runtime.launch(proxy, grid_size, running_tracker, settings)?;
 
     Ok((window_size, config, runtime))
 }
