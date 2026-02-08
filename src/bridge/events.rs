@@ -229,6 +229,11 @@ pub enum RedrawEvent {
     HighlightAttributesDefine {
         id: u64,
         style: Style,
+        name: Option<String>,
+    },
+    HighlightGroupSet {
+        name: String,
+        id: u64,
     },
     /// Redraw a continuous part of a `row` on a `grid`.
     ///
@@ -241,6 +246,14 @@ pub enum RedrawEvent {
         /// The column to start redrawing at.
         column_start: u64,
         cells: Vec<GridLineCell>,
+    },
+    /// Highlight a range of cells without redrawing text.
+    GridHighlight {
+        grid: u64,
+        row: u64,
+        column_start: u64,
+        column_end: u64,
+        highlight_id: u64,
     },
     /// Clear a `grid`.
     Clear {
@@ -683,13 +696,57 @@ fn parse_style(style_map: Value, _info_array: Value) -> Result<Style> {
     Ok(style)
 }
 
+fn parse_hl_name(infos: Value) -> Option<String> {
+    fn take_names(values: Vec<(Value, Value)>, names: &mut Vec<String>) {
+        let possible_keys = ["hi_name", "ui_name", "name", "link"];
+        for (key, value) in values {
+            let Some(key) = key.as_str() else { continue };
+            if !possible_keys.contains(&key) {
+                continue;
+            }
+            if let Some(name) = value.as_str() {
+                names.push(name.to_string());
+            }
+        }
+    }
+
+    let mut names: Vec<String> = Vec::new();
+    match infos {
+        Value::Map(values) => take_names(values, &mut names),
+        Value::Array(values) => {
+            for value in values {
+                if let Value::Map(v) = value {
+                    take_names(v, &mut names);
+                }
+            }
+        }
+        _ => {}
+    }
+
+    if let Some(name) = names.iter().find(|name| name.starts_with("MatchParen")) {
+        return Some(name.clone());
+    }
+
+    names.into_iter().next()
+}
+
 fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let [id, attributes, _terminal_attributes, infos] = extract_values(hl_attr_define_arguments)?;
 
-    let style = parse_style(attributes, infos)?;
+    let style = parse_style(attributes, infos.clone())?;
     Ok(RedrawEvent::HighlightAttributesDefine {
         id: parse_u64(id)?,
         style,
+        name: parse_hl_name(infos),
+    })
+}
+
+fn parse_hl_group_set(hl_group_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [name, id] = extract_values(hl_group_set_arguments)?;
+
+    Ok(RedrawEvent::HighlightGroupSet {
+        name: parse_string(name)?,
+        id: parse_u64(id)?,
     })
 }
 
@@ -734,6 +791,33 @@ fn parse_grid_line(grid_line_arguments: Vec<Value>) -> Result<RedrawEvent> {
             .into_iter()
             .map(parse_grid_line_cell)
             .collect::<Result<Vec<GridLineCell>>>()?,
+    })
+}
+
+fn parse_grid_highlight(grid_highlight_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid_id, row, column_start, column_end, highlight_id] =
+        extract_values(grid_highlight_arguments)?;
+    let validate = |v, field| {
+        (if v < 0 {
+            warn!("Negative grid highlight {field} received from Neovim {v}");
+            0
+        } else {
+            v
+        }) as u64
+    };
+
+    let grid = parse_u64(grid_id)?;
+    let row = validate(parse_i64(row)?, "row");
+    let column_start = validate(parse_i64(column_start)?, "column_start");
+    let column_end = validate(parse_i64(column_end)?, "column_end");
+    let highlight_id = validate(parse_i64(highlight_id)?, "highlight_id");
+
+    Ok(RedrawEvent::GridHighlight {
+        grid,
+        row,
+        column_start,
+        column_end,
+        highlight_id,
     })
 }
 
@@ -1039,7 +1123,9 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "grid_resize" => Some(parse_grid_resize(event_parameters)),
             "default_colors_set" => Some(parse_default_colors(event_parameters)),
             "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)),
+            "hl_group_set" => Some(parse_hl_group_set(event_parameters)),
             "grid_line" => Some(parse_grid_line(event_parameters)),
+            "grid_highlight" => Some(parse_grid_highlight(event_parameters)),
             "grid_clear" => Some(parse_grid_clear(event_parameters)),
             "grid_destroy" => Some(parse_grid_destroy(event_parameters)),
             "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)),

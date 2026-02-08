@@ -183,6 +183,8 @@ async fn launch(
     options.set_linegrid_external(true);
     options.set_multigrid_external(!cmdline_settings.no_multi_grid);
     options.set_rgb(true);
+    #[cfg(target_os = "macos")]
+    options.set_hlstate_external(true);
     // We can close the handle here, as Neovim already owns it
     #[cfg(not(target_os = "windows"))]
     if let Some(fd) = session.stdin_fd.take() {

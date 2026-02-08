@@ -1,7 +1,7 @@
 use std::{ops::Range, sync::Arc};
 
 use log::trace;
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, PathBuilder, HSV};
 
 use crate::{
     editor::{Colors, LineFragment, Style, UnderlineStyle},
@@ -322,16 +322,19 @@ impl GridRenderer {
                     .set_path_effect(None)
                     .set_anti_alias(true)
                     .set_style(skia_safe::paint::Style::Stroke);
-                let mut path = Path::default();
-                path.move_to(p1);
+
+                let mut builder = PathBuilder::new();
+                builder.move_to(p1);
                 let mut sin = -2. * stroke_width;
                 let dx = self.grid_scale.width() / 2.;
                 let count = ((p2.0 - p1.0) / dx).round();
                 let dy = (p2.1 - p1.1) / count;
                 for _ in 0..(count as i32) {
                     sin *= -1.;
-                    path.r_quad_to((dx / 2., sin), (dx, dy));
+                    builder.r_quad_to((dx / 2., sin), (dx, dy));
                 }
+
+                let path = builder.detach();
                 canvas.draw_path(&path, &underline_paint);
             }
             UnderlineStyle::UnderDash => {

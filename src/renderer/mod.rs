@@ -7,7 +7,7 @@ pub mod opengl;
 pub mod profiler;
 pub mod progress_bar;
 mod rendered_layer;
-mod rendered_window;
+pub mod rendered_window;
 mod vsync;
 
 #[cfg(target_os = "windows")]

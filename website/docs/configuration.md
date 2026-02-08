@@ -740,6 +740,25 @@ some cases the hack itself is buggy and prevents the cursor from moving to the c
 should. In that case you can try to disable it, especially if you are not using cursor animations
 and the flickering does not bother as much.
 
+#### Highlight Matching Pair (macOS only)
+
+VimScript:
+
+```vim
+let g:neovide_highlight_matching_pair = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_highlight_matching_pair = true
+```
+
+**Nightly.**
+
+When enabled, Neovide highlights the matching pair using the system find indicator. The
+default is `false`.
+
 ### Input Settings
 
 #### macOS Option Key is Meta
