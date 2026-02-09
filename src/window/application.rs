@@ -394,13 +394,13 @@ impl Application {
         // safely. see https://github.com/neovide/neovide/issues/3311
         self.clipboard.take();
 
-        if let Some(runtime) = self.runtime.take() {
+        if let Some(mut runtime) = self.runtime.take() {
             // Wait a little bit more and force Neovim to exit after that.
             // This should not be required, but Neovim through libuv spawns child processes that inherit all the handles.
             // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
             // read will hang forever, waiting for more data to read.
             // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+            runtime.shutdown_timeout(Duration::from_millis(500));
         }
     }
 }
