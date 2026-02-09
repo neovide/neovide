@@ -96,6 +96,7 @@ impl FloatingLayer<'_> {
                 id: window.id,
                 region: regions[i],
                 grid_size: window.grid_size,
+                window_type: window.window_type,
             });
         });
 

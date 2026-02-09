@@ -128,8 +128,13 @@ impl Application {
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
-        let window_wrapper =
-            WinitWindowWrapper::new(initial_window_size, initial_config, settings.clone());
+        let clipboard_handle = clipboard::ClipboardHandle::new(&clipboard);
+        let window_wrapper = WinitWindowWrapper::new(
+            initial_window_size,
+            initial_config,
+            settings.clone(),
+            clipboard_handle,
+        );
 
         Self {
             idle,

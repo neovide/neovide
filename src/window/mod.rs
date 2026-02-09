@@ -57,6 +57,7 @@ use crate::{
 pub use application::Application;
 pub use application::ShouldRender;
 pub use error_window::show_error_window;
+pub use mouse_manager::{MessageSelectionEvent, MouseEventResult, OverlayEvent};
 pub use settings::{ThemeSettings, WindowSettings, WindowSettingsChanged};
 pub use window_wrapper::WinitWindowWrapper;
 

@@ -15,7 +15,8 @@ use glamour::{Contains, Point2};
 
 use crate::{
     bridge::{send_ui, SerialCommand},
-    renderer::{Renderer, WindowDrawDetails},
+    editor::WindowType,
+    renderer::{MessageSelection, Renderer, WindowDrawDetails},
     settings::Settings,
     units::{GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
     window::keyboard_manager::KeyboardManager,
@@ -36,6 +37,36 @@ fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
 struct DragDetails {
     draw_details: WindowDrawDetails,
     button: MouseButton,
+}
+
+#[derive(Clone, Debug)]
+struct MessageSelectionState {
+    draw_details: WindowDrawDetails,
+    start: GridPos<u32>,
+    end: GridPos<u32>,
+}
+
+#[derive(Clone, Debug)]
+pub enum MessageSelectionEvent {
+    Outside,
+    Update(MessageSelection),
+    Finish(MessageSelection),
+    Clear,
+}
+
+#[derive(Clone, Debug, Default)]
+pub enum OverlayEvent {
+    #[default]
+    Unchanged,
+    MessageSelection(MessageSelectionEvent),
+}
+
+pub struct PointerTransitionResult {
+    pub overlay_event: OverlayEvent,
+}
+
+pub struct MouseEventResult {
+    pub overlay_event: OverlayEvent,
 }
 
 pub struct EditorState<'a> {
@@ -75,6 +106,7 @@ pub struct MouseManager {
     pub enabled: bool,
 
     settings: Arc<Settings>,
+    message_selection: Option<MessageSelectionState>,
 }
 
 impl MouseManager {
@@ -90,6 +122,7 @@ impl MouseManager {
             cursor_resync_needed: false,
             enabled: true,
             settings,
+            message_selection: None,
         }
     }
 
@@ -162,12 +195,23 @@ impl MouseManager {
         }
     }
 
-    pub fn get_relative_position(
+    fn get_window_details_under_mouse_raw<'b>(
         &self,
+        editor_state: &'b EditorState<'b>,
+    ) -> Option<&'b WindowDrawDetails> {
+        let position = self.window_position;
+        editor_state
+            .window_regions
+            .iter()
+            .rfind(|details| details.region.contains(&position))
+    }
+
+    fn get_relative_position_at(
+        window_position: PixelPos<f32>,
         window_details: &WindowDrawDetails,
         editor_state: &EditorState,
     ) -> GridPos<u32> {
-        let relative_position = (self.window_position - window_details.region.min).to_point();
+        let relative_position = (window_position - window_details.region.min).to_point();
         (relative_position / *editor_state.grid_scale)
             .floor()
             .max((0.0, 0.0).into())
@@ -179,12 +223,40 @@ impl MouseManager {
             ))
     }
 
-    fn handle_pointer_motion(&mut self, position: PixelPos<f32>, editor_state: &EditorState) {
+    pub fn get_relative_position(
+        &self,
+        window_details: &WindowDrawDetails,
+        editor_state: &EditorState,
+    ) -> GridPos<u32> {
+        Self::get_relative_position_at(self.window_position, window_details, editor_state)
+    }
+
+    fn handle_pointer_motion(
+        &mut self,
+        position: PixelPos<f32>,
+        editor_state: &EditorState,
+    ) -> MessageSelectionEvent {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
 
         self.window_position = position;
+
+        if let Some(selection) = &mut self.message_selection {
+            let window_position = self.window_position;
+            let end = Self::get_relative_position_at(
+                window_position,
+                &selection.draw_details,
+                editor_state,
+            );
+            selection.end = end;
+            self.grid_position = end;
+            return MessageSelectionEvent::Update(MessageSelection {
+                grid_id: selection.draw_details.id,
+                start: selection.start,
+                end,
+            });
+        }
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
@@ -203,7 +275,7 @@ impl MouseManager {
             }
         } else {
             if !relative_window_rect.contains(&position) {
-                return;
+                return MessageSelectionEvent::Outside;
             }
 
             self.get_window_details_under_mouse(editor_state)
@@ -242,9 +314,66 @@ impl MouseManager {
 
             self.has_moved = self.drag_details.is_some() && (self.has_moved || has_moved);
         }
+
+        MessageSelectionEvent::Outside
     }
 
-    fn handle_pointer_transition(
+    fn update_message_selection_on_button(
+        &mut self,
+        mouse_button: MouseButton,
+        down: bool,
+        editor_state: &EditorState,
+    ) -> Option<MessageSelectionEvent> {
+        // MouseInput only reports press/release. we start message selection on left press,
+        // this keeps the selection as a *client* overlay and avoids interfering with neovim
+        // mouse handling outside message windows.
+        if !down && mouse_button == MouseButton::Left {
+            if let Some(selection) = self.message_selection.take() {
+                let end = self.get_relative_position(&selection.draw_details, editor_state);
+                self.drag_details = None;
+                self.has_moved = false;
+                return Some(MessageSelectionEvent::Finish(MessageSelection {
+                    grid_id: selection.draw_details.id,
+                    start: selection.start,
+                    end,
+                }));
+            }
+        }
+
+        if down && mouse_button == MouseButton::Left {
+            let details = self.get_window_details_under_mouse_raw(editor_state);
+            let allow_selection = details
+                .map(|details| matches!(details.window_type, WindowType::Message { .. }))
+                .unwrap_or(false);
+
+            if !allow_selection && self.message_selection.is_some() {
+                self.message_selection = None;
+                return Some(MessageSelectionEvent::Clear);
+            }
+
+            if let Some(details) = details {
+                if allow_selection {
+                    let position = self.get_relative_position(details, editor_state);
+                    self.message_selection = Some(MessageSelectionState {
+                        draw_details: details.clone(),
+                        start: position,
+                        end: position,
+                    });
+                    self.drag_details = None;
+                    self.has_moved = false;
+                    return Some(MessageSelectionEvent::Update(MessageSelection {
+                        grid_id: details.id,
+                        start: position,
+                        end: position,
+                    }));
+                }
+            }
+        }
+
+        None
+    }
+
+    fn send_nvim_mouse_button(
         &mut self,
         mouse_button: MouseButton,
         down: bool,
@@ -253,47 +382,73 @@ impl MouseManager {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
         // Non floating windows: rather than global coordinates, relative are needed
-        if self.enabled {
-            if let Some(button_text) = mouse_button_to_button_text(mouse_button) {
-                if let &Some(details) = &self.get_window_details_under_mouse(editor_state) {
-                    let action = if down {
-                        "press".to_owned()
-                    } else {
-                        "release".to_owned()
-                    };
+        if !self.enabled {
+            return;
+        }
 
-                    let position = if !down && self.has_moved {
-                        self.grid_position
-                    } else {
-                        self.get_relative_position(details, editor_state)
-                    };
+        if let Some(button_text) = mouse_button_to_button_text(mouse_button) {
+            if let &Some(details) = &self.get_window_details_under_mouse(editor_state) {
+                let action = if down {
+                    "press".to_owned()
+                } else {
+                    "release".to_owned()
+                };
 
-                    send_ui(SerialCommand::MouseButton {
-                        button: button_text.clone(),
-                        action,
-                        grid_id: details.event_grid_id(&self.settings),
-                        position: position.to_tuple(),
-                        modifier_string: editor_state
-                            .keyboard_manager
-                            .format_modifier_string("", true),
+                let position = if !down && self.has_moved {
+                    self.grid_position
+                } else {
+                    self.get_relative_position(details, editor_state)
+                };
+
+                send_ui(SerialCommand::MouseButton {
+                    button: button_text.clone(),
+                    action,
+                    grid_id: details.event_grid_id(&self.settings),
+                    position: position.to_tuple(),
+                    modifier_string: editor_state
+                        .keyboard_manager
+                        .format_modifier_string("", true),
+                });
+
+                if down {
+                    self.drag_details = Some(DragDetails {
+                        button: mouse_button,
+                        draw_details: details.clone(),
                     });
-
-                    if down {
-                        self.drag_details = Some(DragDetails {
-                            button: mouse_button,
-                            draw_details: details.clone(),
-                        });
-                    } else {
-                        self.drag_details = None;
-                    }
                 } else {
                     self.drag_details = None;
                 }
-
-                if self.drag_details.is_none() {
-                    self.has_moved = false;
-                }
+            } else {
+                self.drag_details = None;
             }
+
+            if self.drag_details.is_none() {
+                self.has_moved = false;
+            }
+        }
+    }
+
+    fn handle_pointer_transition(
+        &mut self,
+        mouse_button: MouseButton,
+        down: bool,
+        editor_state: &EditorState,
+    ) -> PointerTransitionResult {
+        let message_selection_event =
+            self.update_message_selection_on_button(mouse_button, down, editor_state);
+        let consume_mouse_input = matches!(
+            message_selection_event.as_ref(),
+            Some(MessageSelectionEvent::Update(_) | MessageSelectionEvent::Finish(_))
+        );
+
+        if !consume_mouse_input {
+            self.send_nvim_mouse_button(mouse_button, down, editor_state);
+        }
+
+        PointerTransitionResult {
+            overlay_event: message_selection_event
+                .map(OverlayEvent::MessageSelection)
+                .unwrap_or_default(),
         }
     }
 
@@ -448,7 +603,7 @@ impl MouseManager {
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
-    ) {
+    ) -> MouseEventResult {
         let full_region = WindowDrawDetails {
             id: 0,
             region: renderer
@@ -459,6 +614,7 @@ impl MouseManager {
                 .window_regions
                 .first()
                 .map_or(GridSize::ZERO, |v| v.grid_size),
+            window_type: crate::editor::WindowType::Editor,
         };
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,
@@ -468,12 +624,17 @@ impl MouseManager {
             keyboard_manager,
         };
         let hide_mouse_when_typing = self.settings.get::<WindowSettings>().hide_mouse_when_typing;
+        let mut overlay_event = OverlayEvent::default();
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.handle_pointer_motion(
+                let message_selection_event = self.handle_pointer_motion(
                     (position.x as f32, position.y as f32).into(),
                     &editor_state,
                 );
+                overlay_event = match message_selection_event {
+                    MessageSelectionEvent::Outside => OverlayEvent::default(),
+                    event => OverlayEvent::MessageSelection(event),
+                };
                 if self.mouse_hidden && window.has_focus() {
                     self.request_cursor_visible(window);
                 } else if self.cursor_resync_needed && window.has_focus() {
@@ -507,11 +668,15 @@ impl MouseManager {
                 phase,
                 &editor_state,
             ),
-            WindowEvent::MouseInput { button, state, .. } => self.handle_pointer_transition(
-                *button,
-                state == &ElementState::Pressed,
-                &editor_state,
-            ),
+            WindowEvent::MouseInput { button, state, .. } => {
+                overlay_event = self
+                    .handle_pointer_transition(
+                        *button,
+                        state == &ElementState::Pressed,
+                        &editor_state,
+                    )
+                    .overlay_event;
+            }
 
             WindowEvent::KeyboardInput {
                 event: key_event, ..
@@ -527,5 +692,7 @@ impl MouseManager {
             }
             _ => {}
         }
+
+        MouseEventResult { overlay_event }
     }
 }

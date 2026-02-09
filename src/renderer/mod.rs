@@ -24,7 +24,7 @@ use std::{
 
 use itertools::Itertools;
 use progress_bar::{ProgressBar, ProgressBarSettings};
-use skia_safe::Canvas;
+use skia_safe::{Canvas, Color4f, Paint};
 
 use winit::{
     event::WindowEvent,
@@ -42,7 +42,7 @@ use crate::{
         rendered_layer::{group_windows, FloatingLayer},
     },
     settings::*,
-    units::{to_skia_rect, GridRect, GridSize, PixelPos},
+    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
@@ -67,6 +67,15 @@ pub use rendered_window::{RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
+
+const MESSAGE_SELECTION_ALPHA: f32 = 0.35;
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct MessageSelection {
+    pub grid_id: u64,
+    pub start: GridPos<u32>,
+    pub end: GridPos<u32>,
+}
 
 #[cfg(feature = "profiling")]
 fn plot_skia_cache() {
@@ -169,6 +178,7 @@ pub struct Renderer {
     pub user_scale_factor: f64,
 
     settings: Arc<Settings>,
+    message_selection: Option<MessageSelection>,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -207,6 +217,7 @@ impl Renderer {
             os_scale_factor,
             user_scale_factor,
             settings,
+            message_selection: None,
         }
     }
 
@@ -216,6 +227,10 @@ impl Renderer {
 
     pub fn font_names(&self) -> Vec<String> {
         self.grid_renderer.font_names()
+    }
+
+    pub fn set_message_selection(&mut self, selection: Option<MessageSelection>) {
+        self.message_selection = selection;
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {
@@ -333,6 +348,7 @@ impl Renderer {
             .into_iter()
             .chain(floating_window_regions)
             .collect();
+        self.draw_message_selection(root_canvas, grid_scale);
         self.cursor_renderer
             .draw(&mut self.grid_renderer, root_canvas);
 
@@ -352,6 +368,72 @@ impl Renderer {
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();
+    }
+
+    fn message_selection_window(&self) -> Option<(&MessageSelection, &RenderedWindow)> {
+        let selection = self.message_selection.as_ref()?;
+        let window = self.rendered_windows.get(&selection.grid_id)?;
+        if !matches!(window.window_type, WindowType::Message { .. }) {
+            return None;
+        }
+
+        Some((selection, window))
+    }
+
+    fn draw_message_selection(&mut self, root_canvas: &Canvas, grid_scale: GridScale) {
+        let Some((selection, window)) = self.message_selection_window() else {
+            return;
+        };
+
+        let height = window.grid_size.height;
+        let width = window.grid_size.width;
+        if height == 0 || width == 0 {
+            return;
+        }
+
+        let max_row = height - 1;
+        let max_col = width - 1;
+        let start_row = selection.start.y.min(max_row);
+        let end_row = selection.end.y.min(max_row);
+        let (row_start, row_end) = if start_row <= end_row {
+            (start_row, end_row)
+        } else {
+            (end_row, start_row)
+        };
+
+        let start_col = selection.start.x.min(max_col);
+        let end_col = selection.end.x.min(max_col);
+        let (col_start, col_end) = if start_col <= end_col {
+            (start_col, end_col)
+        } else {
+            (end_col, start_col)
+        };
+
+        let pixel_region = window.pixel_region(grid_scale);
+        root_canvas.save();
+        root_canvas.clip_rect(to_skia_rect(&pixel_region), None, Some(false));
+
+        let selection_color = self
+            .grid_renderer
+            .default_style
+            .colors
+            .foreground
+            .or(self.grid_renderer.default_style.colors.background)
+            .unwrap_or_else(|| Color4f::from(self.grid_renderer.get_default_background(1.0)));
+
+        let mut paint = Paint::new(selection_color, None);
+        paint.set_anti_alias(false);
+        paint.set_alpha_f(MESSAGE_SELECTION_ALPHA);
+
+        for row in row_start..=row_end {
+            let row_start_col = if row == row_start { col_start } else { 0 };
+            let row_end_col = if row == row_end { col_end } else { max_col };
+            if let Some(rect) = window.grid_row_rect(row, row_start_col, row_end_col, grid_scale) {
+                root_canvas.draw_rect(rect, &paint);
+            }
+        }
+
+        root_canvas.restore();
     }
 
     pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {
@@ -510,6 +592,7 @@ impl Renderer {
         self.cursor_renderer = CursorRenderer::new(self.settings.clone());
         self.progress_bar = ProgressBar::new();
         self.current_mode = EditorMode::Unknown(String::new());
+        self.message_selection = None;
     }
 
     pub fn get_cursor_destination(&self) -> PixelPos<f32> {
