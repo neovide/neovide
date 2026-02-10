@@ -14,8 +14,12 @@ Installing should be as simple as downloading the binary, making sure the `nvim`
 version 0.10 or greater is on your `PATH` environment variable, and running it. Everything should be
 self contained.
 
-The binaries are to be found on
-[the release page](https://github.com/neovide/neovide/releases/latest).
+The binaries are to be found on the [releases](https://github.com/neovide/neovide/releases) page where
+you can download:
+
+- [the latest stable release](https://github.com/neovide/neovide/releases/latest)
+- [the latest development
+  prerelease](https://github.com/neovide/neovide/releases/tag/nightly)
 
 ## Windows
 
@@ -122,6 +126,8 @@ the source URL.
 
 Stable releases are packaged in nixpkgs in the `neovide` package, there's no flake. As such, if you
 just want to try it out in a transient shell, you can use this command.
+Nixpkgs usually tracks stable builds; for nightly use the GitHub nightly artifacts or build from
+source.
 
 **Note**: On non-NixOS systems, chances are you'll need to use
 [nixGL](https://github.com/nix-community/nixGL) as wrapper for neovide.
