@@ -154,8 +154,13 @@ enough. On Windows this should be enabled by default if you have a relatively re
 <p>Installing should be as simple as downloading the binary, making sure the <code>nvim</code> executable with
 version 0.10 or greater is on your <code>PATH</code> environment variable, and running it. Everything should be
 self contained.</p>
-<p>The binaries are to be found on
-<a href="https://github.com/neovide/neovide/releases/latest">the release page</a>.</p>
+<p>The binaries are to be found on the <a href="https://github.com/neovide/neovide/releases">releases</a> page where
+you can download:</p>
+<ul>
+<li><a href="https://github.com/neovide/neovide/releases/latest">the latest stable release</a></li>
+<li><a href="https://github.com/neovide/neovide/releases/tag/nightly">the latest development
+prerelease</a></li>
+</ul>
 <h2 id="windows"><a class="header" href="#windows">Windows</a></h2>
 <h3 id="scoop"><a class="header" href="#scoop">Scoop</a></h3>
 <p><a href="https://scoop.sh/">Scoop</a> has Neovide in the <code>extras</code> bucket. Ensure you have the <code>extras</code> bucket,
@@ -246,7 +251,9 @@ To build from a non-default branch you can edit the PKGBUILD and add <code>#bran
 the source URL.</p>
 <h3 id="nix"><a class="header" href="#nix">Nix</a></h3>
 <p>Stable releases are packaged in nixpkgs in the <code>neovide</code> package, there's no flake. As such, if you
-just want to try it out in a transient shell, you can use this command.</p>
+just want to try it out in a transient shell, you can use this command.
+Nixpkgs usually tracks stable builds; for nightly use the GitHub nightly artifacts or build from
+source.</p>
 <p><strong>Note</strong>: On non-NixOS systems, chances are you'll need to use
 <a href="https://github.com/nix-community/nixGL">nixGL</a> as wrapper for neovide.</p>
 <pre><code class="language-sh">nix-shell -p neovide
