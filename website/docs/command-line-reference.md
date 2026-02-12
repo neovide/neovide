@@ -158,7 +158,7 @@ to its generalistic purpose.
 
 **Available since 0.12.2.**
 
-This sets the window title to be hidden on macOS. Only works with `frame` set to `transparent` or `buttonless`.
+This sets the window title to be hidden on macOS.
 
 ### Application Icon
 
