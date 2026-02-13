@@ -312,18 +312,25 @@ fn maybe_disown(settings: &Settings) {
         return;
     }
 
-    if let Ok(current_exe) = env::current_exe() {
-        assert!(process::Command::new(current_exe)
-            .stdin(process::Stdio::null())
-            .stdout(process::Stdio::null())
-            .stderr(process::Stdio::null())
-            .args(env::args().skip(1))
-            .spawn()
-            .is_ok());
-        process::exit(0);
-    } else {
-        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
-    }
+    match fork::daemon(true, false) {
+        Ok(fork::Fork::Parent(_)) => process::exit(0),
+        Ok(fork::Fork::Child) => {
+            if let Ok(current_exe) = env::current_exe() {
+                assert!(process::Command::new(current_exe)
+                    .stdin(process::Stdio::null())
+                    .stdout(process::Stdio::null())
+                    .stderr(process::Stdio::null())
+                    .args(env::args().skip(1))
+                    .spawn()
+                    .is_ok());
+                process::exit(0);
+            } else {
+                eprintln!("error in disowning process, cannot obtain the path for the current executable, exiting...");
+                process::exit(1);
+            }
+        }
+        Err(_) => eprintln!("error in disowning process, continuing without disowning..."),
+    };
 }
 
 fn generate_stderr_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
