@@ -1,6 +1,6 @@
 use rmpv::Value;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RestartDetails {
     pub progpath: String,
     pub argv: Vec<String>,
