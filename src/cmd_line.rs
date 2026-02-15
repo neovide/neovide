@@ -51,7 +51,12 @@ pub struct CmdLineSettings {
     pub log_to_file: bool,
 
     /// Connect to the named pipe or socket at ADDRESS
-    #[arg(long, alias = "remote-tcp", value_name = "ADDRESS")]
+    #[arg(
+        long,
+        alias = "remote-tcp",
+        env = "NEOVIDE_SERVER",
+        value_name = "ADDRESS"
+    )]
     pub server: Option<String>,
 
     /// Run NeoVim in WSL rather than on the host
@@ -169,11 +174,11 @@ pub struct CmdLineSettings {
 pub struct GeometryArgs {
     /// The initial grid size of the window [<columns>x<lines>]. Defaults to columns/lines from init.vim/lua if no value is given.
     /// If --grid is not set then it's inferred from the window size
-    #[arg(long)]
+    #[arg(long, env = "NEOVIDE_GRID")]
     pub grid: Option<Option<Dimensions>>,
 
     /// The size of the window in pixels.
-    #[arg(long)]
+    #[arg(long, env = "NEOVIDE_SIZE")]
     pub size: Option<Dimensions>,
 
     /// Maximize the window on startup (not equivalent to fullscreen)
@@ -370,7 +375,7 @@ mod tests {
     #[test]
     fn test_files_to_open_with_flag() {
         let settings = Settings::new();
-        let args: Vec<String> = ["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
+        let args: Vec<String> = ["neovide", "./foo.txt", "./bar.md", "--grid=420x240"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -384,8 +389,8 @@ mod tests {
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.grid,
             Some(Some(Dimensions {
-                width: 42,
-                height: 24
+                width: 420,
+                height: 240
             })),
         );
     }
@@ -393,7 +398,7 @@ mod tests {
     #[test]
     fn test_grid() {
         let settings = Settings::new();
-        let args: Vec<String> = ["neovide", "--grid=42x24"]
+        let args: Vec<String> = ["neovide", "--grid=420x240"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -402,8 +407,24 @@ mod tests {
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.grid,
             Some(Some(Dimensions {
-                width: 42,
-                height: 24
+                width: 420,
+                height: 240
+            })),
+        );
+    }
+
+    #[test]
+    fn test_grid_environment_variable() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_GRID", "420x240");
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert_eq!(
+            settings.get::<CmdLineSettings>().geometry.grid,
+            Some(Some(Dimensions {
+                width: 420,
+                height: 240
             })),
         );
     }
@@ -423,6 +444,35 @@ mod tests {
                 width: 420,
                 height: 240,
             }),
+        );
+    }
+
+    #[test]
+    fn test_size_environment_variable() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_SIZE", "420x240");
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert_eq!(
+            settings.get::<CmdLineSettings>().geometry.size,
+            Some(Dimensions {
+                width: 420,
+                height: 240,
+            }),
+        );
+    }
+
+    #[test]
+    fn test_server_environment_variable() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_SERVER", "127.0.0.1:7777");
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert_eq!(
+            settings.get::<CmdLineSettings>().server,
+            Some("127.0.0.1:7777".to_string())
         );
     }
 

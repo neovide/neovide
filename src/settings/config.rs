@@ -46,8 +46,11 @@ pub fn config_path() -> PathBuf {
 pub struct Config {
     pub font: Option<FontSettings>,
     pub box_drawing: Option<BoxDrawingSettings>,
+    pub server: Option<String>,
     pub fork: Option<bool>,
     pub frame: Option<Frame>,
+    pub size: Option<String>,
+    pub grid: Option<String>,
     pub idle: Option<bool>,
     pub maximized: Option<bool>,
     pub neovim_bin: Option<PathBuf>,
@@ -61,6 +64,10 @@ pub struct Config {
     pub backtraces_path: Option<PathBuf>,
     pub icon: Option<String>,
     pub chdir: Option<PathBuf>,
+    pub opengl: Option<bool>,
+    pub wayland_app_id: Option<String>,
+    pub x11_wm_class: Option<String>,
+    pub x11_wm_class_instance: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +94,9 @@ impl Config {
     }
 
     fn write_to_env(&self) {
+        if let Some(server) = &self.server {
+            env::set_var("NEOVIDE_SERVER", server);
+        }
         if let Some(wsl) = self.wsl {
             env::set_var("NEOVIDE_WSL", wsl.to_string());
         }
@@ -105,11 +115,20 @@ impl Config {
         if let Some(fork) = self.fork {
             env::set_var("NEOVIDE_FORK", fork.to_string());
         }
+        if let Some(opengl) = self.opengl {
+            env::set_var("NEOVIDE_OPENGL", opengl.to_string());
+        }
         if let Some(idle) = self.idle {
             env::set_var("NEOVIDE_IDLE", idle.to_string());
         }
         if let Some(frame) = self.frame {
             env::set_var("NEOVIDE_FRAME", frame.to_string());
+        }
+        if let Some(size) = &self.size {
+            env::set_var("NEOVIDE_SIZE", size);
+        }
+        if let Some(grid) = &self.grid {
+            env::set_var("NEOVIDE_GRID", grid);
         }
         if let Some(neovim_bin) = &self.neovim_bin {
             env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
@@ -125,6 +144,15 @@ impl Config {
         }
         if let Some(icon) = &self.icon {
             env::set_var("NEOVIDE_ICON", icon);
+        }
+        if let Some(wayland_app_id) = &self.wayland_app_id {
+            env::set_var("NEOVIDE_APP_ID", wayland_app_id);
+        }
+        if let Some(x11_wm_class) = &self.x11_wm_class {
+            env::set_var("NEOVIDE_WM_CLASS", x11_wm_class);
+        }
+        if let Some(x11_wm_class_instance) = &self.x11_wm_class_instance {
+            env::set_var("NEOVIDE_WM_CLASS_INSTANCE", x11_wm_class_instance);
         }
         if let Some(chdir) = &self.chdir {
             env::set_var("NEOVIDE_CHDIR", chdir.to_string_lossy().to_string());

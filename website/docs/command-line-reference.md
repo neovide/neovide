@@ -46,7 +46,7 @@ Can be set to:
 ### Window Size
 
 ```sh
---size=<width>x<height>
+--size=<width>x<height> or $NEOVIDE_SIZE=<width>x<height>
 ```
 
 Sets the initial neovide window size in pixels.
@@ -70,7 +70,7 @@ Can not be used together with `--size`, or `--grid`.
 ### Grid Size
 
 ```sh
---grid [<columns>x<lines>]
+--grid [<columns>x<lines>] or $NEOVIDE_GRID=<columns>x<lines>
 
 ```
 
@@ -236,7 +236,7 @@ will be used.
 ### Neovim Server
 
 ```sh
---server <ADDRESS>
+--server <ADDRESS> or $NEOVIDE_SERVER=<ADDRESS>
 ```
 
 Connects to the named pipe or socket at ADDRESS.
