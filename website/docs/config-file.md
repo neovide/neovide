@@ -29,21 +29,28 @@ however.)
 Settings currently available in the config file with default values:
 
 ```toml
-backtraces_path = "/path/to/neovide_backtraces.log" # see below for the default platform specific location
+backtraces-path = "/path/to/neovide_backtraces.log" # see below for the default platform specific location
 chdir = "/path/to/dir"
 fork = false
 frame = "full"
+grid = "420x240"
+size = "1200x800"
 idle = true
 icon = "/full/path/to/neovide.ico" # Example path. Default icon is bundled. Use .icns on macOS.
 maximized = false
 mouse-cursor-icon = "arrow"
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 no-multigrid = false
+opengl = false # macOS/Windows only
+# server = "/tmp/nvim.sock" # or "127.0.0.1:7777"
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
 title-hidden = false
 vsync = true
+# wayland-app-id = "neovide"
 wsl = false
+# x11-wm-class = "neovide"
+# x11-wm-class-instance = "neovide"
 
 [font]
 normal = [] # Will use the bundled Fira Code Nerd Font by default
@@ -59,6 +66,8 @@ default = [2, 4]  # Thin and thick values respectively, for all sizes
 
 Refer to [Command Line Reference](command-line-reference.md) for details about the config settings
 listed above.
+Settings that are mutually exclusive on the command line (for example `size`, `grid` and
+`maximized`) are also mutually exclusive in the config file.
 
 ### Runtime settings
 
