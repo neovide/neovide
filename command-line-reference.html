@@ -172,7 +172,7 @@ apply those setting.</p>
 <li>(macOS only) <code>buttonless</code>: All decorations, but without quit, minimize or fullscreen buttons.</li>
 </ul>
 <h3 id="window-size"><a class="header" href="#window-size">Window Size</a></h3>
-<pre><code class="language-sh">--size=&lt;width&gt;x&lt;height&gt;
+<pre><code class="language-sh">--size=&lt;width&gt;x&lt;height&gt; or $NEOVIDE_SIZE=&lt;width&gt;x&lt;height&gt;
 </code></pre>
 <p>Sets the initial neovide window size in pixels.</p>
 <p>Can not be used together with <code>--maximized</code>, or <code>--grid</code>.</p>
@@ -185,7 +185,7 @@ visible.</p>
 covering up the entire screen.</p>
 <p>Can not be used together with <code>--size</code>, or <code>--grid</code>.</p>
 <h3 id="grid-size"><a class="header" href="#grid-size">Grid Size</a></h3>
-<pre><code class="language-sh">--grid [&lt;columns&gt;x&lt;lines&gt;]
+<pre><code class="language-sh">--grid [&lt;columns&gt;x&lt;lines&gt;] or $NEOVIDE_GRID=&lt;columns&gt;x&lt;lines&gt;
 
 </code></pre>
 <p><strong>Available since 0.12.0.</strong></p>
@@ -288,7 +288,7 @@ disables this behavior. The command line parameter takes priority over the
 environment variable. If you don't enable vsync, then <code>g:neovide_refresh_rate</code>
 will be used.</p>
 <h3 id="neovim-server"><a class="header" href="#neovim-server">Neovim Server</a></h3>
-<pre><code class="language-sh">--server &lt;ADDRESS&gt;
+<pre><code class="language-sh">--server &lt;ADDRESS&gt; or $NEOVIDE_SERVER=&lt;ADDRESS&gt;
 </code></pre>
 <p>Connects to the named pipe or socket at ADDRESS.</p>
 <h3 id="wsl"><a class="header" href="#wsl">WSL</a></h3>

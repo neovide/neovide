@@ -1306,7 +1306,7 @@ apply those setting.</p>
 <li>(macOS only) <code>buttonless</code>: All decorations, but without quit, minimize or fullscreen buttons.</li>
 </ul>
 <h3 id="window-size"><a class="header" href="#window-size">Window Size</a></h3>
-<pre><code class="language-sh">--size=&lt;width&gt;x&lt;height&gt;
+<pre><code class="language-sh">--size=&lt;width&gt;x&lt;height&gt; or $NEOVIDE_SIZE=&lt;width&gt;x&lt;height&gt;
 </code></pre>
 <p>Sets the initial neovide window size in pixels.</p>
 <p>Can not be used together with <code>--maximized</code>, or <code>--grid</code>.</p>
@@ -1319,7 +1319,7 @@ visible.</p>
 covering up the entire screen.</p>
 <p>Can not be used together with <code>--size</code>, or <code>--grid</code>.</p>
 <h3 id="grid-size"><a class="header" href="#grid-size">Grid Size</a></h3>
-<pre><code class="language-sh">--grid [&lt;columns&gt;x&lt;lines&gt;]
+<pre><code class="language-sh">--grid [&lt;columns&gt;x&lt;lines&gt;] or $NEOVIDE_GRID=&lt;columns&gt;x&lt;lines&gt;
 
 </code></pre>
 <p><strong>Available since 0.12.0.</strong></p>
@@ -1422,7 +1422,7 @@ disables this behavior. The command line parameter takes priority over the
 environment variable. If you don't enable vsync, then <code>g:neovide_refresh_rate</code>
 will be used.</p>
 <h3 id="neovim-server"><a class="header" href="#neovim-server">Neovim Server</a></h3>
-<pre><code class="language-sh">--server &lt;ADDRESS&gt;
+<pre><code class="language-sh">--server &lt;ADDRESS&gt; or $NEOVIDE_SERVER=&lt;ADDRESS&gt;
 </code></pre>
 <p>Connects to the named pipe or socket at ADDRESS.</p>
 <h3 id="wsl"><a class="header" href="#wsl">WSL</a></h3>
@@ -1472,21 +1472,28 @@ a full path to a <code>config.toml</code> file (doesn't explicitly have to be ca
 however.)</p>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
-<pre><code class="language-toml">backtraces_path = &quot;/path/to/neovide_backtraces.log&quot; # see below for the default platform specific location
+<pre><code class="language-toml">backtraces-path = &quot;/path/to/neovide_backtraces.log&quot; # see below for the default platform specific location
 chdir = &quot;/path/to/dir&quot;
 fork = false
 frame = &quot;full&quot;
+grid = &quot;420x240&quot;
+size = &quot;1200x800&quot;
 idle = true
 icon = &quot;/full/path/to/neovide.ico&quot; # Example path. Default icon is bundled. Use .icns on macOS.
 maximized = false
 mouse-cursor-icon = &quot;arrow&quot;
 neovim-bin = &quot;/usr/bin/nvim&quot; # in reality found dynamically on $PATH if unset
 no-multigrid = false
+opengl = false # macOS/Windows only
+# server = &quot;/tmp/nvim.sock&quot; # or &quot;127.0.0.1:7777&quot;
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
 title-hidden = false
 vsync = true
+# wayland-app-id = &quot;neovide&quot;
 wsl = false
+# x11-wm-class = &quot;neovide&quot;
+# x11-wm-class-instance = &quot;neovide&quot;
 
 [font]
 normal = [] # Will use the bundled Fira Code Nerd Font by default
@@ -1500,7 +1507,9 @@ mode = &quot;font-glyph&quot;
 default = [2, 4]  # Thin and thick values respectively, for all sizes
 </code></pre>
 <p>Refer to <a href="command-line-reference.html">Command Line Reference</a> for details about the config settings
-listed above.</p>
+listed above.
+Settings that are mutually exclusive on the command line (for example <code>size</code>, <code>grid</code> and
+<code>maximized</code>) are also mutually exclusive in the config file.</p>
 <h3 id="runtime-settings"><a class="header" href="#runtime-settings">Runtime settings</a></h3>
 <h4 id="font-1"><a class="header" href="#font-1"><code>Font</code></a></h4>
 <p><strong>Available since 0.12.1.</strong></p>
