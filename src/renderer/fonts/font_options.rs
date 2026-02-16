@@ -2,13 +2,14 @@ use std::{collections::HashMap, fmt, iter, num::ParseFloatError, sync::Arc};
 
 use itertools::Itertools;
 use log::warn;
+use rmpv::Value;
 use serde::Deserialize;
 use skia_safe::{
     font_style::{Slant, Weight, Width},
     FontStyle,
 };
 
-use crate::{editor, error_msg};
+use crate::{editor, error_msg, settings::ParseFromValue};
 
 pub const DEFAULT_FONT_SIZE: f32 = 14.0;
 const FONT_OPTS_SEPARATOR: char = ':';
@@ -338,6 +339,56 @@ impl FontHinting {
             "slight" => Ok(Self::Slight),
             "none" => Ok(Self::None),
             _ => Err(Self::INVALID_ERR),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum PixelGeometry {
+    #[default]
+    Unknown,
+    RGBH,
+    BGRH,
+    RGBV,
+    BGRV,
+}
+
+impl ParseFromValue for PixelGeometry {
+    fn parse_from_value(&mut self, value: Value) {
+        match value.as_str() {
+            Some("Unknown") => *self = Self::Unknown,
+            Some("RGBH") => *self = Self::RGBH,
+            Some("BGRH") => *self = Self::BGRH,
+            Some("RGBV") => *self = Self::RGBV,
+            Some("BGRV") => *self = Self::BGRV,
+            _ => {
+                error_msg!("Setting expected \"RGBH\", \"BGRH\", \"RGBV\", \"BGRV\", or \"Unknown\", but received {value:?}");
+            }
+        }
+    }
+}
+
+impl std::convert::From<PixelGeometry> for Value {
+    fn from(value: PixelGeometry) -> Self {
+        Value::from(match value {
+            PixelGeometry::Unknown => "Unknown",
+            PixelGeometry::RGBH => "RGBH",
+            PixelGeometry::BGRH => "BGRH",
+            PixelGeometry::RGBV => "RGBV",
+            PixelGeometry::BGRV => "BGRV",
+        })
+    }
+}
+
+impl From<PixelGeometry> for skia_safe::PixelGeometry {
+    fn from(value: PixelGeometry) -> Self {
+        match value {
+            PixelGeometry::Unknown => Self::Unknown,
+            PixelGeometry::RGBH => Self::RGBH,
+            PixelGeometry::BGRH => Self::BGRH,
+            PixelGeometry::RGBV => Self::RGBV,
+            PixelGeometry::BGRV => Self::BGRV,
         }
     }
 }

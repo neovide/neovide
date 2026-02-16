@@ -15,7 +15,7 @@ use skia_safe::{
         surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
+    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use winit::{event_loop::EventLoopProxy, window::Window};
 
@@ -52,7 +52,7 @@ impl MetalDrawableSurface {
 
         let surface_props = SurfaceProps::new_with_text_properties(
             SurfacePropsFlags::default(),
-            PixelGeometry::default(),
+            render_settings.pixel_geometry.into(),
             render_settings.text_contrast,
             render_settings.text_gamma,
         );

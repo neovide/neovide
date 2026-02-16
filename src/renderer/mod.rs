@@ -37,7 +37,10 @@ use crate::{
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style, WindowType},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
-    renderer::rendered_layer::{group_windows, FloatingLayer},
+    renderer::{
+        fonts::font_options::PixelGeometry,
+        rendered_layer::{group_windows, FloatingLayer},
+    },
     settings::*,
     units::{to_skia_rect, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
@@ -104,6 +107,7 @@ pub struct RendererSettings {
     text_gamma: f32,
     text_contrast: f32,
     experimental_layer_grouping: bool,
+    pixel_geometry: PixelGeometry,
 }
 
 impl Default for RendererSettings {
@@ -126,6 +130,7 @@ impl Default for RendererSettings {
             text_gamma: 0.0,
             text_contrast: 0.5,
             experimental_layer_grouping: false,
+            pixel_geometry: PixelGeometry::default(),
         }
     }
 }
