@@ -585,6 +585,22 @@ that doesn't suit you, and you want to emulate the Alacritty font rendering for 
 a gamma of 0.8 and a contrast of 0.1.</p>
 <p>Note a gamma of 0.0, means standard sRGB gamma or 2.2. Also note that these settings don't
 necessarily apply immediately due to caching of the fonts.</p>
+<h4 id="pixel-geometry"><a class="header" href="#pixel-geometry">Pixel geometry</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_pixel_geometry = &quot;RGBH&quot;
+let g:neovide_pixel_geometry = &quot;RGBH&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_pixel_geometry = &quot;RGBH&quot;
+vim.g.neovide_pixel_geometry = &quot;RGBH&quot;
+</code></pre>
+<p><strong>Nightly.</strong></p>
+<p>Required for the guifont option <code>#e-subpixelantialias</code> to work. Defaults to &quot;Unknown&quot;.</p>
+<p>Represents the physical location of the red, green, and blue light-emitting elements of your
+monitor. Possible options are &quot;RGBH&quot; (red on the left, green in the middle, and blue on the right,
+layed out horizontally), &quot;BGRH&quot; (horizontal, but flipped), &quot;RGBV&quot; (red on top, blue on bottom),
+&quot;BGRV&quot; (blue on top, red on bottom), and &quot;Unknown&quot; (effectively disables subpixel antialiasing).</p>
+<p>Most monitors are RGBH. If your monitor is rotated, it's probably something else.</p>
 <h4 id="padding"><a class="header" href="#padding">Padding</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_padding_top = 0
