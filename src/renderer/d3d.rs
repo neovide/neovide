@@ -7,7 +7,7 @@ use skia_safe::{
         BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
     },
     surface::BackendSurfaceAccess,
-    Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
+    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Graphics::DirectComposition::{
@@ -369,7 +369,7 @@ impl D3DSkiaRenderer {
 
             let surface_props = SurfaceProps::new_with_text_properties(
                 SurfacePropsFlags::default(),
-                PixelGeometry::default(),
+                render_settings.pixel_geometry.into(),
                 render_settings.text_contrast,
                 render_settings.text_gamma,
             );

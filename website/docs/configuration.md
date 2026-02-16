@@ -167,6 +167,33 @@ a gamma of 0.8 and a contrast of 0.1.
 Note a gamma of 0.0, means standard sRGB gamma or 2.2. Also note that these settings don't
 necessarily apply immediately due to caching of the fonts.
 
+#### Pixel geometry
+
+VimScript:
+
+```vim
+let g:neovide_pixel_geometry = "RGBH"
+let g:neovide_pixel_geometry = "RGBH"
+```
+
+Lua:
+
+```lua
+vim.g.neovide_pixel_geometry = "RGBH"
+vim.g.neovide_pixel_geometry = "RGBH"
+```
+
+**Nightly.**
+
+Required for the guifont option `#e-subpixelantialias` to work. Defaults to "Unknown".
+
+Represents the physical location of the red, green, and blue light-emitting elements of your
+monitor. Possible options are "RGBH" (red on the left, green in the middle, and blue on the right,
+layed out horizontally), "BGRH" (horizontal, but flipped), "RGBV" (red on top, blue on bottom),
+"BGRV" (blue on top, red on bottom), and "Unknown" (effectively disables subpixel antialiasing).
+
+Most monitors are RGBH. If your monitor is rotated, it's probably something else.
+
 #### Padding
 
 VimScript:

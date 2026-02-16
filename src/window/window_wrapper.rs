@@ -359,7 +359,9 @@ impl WinitWindowWrapper {
 
     fn handle_render_settings_changed(&mut self, changed_setting: RendererSettingsChanged) {
         match changed_setting {
-            RendererSettingsChanged::TextGamma(..) | RendererSettingsChanged::TextContrast(..) => {
+            RendererSettingsChanged::TextGamma(..)
+            | RendererSettingsChanged::TextContrast(..)
+            | RendererSettingsChanged::PixelGeometry(..) => {
                 if let Some(skia_renderer) = &mut self.skia_renderer {
                     skia_renderer.resize();
                 }

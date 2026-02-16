@@ -24,7 +24,7 @@ use skia_safe::{
         backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    ColorSpace, ColorType, PixelGeometry, SurfaceProps, SurfacePropsFlags,
+    ColorSpace, ColorType, SurfaceProps, SurfacePropsFlags,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -289,7 +289,7 @@ fn create_surface(
 
     let surface_props = SurfaceProps::new_with_text_properties(
         SurfacePropsFlags::default(),
-        PixelGeometry::default(),
+        render_settings.pixel_geometry.into(),
         render_settings.text_contrast,
         render_settings.text_gamma,
     );
