@@ -322,6 +322,12 @@ impl WinitWindowWrapper {
                     skia_renderer.window().set_blur(blur && transparent);
                 }
             }
+            WindowSettingsChanged::MessageAreaDragSelection(enabled) => {
+                if !enabled {
+                    self.mouse_manager.clear_message_selection();
+                    self.renderer.set_message_selection(None);
+                }
+            }
             WindowSettingsChanged::Opacity(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
             }

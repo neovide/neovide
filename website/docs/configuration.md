@@ -488,6 +488,25 @@ By setting this to `v:true`, the mouse will be hidden as soon as you start typin
 only affects the mouse if it is currently within the bounds of the neovide window. Moving the
 mouse makes it visible again.
 
+#### Mouse drag selection in message area
+
+VimScript:
+
+```vim
+let g:neovide_message_area_drag_selection = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_message_area_drag_selection = false
+```
+
+**Nightly.**
+
+Set this to `v:false` to disable drag selection in Neovide message windows, for example
+`:messages` or shell command output. This is enabled by default.
+
 #### Underline automatic scaling
 
 VimScript:

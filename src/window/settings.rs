@@ -32,6 +32,7 @@ pub struct WindowSettings {
     pub touch_deadzone: f32,
     pub touch_drag_timeout: f32,
     pub window_blurred: bool,
+    pub message_area_drag_selection: bool,
 
     #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
@@ -80,6 +81,7 @@ impl Default for WindowSettings {
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,
             window_blurred: false,
+            message_area_drag_selection: true,
 
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
