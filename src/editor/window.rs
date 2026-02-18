@@ -19,6 +19,7 @@ pub enum WindowType {
 pub struct Line {
     pub text: String,
     fragments: Vec<LineFragmentData>,
+    cells: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -62,6 +63,10 @@ impl Line {
                 data: fragment,
             }
         })
+    }
+
+    pub fn cells(&self) -> Option<&[String]> {
+        self.cells.as_deref()
     }
 }
 
@@ -350,11 +355,26 @@ impl Window {
             current_start = next_start;
             line_fragments.push(line_fragment);
         }
+
+        let cells = matches!(self.window_type, WindowType::Message { .. })
+            .then(|| self.row_cells(row))
+            .flatten();
+
         let line = Line {
             text,
             fragments: line_fragments,
+            cells,
         };
+
         self.send_command(batcher, WindowDrawCommand::DrawLine { row, line });
+    }
+
+    fn row_cells(&self, row: usize) -> Option<Vec<String>> {
+        self.grid.row(row).map(|line| {
+            line.iter()
+                .map(|(character, _)| character.clone())
+                .collect()
+        })
     }
 
     pub fn draw_grid_line(

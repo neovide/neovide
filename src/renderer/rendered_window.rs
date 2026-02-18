@@ -97,6 +97,7 @@ pub struct WindowDrawDetails {
     pub id: u64,
     pub region: PixelRect<f32>,
     pub grid_size: GridSize<u32>,
+    pub window_type: WindowType,
 }
 
 impl WindowDrawDetails {
@@ -322,6 +323,7 @@ impl RenderedWindow {
                 id: self.id,
                 region: pixel_region_box,
                 grid_size: self.grid_size,
+                window_type: self.window_type,
             };
         }
 
@@ -338,7 +340,109 @@ impl RenderedWindow {
             id: self.id,
             region: pixel_region_box,
             grid_size: self.grid_size,
+            window_type: self.window_type,
         }
+    }
+
+    fn line_for_row(&self, row: u32) -> Option<Rc<RefCell<RenderedLine>>> {
+        if self.actual_lines.is_empty() {
+            return None;
+        }
+
+        let row = row as isize;
+        let height = self.grid_size.height as isize;
+        if row < 0 || row >= height {
+            return None;
+        }
+
+        let top_margin = self.viewport_margins.top as isize;
+        let bottom_margin = self.viewport_margins.bottom as isize;
+        let bottom_start = height.saturating_sub(bottom_margin);
+
+        if row < top_margin || row >= bottom_start {
+            return self.actual_lines[row].as_ref().cloned();
+        }
+
+        let inner_row = row - top_margin;
+        let scroll_offset = self.scroll_animation.position.floor() as isize;
+        self.scrollback_lines[scroll_offset + inner_row]
+            .as_ref()
+            .cloned()
+    }
+
+    pub fn line_text_range(&self, row: u32, start_col: u32, end_col: u32) -> Option<String> {
+        let line = self.line_for_row(row)?;
+        let line = line.borrow();
+        let cells = line.line.cells()?;
+        if cells.is_empty() {
+            return Some(String::new());
+        }
+
+        let max_col = cells.len().saturating_sub(1) as u32;
+        let start = start_col.min(max_col);
+        let end = end_col.min(max_col);
+        let (start, end) = if start <= end {
+            (start, end)
+        } else {
+            (end, start)
+        };
+
+        let mut text = String::new();
+        for col in start..=end {
+            text.push_str(&cells[col as usize]);
+        }
+
+        let trimmed_len = text.trim_end_matches(' ').len();
+        text.truncate(trimmed_len);
+
+        Some(text)
+    }
+
+    pub fn grid_row_rect(
+        &self,
+        row: u32,
+        col_start: u32,
+        col_end: u32,
+        grid_scale: GridScale,
+    ) -> Option<Rect> {
+        let height = self.grid_size.height;
+        let width = self.grid_size.width;
+        if height == 0 || width == 0 {
+            return None;
+        }
+
+        let max_row = height - 1;
+        let max_col = width - 1;
+        let row = row.min(max_row);
+        let start_col = col_start.min(max_col);
+        let end_col = col_end.min(max_col);
+        let (start_col, end_col) = if start_col <= end_col {
+            (start_col, end_col)
+        } else {
+            (end_col, start_col)
+        };
+
+        let pixel_region = self.pixel_region(grid_scale);
+        let line_height = grid_scale.height();
+        let col_width = grid_scale.width();
+        let base_x = pixel_region.min.x;
+        let base_y = pixel_region.min.y;
+
+        let scroll_offset_pixels =
+            (self.scroll_animation.position.floor() - self.scroll_animation.position) * line_height;
+        let top_margin = self.viewport_margins.top as u32;
+        let bottom_margin = self.viewport_margins.bottom as u32;
+        let bottom_start = height.saturating_sub(bottom_margin);
+
+        let y = if row < top_margin || row >= bottom_start {
+            base_y + row as f32 * line_height
+        } else {
+            base_y + scroll_offset_pixels + row as f32 * line_height
+        };
+        let x = base_x + start_col as f32 * col_width;
+        let w = (end_col - start_col + 1) as f32 * col_width;
+
+        Some(Rect::from_xywh(x, y, w, line_height))
     }
 
     pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {

@@ -10,7 +10,8 @@ use winit::{
 };
 
 use super::{
-    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    KeyboardManager, MessageSelectionEvent, MouseEventResult, MouseManager, OverlayEvent,
+    UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -23,9 +24,11 @@ use {
 
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
+    clipboard::ClipboardHandle,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
-        create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
+        create_skia_renderer, DrawCommand, MessageSelection, Renderer, RendererSettingsChanged,
+        SkiaRenderer, VSync,
     },
     settings::{
         clamped_grid_size, Config, HotReloadConfigs, Settings, SettingsChanged, DEFAULT_GRID_SIZE,
@@ -102,6 +105,7 @@ pub struct WinitWindowWrapper {
     pub macos_feature: Option<MacosWindowFeature>,
 
     settings: Arc<Settings>,
+    clipboard: ClipboardHandle,
 }
 
 impl WinitWindowWrapper {
@@ -109,6 +113,7 @@ impl WinitWindowWrapper {
         initial_window_size: WindowSize,
         initial_config: Config,
         settings: Arc<Settings>,
+        clipboard: ClipboardHandle,
     ) -> Self {
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_config, settings.clone());
@@ -140,6 +145,7 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             macos_feature: None,
             settings,
+            clipboard,
         }
     }
 
@@ -419,20 +425,24 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+        // message selection via mouse drag, is a *client* overlay rendered by neovide, not a
+        // neovim draw command. it can change on mouse move/release without new draw commands,
+        // so we force a redraw whenever the message selection state changes.
+        let message_selection_needs_render = {
+            let mouse_result = self.handle_mouse_event(&event);
+            match mouse_result.overlay_event {
+                OverlayEvent::Unchanged => false,
+                OverlayEvent::MessageSelection(event) => self.apply_message_selection_event(event),
+            }
+        };
+
         // The renderer and vsync should always be created when a window event is received
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
-
-        self.mouse_manager.handle_event(
-            &event,
-            &self.keyboard_manager,
-            &self.renderer,
-            skia_renderer.window(),
-        );
         self.keyboard_manager.handle_event(&event);
         self.renderer.handle_event(&event);
-        let mut should_render = true;
 
+        let mut should_render = true;
         match event {
             WindowEvent::CloseRequested => {
                 tracy_zone!("CloseRequested");
@@ -500,7 +510,91 @@ impl WinitWindowWrapper {
                 should_render = false;
             }
         }
+
+        should_render |= message_selection_needs_render;
         self.ui_state >= UIState::FirstFrame && should_render
+    }
+
+    fn apply_message_selection_event(&mut self, action: MessageSelectionEvent) -> bool {
+        match action {
+            MessageSelectionEvent::Outside => false,
+            MessageSelectionEvent::Clear => {
+                self.renderer.set_message_selection(None);
+                true
+            }
+            MessageSelectionEvent::Update(selection) => {
+                self.renderer.set_message_selection(Some(selection));
+                true
+            }
+            MessageSelectionEvent::Finish(selection) => {
+                self.copy_message_selection(selection);
+                self.renderer.set_message_selection(None);
+                true
+            }
+        }
+    }
+
+    fn handle_mouse_event(&mut self, event: &WindowEvent) -> MouseEventResult {
+        let skia_renderer = self.skia_renderer.as_mut().unwrap();
+        self.mouse_manager.handle_event(
+            event,
+            &self.keyboard_manager,
+            &self.renderer,
+            skia_renderer.window(),
+        )
+    }
+
+    fn copy_message_selection(&mut self, selection: MessageSelection) {
+        let Some(window) = self.renderer.rendered_windows.get(&selection.grid_id) else {
+            return;
+        };
+
+        let height = window.grid_size.height;
+        let width = window.grid_size.width;
+        if height == 0 || width == 0 {
+            return;
+        }
+
+        let max_row = height - 1;
+        let max_col = width - 1;
+        let start_row = selection.start.y.min(max_row);
+        let end_row = selection.end.y.min(max_row);
+        let (row_start, row_end) = if start_row <= end_row {
+            (start_row, end_row)
+        } else {
+            (end_row, start_row)
+        };
+
+        let start_col = selection.start.x.min(max_col);
+        let end_col = selection.end.x.min(max_col);
+        let (col_start, col_end) = if start_col <= end_col {
+            (start_col, end_col)
+        } else {
+            (end_col, start_col)
+        };
+
+        let mut lines = Vec::new();
+        for row in row_start..=row_end {
+            let row_start_col = if row == row_start { col_start } else { 0 };
+            let row_end_col = if row == row_end { col_end } else { max_col };
+            if let Some(line) = window.line_text_range(row, row_start_col, row_end_col) {
+                lines.push(line);
+            }
+        }
+
+        if lines.is_empty() || lines.iter().all(|line| line.is_empty()) {
+            return;
+        }
+
+        let text = lines.join("\n");
+
+        if let Some(clipboard) = self.clipboard.upgrade() {
+            if let Ok(mut clipboard) = clipboard.lock() {
+                #[cfg(target_os = "linux")]
+                let _ = clipboard.set_contents(text.clone(), "*");
+                let _ = clipboard.set_contents(text, "+");
+            }
+        }
     }
 
     pub fn handle_user_event(&mut self, event: UserEvent) {
