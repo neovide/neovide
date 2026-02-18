@@ -778,6 +778,16 @@ hidden after reaching 100%.</li>
 <p>By setting this to <code>v:true</code>, the mouse will be hidden as soon as you start typing. This setting
 only affects the mouse if it is currently within the bounds of the neovide window. Moving the
 mouse makes it visible again.</p>
+<h4 id="mouse-drag-selection-in-message-area"><a class="header" href="#mouse-drag-selection-in-message-area">Mouse drag selection in message area</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_message_area_drag_selection = v:false
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_message_area_drag_selection = false
+</code></pre>
+<p><strong>Nightly.</strong></p>
+<p>Set this to <code>v:false</code> to disable drag selection in Neovide message windows, for example
+<code>:messages</code> or shell command output. This is enabled by default.</p>
 <h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_underline_stroke_scale = 1.0
