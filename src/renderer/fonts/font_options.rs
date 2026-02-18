@@ -145,6 +145,7 @@ impl FontOptions {
         if let Some(parts) = parts.next() {
             let parsed_font_list = parts
                 .split(FONT_LIST_SEPARATOR)
+                .map(str::trim_ascii)
                 .filter(|fallback| !fallback.is_empty())
                 .map(parse_font_name)
                 .collect_vec();

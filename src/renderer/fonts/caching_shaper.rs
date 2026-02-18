@@ -1,7 +1,7 @@
 use std::{num::NonZeroUsize, rc::Rc};
 
 use itertools::Itertools;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use lru::LruCache;
 use skia_safe::{
     graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
@@ -112,25 +112,35 @@ impl CachingShaper {
             .unique()
             .collect::<Vec<_>>();
 
+        if keys.is_empty() {
+            return;
+        }
+
         let failed_fonts = keys
             .iter()
             .filter(|key| self.font_loader.get_or_load(key).is_none())
             .collect_vec();
 
-        if !failed_fonts.is_empty() {
+        if failed_fonts.len() == keys.len() {
             error_msg!(
                 "Font can't be updated to: {:#?}\n\
-                Following fonts couldn't be loaded: {}",
+                No candidate fonts could be loaded: {}",
                 options,
                 failed_fonts.iter().join(",\n"),
             );
+            return;
         }
 
-        if failed_fonts.len() != keys.len() {
-            debug!("Font updated to: {options:?}");
-            self.options = options;
-            self.reset_font_loader();
+        if !failed_fonts.is_empty() {
+            warn!(
+                "Some configured fonts could not be loaded and will be skipped: {}",
+                failed_fonts.iter().join(", ")
+            );
         }
+
+        debug!("Font updated to: {options:?}");
+        self.options = options;
+        self.reset_font_loader();
     }
 
     pub fn update_linespace(&mut self, linespace: f32) {
