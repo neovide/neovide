@@ -231,6 +231,22 @@ impl MouseManager {
         Self::get_relative_position_at(self.window_position, window_details, editor_state)
     }
 
+    pub fn clear_message_selection(&mut self) -> bool {
+        let had_selection = self.message_selection.take().is_some();
+        if had_selection {
+            self.drag_details = None;
+            self.has_moved = false;
+        }
+
+        had_selection
+    }
+
+    fn message_area_drag_selection_enabled(&self) -> bool {
+        self.settings
+            .get::<WindowSettings>()
+            .message_area_drag_selection
+    }
+
     fn handle_pointer_motion(
         &mut self,
         position: PixelPos<f32>,
@@ -241,6 +257,11 @@ impl MouseManager {
         let relative_window_rect = PixelRect::from_size(window_size);
 
         self.window_position = position;
+
+        let message_selection_enabled = self.message_area_drag_selection_enabled();
+        if !message_selection_enabled && self.clear_message_selection() {
+            return MessageSelectionEvent::Clear;
+        }
 
         if let Some(selection) = &mut self.message_selection {
             let window_position = self.window_position;
@@ -324,6 +345,12 @@ impl MouseManager {
         down: bool,
         editor_state: &EditorState,
     ) -> Option<MessageSelectionEvent> {
+        if !self.message_area_drag_selection_enabled() {
+            return self
+                .clear_message_selection()
+                .then_some(MessageSelectionEvent::Clear);
+        }
+
         // MouseInput only reports press/release. we start message selection on left press,
         // this keeps the selection as a *client* overlay and avoids interfering with neovim
         // mouse handling outside message windows.
