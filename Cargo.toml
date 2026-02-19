@@ -28,6 +28,16 @@ exclude = [
   "stylua.toml",
 ]
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/{ version }/Neovide-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/{ version }/neovide.exe.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "zip"
+
 [workspace]
 members = ["neovide-derive"]
 
