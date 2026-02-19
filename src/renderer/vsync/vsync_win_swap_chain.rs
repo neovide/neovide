@@ -8,7 +8,10 @@ use windows::Win32::System::Threading::WaitForSingleObjectEx;
 
 use winit::event_loop::EventLoopProxy;
 
-use crate::{profiling::tracy_zone, window::UserEvent};
+use crate::{
+    profiling::tracy_zone,
+    window::{EventPayload, UserEvent},
+};
 
 enum Message {
     RequestRedraw,
@@ -28,7 +31,7 @@ pub struct VSyncWinSwapChain {
 }
 
 impl VSyncWinSwapChain {
-    pub fn new(proxy: EventLoopProxy<UserEvent>, swap_chain_waitable: HANDLE) -> Self {
+    pub fn new(proxy: EventLoopProxy<EventPayload>, swap_chain_waitable: HANDLE) -> Self {
         let handle = SwapChainHandle {
             handle: swap_chain_waitable,
         };
@@ -43,7 +46,9 @@ impl VSyncWinSwapChain {
                 unsafe {
                     WaitForSingleObjectEx(handle.handle, 1000, true);
                 }
-                proxy.send_event(UserEvent::RedrawRequested).ok();
+                proxy
+                    .send_event(EventPayload::all(UserEvent::RedrawRequested))
+                    .ok();
             }
         });
         Self {
