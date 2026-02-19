@@ -30,6 +30,17 @@ pub trait SettingGroup {
     fn register(settings: &Settings);
 }
 
+#[derive(Clone, Debug)]
+pub struct FontConfigState {
+    pub has_font: bool,
+}
+
+impl FontConfigState {
+    pub fn new() -> Self {
+        Self { has_font: false }
+    }
+}
+
 // Function types to handle settings updates
 type UpdateHandlerFunc = fn(&Settings, Value) -> SettingsChanged;
 type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
@@ -58,7 +69,9 @@ pub enum SettingLocation {
 
 impl Settings {
     pub fn new() -> Self {
-        Self::default()
+        let settings = Self::default();
+        settings.set(&FontConfigState::new());
+        settings
     }
 
     pub fn set_setting_handlers(

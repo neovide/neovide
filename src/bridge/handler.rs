@@ -1,10 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use log::trace;
-#[cfg(target_os = "macos")]
-use log::warn;
-use nvim_rs::{Handler, Neovim};
+use log::{trace, warn};
+use nvim_rs::{call_args, Handler, Neovim};
 use rmpv::Value;
 use tokio::sync::mpsc::UnboundedSender;
 use winit::event_loop::EventLoopProxy;
@@ -15,12 +13,12 @@ use crate::{
     bridge::{
         clipboard::{get_clipboard_contents, set_clipboard_contents},
         events::parse_redraw_event,
-        parse_progress_bar_event, send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
+        parse_progress_bar_event, send_ui, GuiOption, NeovimWriter, ParallelCommand, RedrawEvent,
     },
     clipboard::ClipboardHandle,
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
-    settings::Settings,
+    settings::{FontConfigState, Settings},
     window::{UserEvent, WindowCommand},
     LoggingSender,
 };
@@ -101,7 +99,7 @@ impl Handler for NeovimHandler {
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        _neovim: Neovim<Self::Writer>,
+        neovim: Neovim<Self::Writer>,
     ) {
         trace!("Neovim notification: {:?}", &event_name);
 
@@ -112,6 +110,10 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
+                        if skip_default_guifont(&parsed_event, &self.settings, &neovim).await {
+                            continue;
+                        }
+
                         match parsed_event {
                             RedrawEvent::Restart { details } => {
                                 let _ = self
@@ -227,4 +229,45 @@ fn parse_force_click_args(
     let kind = ForceClickKind::from(kind_str);
 
     Some((col, row, entity, guifont, kind))
+}
+
+async fn skip_default_guifont(
+    event: &RedrawEvent,
+    settings: &Settings,
+    nvim: &Neovim<NeovimWriter>,
+) -> bool {
+    let from_config = settings.get::<FontConfigState>().has_font;
+    if !from_config || !is_guifont_option_set(event) {
+        return false;
+    }
+
+    guifont_was_set(nvim)
+        .await
+        .map(|was_set| !was_set)
+        .unwrap_or_else(|error| {
+            warn!("Failed to determine if guifont was set: {error}");
+            false
+        })
+}
+
+// https://neovim.io/doc/user/api.html#nvim_get_option_info2()
+async fn guifont_was_set(nvim: &Neovim<NeovimWriter>) -> Result<bool, String> {
+    let value = nvim
+        .exec_lua(
+            "return vim.api.nvim_get_option_info2('guifont', {}).was_set",
+            call_args![],
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(value.as_bool().unwrap_or(false))
+}
+
+fn is_guifont_option_set(event: &RedrawEvent) -> bool {
+    matches!(
+        event,
+        RedrawEvent::OptionSet {
+            gui_option: GuiOption::GuiFont(_),
+        }
+    )
 }

@@ -195,6 +195,9 @@ impl Renderer {
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new(settings.clone());
         let mut grid_renderer = GridRenderer::new(scale_factor, settings.clone());
+        let mut font_config_state = settings.get::<FontConfigState>();
+        font_config_state.has_font = init_config.font.is_some();
+        settings.set(&font_config_state);
         grid_renderer.update_font_options(init_config.font.map(|x| x.into()).unwrap_or_default());
         grid_renderer.handle_box_drawing_update(init_config.box_drawing.unwrap_or_default());
         let current_mode = EditorMode::Unknown(String::from(""));
@@ -480,15 +483,20 @@ impl Renderer {
 
     pub fn handle_config_changed(&mut self, config: HotReloadConfigs) {
         match config {
-            HotReloadConfigs::Font(font) => match font {
-                Some(font) => {
-                    self.grid_renderer.update_font_options(font.into());
+            HotReloadConfigs::Font(font) => {
+                let mut font_config_state = self.settings.get::<FontConfigState>();
+                font_config_state.has_font = font.is_some();
+                self.settings.set(&font_config_state);
+                match font {
+                    Some(font) => {
+                        self.grid_renderer.update_font_options(font.into());
+                    }
+                    None => {
+                        self.grid_renderer
+                            .update_font_options(FontOptions::default());
+                    }
                 }
-                None => {
-                    self.grid_renderer
-                        .update_font_options(FontOptions::default());
-                }
-            },
+            }
             HotReloadConfigs::BoxDrawing(settings) => self
                 .grid_renderer
                 .handle_box_drawing_update(settings.unwrap_or_default()),
