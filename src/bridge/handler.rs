@@ -236,8 +236,7 @@ async fn skip_default_guifont(
     settings: &Settings,
     nvim: &Neovim<NeovimWriter>,
 ) -> bool {
-    let from_config = settings.get::<FontConfigState>().has_font;
-    if !from_config || !is_guifont_option_set(event) {
+    if !settings.get::<FontConfigState>().has_font || !is_guifont_option_set(event) {
         return false;
     }
 

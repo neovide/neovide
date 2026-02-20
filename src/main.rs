@@ -275,7 +275,7 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new(clipboard)?;
-    runtime.launch(proxy, grid_size, running_tracker, settings)?;
+    runtime.launch(proxy, grid_size, running_tracker, settings, &config)?;
 
     Ok((window_size, config, runtime))
 }
