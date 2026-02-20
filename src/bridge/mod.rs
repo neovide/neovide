@@ -315,6 +315,7 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
+        config: &Config,
     ) -> Result<()> {
         let mut colorscheme_stream = self.colorscheme_stream();
         let handler = self.handler(event_loop_proxy.clone(), running_tracker, settings.clone());
@@ -322,6 +323,10 @@ impl NeovimRuntime {
             .runtime()
             .block_on(initial_background_from_stream(&mut colorscheme_stream));
         self.set_background_preference(&initial_background);
+
+        let mut font_config_state = settings.get::<FontConfigState>();
+        font_config_state.has_font = config.font.is_some();
+        settings.set(&font_config_state);
 
         let session = match self.runtime().block_on(launch(
             handler,
