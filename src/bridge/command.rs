@@ -116,6 +116,16 @@ fn std_command_from_spec(spec: CommandSpec) -> StdCommand {
     result
 }
 
+#[cfg(target_os = "macos")]
+fn launched_from_desktop() -> bool {
+    // On macOS, apps launched from Finder or `open` are spawned by launchd = PPID 1.
+    // This is more reliable than $TERM for detecting GUI vs terminal launches,
+    // so we use this as a heuristic instead of relying on $TERM.
+    // https://en.wikipedia.org/wiki/Launchd#Components
+    use rustix::process;
+    matches!(process::getppid(), Some(ppid) if ppid.is_init())
+}
+
 // Creates a shell command if needed on this platform.
 #[cfg(target_os = "macos")]
 fn create_command_spec(
@@ -123,11 +133,10 @@ fn create_command_spec(
     args: &[String],
     _cmdline_settings: &CmdLineSettings,
 ) -> CommandSpec {
-    use std::env;
     use uzers::os::unix::UserExt;
-    if env::var_os("TERM").is_some() {
-        // If $TERM is set, we assume user is running from a terminal, and we shouldn't
-        // re-initialize the environment. See https://github.com/neovide/neovide/issues/2584
+    if !launched_from_desktop() {
+        // If we're not launched from the desktop, assume a terminal launch and avoid
+        // re-initializing the environment. See https://github.com/neovide/neovide/issues/2584
         CommandSpec::new(command, args.to_vec())
     } else {
         // Otherwise run inside a login shell to ensure the environment matches a
