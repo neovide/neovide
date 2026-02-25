@@ -14,6 +14,8 @@ mod vsync;
 pub mod d3d;
 
 #[cfg(target_os = "macos")]
+use crate::platform::macos;
+#[cfg(target_os = "macos")]
 mod metal;
 
 use std::{
@@ -642,14 +644,7 @@ pub fn build_window_config(
     event_loop: &ActiveEventLoop,
     settings: &Settings,
 ) -> WindowConfig {
-    let cmd_line_settings = settings.get::<CmdLineSettings>();
-    if cmd_line_settings.opengl {
-        opengl::build_window(window_attributes, event_loop)
-    } else {
-        let window = event_loop.create_window(window_attributes).unwrap();
-        let config = WindowConfigType::Metal;
-        WindowConfig { window, config }
-    }
+    macos::renderer::build_window_config(window_attributes, event_loop, settings)
 }
 
 #[cfg(target_os = "windows")]

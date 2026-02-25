@@ -1,3 +1,4 @@
+pub mod renderer;
 pub mod settings;
 
 use std::{cell::RefCell, ffi::CString, os::raw::c_void, path::Path, ptr, str, sync::Arc};
