@@ -1011,6 +1011,37 @@ vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot;
     callback = set_ime
 })
 </code></pre>
+<h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
+<p>Neovide registers system-wide shortcuts on macOS:</p>
+<ul>
+<li><strong>Pinned</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd> toggles the most recently used Neovide
+window. If that window is already active, the shortcut hides it; otherwise it brings the window
+to the front.</li>
+<li><strong>Editors</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
+you can pick another Neovide window. This shortcut is only available when
+<code>macos-native-tabs = true</code> and if only one window exists, it behaves the same as the pinned
+shortcut.</li>
+</ul>
+<p>Customize them by setting the environment variables:</p>
+<pre><code class="language-bash">launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY &quot;ctrl+shift+z&quot;
+launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY &quot;ctrl+shift+n&quot;
+</code></pre>
+<p>Use <code>cmd</code>, <code>ctrl</code>, <code>alt</code>, and <code>shift</code> for modifiers and a single character for the key.</p>
+<p>To disable a shortcut entirely, set the corresponding variable to <code>false</code> or leave it empty.</p>
+<p>You can also configure them inside <code>config.toml</code></p>
+<pre><code class="language-toml">macos-pinned-hotkey = &quot;ctrl+shift+z&quot;
+macos-switcher-hotkey = &quot;ctrl+shift+n&quot;
+</code></pre>
+<p>When <code>macos-native-tabs</code> is enabled, you can also customize the in-app tab navigation shortcuts:</p>
+<pre><code class="language-toml">macos-tab-prev-hotkey = &quot;cmd+shift+[&quot;
+macos-tab-next-hotkey = &quot;cmd+shift+]&quot;
+</code></pre>
+<p>These work only while Neovide is focused so the keypress never reaches Neovim, mirroring the native
+macOS tab cycling workflow.</p>
+<p>Set either value to <code>false</code> (or an empty value) to disable that shortcut and pass the keypress
+through to Neovim.</p>
+<p>macOS may prompt you to grant Neovide Accessibility/Input Monitoring permissions the first time you
+use this feature so the shortcut can be detected outside the app.</p>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_touch_deadzone = 6.0
@@ -1434,6 +1465,20 @@ for more details.</p>
 tabs to avoid confusing new users. <code>--no-tabs</code> disables this behavior.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
+<h3 id="macos-native-tabs"><a class="header" href="#macos-native-tabs">macOS Native Tabs</a></h3>
+<pre><code class="language-sh">--no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
+</code></pre>
+<p>Neovide merges macOS windows into a single host window automatically and hides the native tab bar by
+default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
+shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
+and the Editors menu entry.</p>
+<h3 id="macos-tab-navigation"><a class="header" href="#macos-tab-navigation">macOS Tab Navigation</a></h3>
+<pre><code class="language-sh">--macos-tab-prev-hotkey &lt;combo&gt; or $NEOVIDE_MACOS_TAB_PREV_HOTKEY
+--macos-tab-next-hotkey &lt;combo&gt; or $NEOVIDE_MACOS_TAB_NEXT_HOTKEY
+</code></pre>
+<p>When <code>macos-native-tabs</code> is enabled, these shortcuts let you remap the in-app tab cycling keys
+(defaults: <code>cmd+shift+[</code> / <code>cmd+shift+]</code>). Set them to <code>false</code> or leave empty to
+pass the keypress through to Neovim instead.</p>
 <h3 id="opengl-renderer"><a class="header" href="#opengl-renderer">OpenGL Renderer</a></h3>
 <pre><code class="language-sh">--opengl or $NEOVIDE_OPENGL=1
 </code></pre>
@@ -1514,6 +1559,12 @@ opengl = false # macOS/Windows only
 # server = &quot;/tmp/nvim.sock&quot; # or &quot;127.0.0.1:7777&quot;
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
+macos-native-tabs = false # macOS only
+macos-pinned-hotkey = &quot;ctrl+shift+z&quot; # macOS only
+macos-switcher-hotkey = &quot;ctrl+shift+n&quot; # macOS only, requires macos-native-tabs = true
+macos-tab-prev-hotkey = &quot;cmd+shift+[&quot; # macOS only
+macos-tab-next-hotkey = &quot;cmd+shift+]&quot; # macOS only
+theme = &quot;auto&quot;
 title-hidden = false
 vsync = true
 # wayland-app-id = &quot;neovide&quot;

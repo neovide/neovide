@@ -274,6 +274,20 @@ for more details.</p>
 tabs to avoid confusing new users. <code>--no-tabs</code> disables this behavior.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
+<h3 id="macos-native-tabs"><a class="header" href="#macos-native-tabs">macOS Native Tabs</a></h3>
+<pre><code class="language-sh">--no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
+</code></pre>
+<p>Neovide merges macOS windows into a single host window automatically and hides the native tab bar by
+default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
+shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
+and the Editors menu entry.</p>
+<h3 id="macos-tab-navigation"><a class="header" href="#macos-tab-navigation">macOS Tab Navigation</a></h3>
+<pre><code class="language-sh">--macos-tab-prev-hotkey &lt;combo&gt; or $NEOVIDE_MACOS_TAB_PREV_HOTKEY
+--macos-tab-next-hotkey &lt;combo&gt; or $NEOVIDE_MACOS_TAB_NEXT_HOTKEY
+</code></pre>
+<p>When <code>macos-native-tabs</code> is enabled, these shortcuts let you remap the in-app tab cycling keys
+(defaults: <code>cmd+shift+[</code> / <code>cmd+shift+]</code>). Set them to <code>false</code> or leave empty to
+pass the keypress through to Neovim instead.</p>
 <h3 id="opengl-renderer"><a class="header" href="#opengl-renderer">OpenGL Renderer</a></h3>
 <pre><code class="language-sh">--opengl or $NEOVIDE_OPENGL=1
 </code></pre>

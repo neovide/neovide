@@ -697,6 +697,37 @@ vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot;
     callback = set_ime
 })
 </code></pre>
+<h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
+<p>Neovide registers system-wide shortcuts on macOS:</p>
+<ul>
+<li><strong>Pinned</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd> toggles the most recently used Neovide
+window. If that window is already active, the shortcut hides it; otherwise it brings the window
+to the front.</li>
+<li><strong>Editors</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
+you can pick another Neovide window. This shortcut is only available when
+<code>macos-native-tabs = true</code> and if only one window exists, it behaves the same as the pinned
+shortcut.</li>
+</ul>
+<p>Customize them by setting the environment variables:</p>
+<pre><code class="language-bash">launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY &quot;ctrl+shift+z&quot;
+launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY &quot;ctrl+shift+n&quot;
+</code></pre>
+<p>Use <code>cmd</code>, <code>ctrl</code>, <code>alt</code>, and <code>shift</code> for modifiers and a single character for the key.</p>
+<p>To disable a shortcut entirely, set the corresponding variable to <code>false</code> or leave it empty.</p>
+<p>You can also configure them inside <code>config.toml</code></p>
+<pre><code class="language-toml">macos-pinned-hotkey = &quot;ctrl+shift+z&quot;
+macos-switcher-hotkey = &quot;ctrl+shift+n&quot;
+</code></pre>
+<p>When <code>macos-native-tabs</code> is enabled, you can also customize the in-app tab navigation shortcuts:</p>
+<pre><code class="language-toml">macos-tab-prev-hotkey = &quot;cmd+shift+[&quot;
+macos-tab-next-hotkey = &quot;cmd+shift+]&quot;
+</code></pre>
+<p>These work only while Neovide is focused so the keypress never reaches Neovim, mirroring the native
+macOS tab cycling workflow.</p>
+<p>Set either value to <code>false</code> (or an empty value) to disable that shortcut and pass the keypress
+through to Neovim.</p>
+<p>macOS may prompt you to grant Neovide Accessibility/Input Monitoring permissions the first time you
+use this feature so the shortcut can be detected outside the app.</p>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_touch_deadzone = 6.0
