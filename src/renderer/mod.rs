@@ -19,6 +19,7 @@ mod metal;
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap},
+    rc::Rc,
     sync::Arc,
 };
 
@@ -43,7 +44,7 @@ use crate::{
     },
     settings::*,
     units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos},
-    window::{ShouldRender, UserEvent},
+    window::{EventPayload, ShouldRender},
     WindowSettings,
 };
 
@@ -149,7 +150,7 @@ impl Default for RendererSettings {
 // window) are sorted as larger than the ones that should be handled later
 // So the order of the variants here matters so that the derive implementation can get
 // the order in the binary heap correct
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
@@ -623,6 +624,7 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
     orda.cmp(ordb)
 }
 
+#[derive(Clone)]
 pub enum WindowConfigType {
     OpenGL(glutin::config::Config),
     #[cfg(target_os = "windows")]
@@ -631,8 +633,9 @@ pub enum WindowConfigType {
     Metal,
 }
 
+#[derive(Clone)]
 pub struct WindowConfig {
-    pub window: Window,
+    pub window: Rc<Window>,
     pub config: WindowConfigType,
 }
 
@@ -648,7 +651,10 @@ pub fn build_window_config(
     } else {
         let window = event_loop.create_window(window_attributes).unwrap();
         let config = WindowConfigType::Metal;
-        WindowConfig { window, config }
+        WindowConfig {
+            window: window.into(),
+            config,
+        }
     }
 }
 
@@ -664,7 +670,10 @@ pub fn build_window_config(
     } else {
         let window = event_loop.create_window(window_attributes).unwrap();
         let config = WindowConfigType::Direct3D;
-        WindowConfig { window, config }
+        WindowConfig {
+            window: window.into(),
+            config,
+        }
     }
 }
 
@@ -678,36 +687,37 @@ pub fn build_window_config(
 }
 
 pub trait SkiaRenderer {
-    fn window(&self) -> &Window;
+    fn window(&self) -> Rc<Window>;
     fn flush(&mut self);
     fn swap_buffers(&mut self);
     fn canvas(&mut self) -> &Canvas;
     fn resize(&mut self);
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
+    fn create_vsync(&self, proxy: EventLoopProxy<EventPayload>) -> VSync;
     #[cfg(feature = "gpu_profiling")]
     fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
 }
 
 pub fn create_skia_renderer(
-    window: WindowConfig,
+    window: &WindowConfig,
     srgb: bool,
     vsync: bool,
     settings: Arc<Settings>,
 ) -> Box<dyn SkiaRenderer> {
     let renderer: Box<dyn SkiaRenderer> = match &window.config {
         WindowConfigType::OpenGL(..) => Box::new(opengl::OpenGLSkiaRenderer::new(
-            window,
+            window.clone(),
             srgb,
             vsync,
             settings.clone(),
         )),
         #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => {
-            Box::new(d3d::D3DSkiaRenderer::new(window.window, settings.clone()))
-        }
+        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(
+            window.window.clone(),
+            settings.clone(),
+        )),
         #[cfg(target_os = "macos")]
         WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
-            window.window,
+            window.window.clone(),
             srgb,
             vsync,
             settings.clone(),

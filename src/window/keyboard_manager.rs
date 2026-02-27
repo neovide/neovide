@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    bridge::{send_ui, SerialCommand},
+    bridge::{send_ui, NeovimHandler, SerialCommand},
     settings::Settings,
 };
 
@@ -41,7 +41,12 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &WindowEvent) {
+    #[cfg(target_os = "macos")]
+    pub fn current_modifiers(&self) -> Modifiers {
+        self.modifiers
+    }
+
+    pub fn handle_event(&mut self, event: &WindowEvent, neovim_handler: &NeovimHandler) {
         match event {
             WindowEvent::KeyboardInput {
                 event: key_event,
@@ -53,23 +58,29 @@ impl KeyboardManager {
                     if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
                         tracy_named_frame!("keyboard input");
-                        send_ui(SerialCommand::Keyboard(text));
+                        send_ui(SerialCommand::Keyboard(text), neovim_handler);
                     }
                 }
             }
             WindowEvent::Ime(Ime::Commit(text)) => {
                 log::trace!("Ime commit {text}");
-                send_ui(SerialCommand::KeyboardImeCommit {
-                    formatted: self.format_key_text(text, false),
-                    raw: text.to_owned(),
-                });
+                send_ui(
+                    SerialCommand::KeyboardImeCommit {
+                        formatted: self.format_key_text(text, false),
+                        raw: text.to_owned(),
+                    },
+                    neovim_handler,
+                );
             }
             WindowEvent::Ime(Ime::Preedit(text, cursor_offset)) => {
                 self.ime_preedit = (text.to_string(), *cursor_offset);
-                send_ui(SerialCommand::KeyboardImePreedit {
-                    raw: text.to_owned(),
-                    cursor_offset: *cursor_offset,
-                });
+                send_ui(
+                    SerialCommand::KeyboardImePreedit {
+                        raw: text.to_owned(),
+                        cursor_offset: *cursor_offset,
+                    },
+                    neovim_handler,
+                );
             }
             WindowEvent::ModifiersChanged(modifiers) => {
                 // Record the modifier states so that we can properly add them to the keybinding text

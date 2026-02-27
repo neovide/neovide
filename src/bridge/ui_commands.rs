@@ -1,4 +1,7 @@
-use std::sync::{Arc, OnceLock, RwLock};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock, Mutex},
+};
 
 use anyhow::{Context, Result};
 use indoc::indoc;
@@ -8,14 +11,35 @@ use rmpv::Value;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{set_background_if_allowed, show_error_message, Settings};
+use super::{set_background_if_allowed, show_error_message, NeovimHandler, Settings};
 use crate::{
     bridge::{nvim_dict, NeovimWriter},
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
     utils::handle_wslpaths,
-    LoggingSender,
+    window::RouteId,
 };
+
+/// Active handler pointer for places that do not carry a RouteId
+/// like global menu callbacks and a few legacy paths
+/// this can be None during startup or shutdown
+pub static HANDLER_REGISTRY: LazyLock<Mutex<Option<NeovimHandler>>> =
+    LazyLock::new(|| Mutex::new(None));
+
+/// Route aware handler map keyed by RouteId
+/// this is the source of truth for the multi window routing.
+/// we keep HANDLER_REGISTRY in sync with this so older or route agnostic
+/// call sites can still send ui commands without carrying route context
+pub static ROUTE_HANDLER_REGISTRY: LazyLock<Mutex<HashMap<RouteId, NeovimHandler>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+pub fn get_active_handler() -> Option<NeovimHandler> {
+    HANDLER_REGISTRY.lock().unwrap().clone()
+}
+
+pub fn require_active_handler() -> NeovimHandler {
+    get_active_handler().expect("NeovimHandler has not been initialized")
+}
 
 async fn ime_call(
     nvim: &Neovim<NeovimWriter>,
@@ -338,122 +362,113 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-#[derive(Default)]
-struct NeovimState {
-    nvim: Option<Neovim<NeovimWriter>>,
-    can_support_ime_api: bool,
-}
-
-static CURRENT_NEOVIM: OnceLock<Arc<RwLock<NeovimState>>> = OnceLock::new();
-static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
-
-fn neovim_holder() -> &'static Arc<RwLock<NeovimState>> {
-    CURRENT_NEOVIM.get_or_init(|| Arc::new(RwLock::new(NeovimState::default())))
-}
-
-fn update_current_neovim(nvim: Neovim<NeovimWriter>, can_support_ime_api: bool) {
-    let holder = neovim_holder();
-    if let Ok(mut guard) = holder.write() {
-        guard.nvim = Some(nvim);
-        guard.can_support_ime_api = can_support_ime_api;
-    }
-}
-
-fn clone_neovim(holder: &Arc<RwLock<NeovimState>>) -> Option<Neovim<NeovimWriter>> {
-    holder
-        .read()
-        .ok()
-        .and_then(|guard| guard.nvim.as_ref().cloned())
-}
-
-fn clone_neovim_with_ime(
-    holder: &Arc<RwLock<NeovimState>>,
-) -> Option<(Neovim<NeovimWriter>, bool)> {
-    holder.read().ok().and_then(|guard| {
-        guard
-            .nvim
-            .as_ref()
-            .cloned()
-            .map(|nvim| (nvim, guard.can_support_ime_api))
-    })
-}
-
 pub fn start_ui_command_handler(
+    route_id: RouteId,
+    handler: NeovimHandler,
     nvim: Neovim<NeovimWriter>,
     settings: Arc<Settings>,
     can_support_ime_api: bool,
 ) {
-    update_current_neovim(nvim, can_support_ime_api);
-    if UI_COMMAND_CHANNEL.get().is_some() {
+    handler.update_current_neovim(nvim, can_support_ime_api);
+    register_route_handler(route_id, handler.clone());
+    if handler.mark_ui_command_started() {
         return;
     }
 
-    let neovim_holder = neovim_holder().clone();
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
-    let (sender, mut ui_command_receiver) = unbounded_channel();
-    UI_COMMAND_CHANNEL
-        .set(LoggingSender::attach(sender, "UIComand"))
-        .expect("The UI command channel is already created");
-    tokio::spawn({
-        let neovim_holder = neovim_holder.clone();
-        let settings = settings.clone();
-        async move {
-            loop {
-                match ui_command_receiver.recv().await {
-                    Some(UiCommand::Serial(serial_command)) => {
-                        tracy_dynamic_zone!(serial_command.as_ref());
-                        // This can fail if the serial_rx loop exits before this one, so ignore the errors
-                        let _ = serial_tx.send(serial_command);
-                    }
-                    Some(UiCommand::Parallel(parallel_command)) => {
-                        tracy_dynamic_zone!(parallel_command.as_ref());
-                        let neovim_holder = neovim_holder.clone();
-                        let settings = settings.clone();
-                        tokio::spawn(async move {
-                            if let Some(ui_command_nvim) = clone_neovim(&neovim_holder) {
-                                parallel_command
-                                    .execute(&ui_command_nvim, settings.as_ref())
-                                    .await;
-                            }
-                        });
-                    }
-                    None => break,
+    let (_ui_command_sender, mut ui_command_receiver) = handler.get_ui_command_channel();
+
+    let handler_for_parallel = handler.clone();
+    let settings_for_parallel = settings.clone();
+    tokio::spawn(async move {
+        loop {
+            match ui_command_receiver.recv().await {
+                Some(UiCommand::Serial(serial_command)) => {
+                    tracy_dynamic_zone!(serial_command.as_ref());
+                    // This can fail if the serial_rx loop exits before this one, so ignore the errors
+                    let _ = serial_tx.send(serial_command);
                 }
+                Some(UiCommand::Parallel(parallel_command)) => {
+                    tracy_dynamic_zone!(parallel_command.as_ref());
+                    let handler_for_command = handler_for_parallel.clone();
+                    let settings = settings_for_parallel.clone();
+                    tokio::spawn(async move {
+                        if let Some(ui_command_nvim) = handler_for_command.clone_current_neovim() {
+                            parallel_command
+                                .execute(&ui_command_nvim, settings.as_ref())
+                                .await;
+                        } else {
+                            log::warn!("Parallel command received without an active Neovim handle");
+                        }
+                    });
+                }
+                None => break,
             }
-            log::info!("ui command receiver finished");
         }
+        log::info!("ui command receiver finished");
     });
 
-    tokio::spawn({
-        let neovim_holder = neovim_holder.clone();
-        async move {
-            tracy_fiber_enter!("Serial command");
-            while let Some(serial_command) = serial_rx.recv().await {
-                tracy_dynamic_zone!(serial_command.as_ref());
-                tracy_fiber_leave();
-                match clone_neovim_with_ime(&neovim_holder) {
-                    Some((serial_nvim, ime_api)) => {
-                        serial_command.execute(&serial_nvim, ime_api).await;
-                    }
-                    None => {
-                        log::warn!("Serial command received without an active Neovim handle");
-                        break;
-                    }
+    let handler_for_serial = handler.clone();
+    tokio::spawn(async move {
+        tracy_fiber_enter!("Serial command");
+        while let Some(serial_command) = serial_rx.recv().await {
+            tracy_dynamic_zone!(serial_command.as_ref());
+            tracy_fiber_leave();
+            match handler_for_serial.clone_current_neovim_with_ime() {
+                Some((serial_nvim, ime_api)) => {
+                    serial_command.execute(&serial_nvim, ime_api).await;
                 }
-                tracy_fiber_enter!("Serial command");
+                None => {
+                    log::warn!("Serial command received without an active Neovim handle");
+                    break;
+                }
             }
-            log::info!("serial command receiver finished");
+            tracy_fiber_enter!("Serial command");
         }
+        log::info!("serial command receiver finished");
     });
 }
 
-pub fn send_ui<T>(command: T)
+pub fn send_ui<T>(command: T, handler: &NeovimHandler)
 where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_COMMAND_CHANNEL
-        .get()
-        .expect("The UI command channel has not been initialized")
-        .send(command);
+    let sender = handler.get_ui_command_channel().0;
+    sender
+        .send(command)
+        .expect("The UI command channel has not been initialized");
+}
+
+pub fn register_route_handler(route_id: RouteId, handler: NeovimHandler) {
+    ROUTE_HANDLER_REGISTRY
+        .lock()
+        .unwrap()
+        .insert(route_id, handler.clone());
+    HANDLER_REGISTRY.lock().unwrap().replace(handler);
+}
+
+pub fn set_active_route_handler(route_id: RouteId) {
+    if let Some(handler) = ROUTE_HANDLER_REGISTRY
+        .lock()
+        .unwrap()
+        .get(&route_id)
+        .cloned()
+    {
+        HANDLER_REGISTRY.lock().unwrap().replace(handler);
+    }
+}
+
+pub fn unregister_route_handler(route_id: RouteId) {
+    let mut by_route = ROUTE_HANDLER_REGISTRY.lock().unwrap();
+    by_route.remove(&route_id);
+    let replacement = by_route.values().next().cloned();
+    drop(by_route);
+
+    let mut active = HANDLER_REGISTRY.lock().unwrap();
+    if let Some(handler) = replacement {
+        active.replace(handler);
+    } else {
+        active.take();
+    }
 }
