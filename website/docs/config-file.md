@@ -46,8 +46,8 @@ opengl = false # macOS/Windows only
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
 macos-native-tabs = false # macOS only
-macos-pinned-hotkey = "ctrl+shift+z" # macOS only
-macos-switcher-hotkey = "ctrl+shift+n" # macOS only, requires macos-native-tabs = true
+macos-pinned-hotkey = "cmd+ctrl+z" # macOS only
+macos-switcher-hotkey = "cmd+ctrl+n" # macOS only, requires macos-native-tabs = true
 macos-tab-prev-hotkey = "cmd+shift+[" # macOS only
 macos-tab-next-hotkey = "cmd+shift+]" # macOS only
 theme = "auto"
