@@ -884,6 +884,8 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 
 #### macOS Multi-window (Editors)
 
+**Available on Nightly.**
+
 Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
 single host window.
 
