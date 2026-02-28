@@ -697,6 +697,15 @@ vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot;
     callback = set_ime
 })
 </code></pre>
+<h4 id="macos-multi-window-editors"><a class="header" href="#macos-multi-window-editors">macOS Multi-window (Editors)</a></h4>
+<p>Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
+single host window.</p>
+<p>Set <code>macos-native-tabs = true</code> to merge windows into a tab group. The native tab bar stays hidden
+until more than one tab exists to keep a clean single-window look.</p>
+<p>Use Window &gt; New Window (cmd+n) or the Dock menu to open another Neovide window. If native tabs
+are enabled, new windows become tabs in the host window.</p>
+<p>If you have native tabs enabled, the Window menu shows an Editors entry and the Editors hotkey
+becomes available. You can also remap the in-app tab cycling shortcuts.</p>
 <h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
 <p>Neovide registers system-wide shortcuts on macOS:</p>
 <ul>
@@ -714,7 +723,9 @@ launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY &quot;ctrl+shift+n&quot;
 </code></pre>
 <p>Use <code>cmd</code>, <code>ctrl</code>, <code>alt</code>, and <code>shift</code> for modifiers and a single character for the key.</p>
 <p>To disable a shortcut entirely, set the corresponding variable to <code>false</code> or leave it empty.</p>
-<p>You can also configure them inside <code>config.toml</code></p>
+<p>If a shortcut does not work, it may conflict with another global shortcut or be rejected by the
+system. Check the Neovide log for warnings.</p>
+<p>You can also configure them inside <code>config.toml</code>:</p>
 <pre><code class="language-toml">macos-pinned-hotkey = &quot;ctrl+shift+z&quot;
 macos-switcher-hotkey = &quot;ctrl+shift+n&quot;
 </code></pre>
