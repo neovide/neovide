@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.neovide.neovide</id>
+  <name>Neovide</name>
+  <summary>Advanced graphical interface for Neovim</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="dev.neovide">
+    <name>Neovide Team</name>
+  </developer>
+  <description>
+    <p>Fully-featured Neovim GUI with some visual upgrades:</p>
+    <ul>
+      <li>Animated cursor</li>
+      <li>Smooth scrolling</li>
+      <li>Animated windows</li>
+      <li>Blurred floating windows</li>
+      <li>Emoji support</li>
+    </ul>
+  </description>
+  <categories>
+    <category>Utility</category>
+    <category>TextEditor</category>
+    <category>Development</category>
+  </categories>
+  <launchable type="desktop-id">dev.neovide.neovide.desktop</launchable>
+  <icon type="stock">dev.neovide.neovide</icon>
+  <branding>
+    <color scheme_preference="light" type="primary">#79b242</color>
+    <color scheme_preference="dark" type="primary">#4d8a3b</color>
+  </branding>
+  <content_rating type="oars-1.1"></content_rating>
+  <url type="bugtracker">https://github.com/neovide/neovide/issues</url>
+  <url type="homepage">https://neovide.dev/index.html</url>
+  <url type="contact">https://discord.gg/SjFpZdQys6</url>
+  <url type="faq">https://neovide.dev/faq.html</url>
+  <url type="vcs-browser">https://github.com/neovide/neovide</url>
+  <releases>
+    <release date="2024-06-16" version="0.13.3">
+      <url type="details">https://github.com/neovide/neovide/releases/tag/0.13.3</url>
+    </release>
+  </releases>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://neovide.dev/assets/BasicScreenCap.png</image>
+      <caption>Screenshot of basic Neovide usage</caption>
+    </screenshot>
+  </screenshots>
+</component>
