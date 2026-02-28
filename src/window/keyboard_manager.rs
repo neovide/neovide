@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     bridge::{send_ui, NeovimHandler, SerialCommand},
     settings::Settings,
 };
 
-#[allow(unused_imports)]
+#[cfg(target_os = "macos")]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
@@ -18,6 +18,14 @@ use {
 };
 
 use crate::profiling::tracy_named_frame;
+
+/// See https://en.wikipedia.org/wiki/ASCII#Control_characters
+#[cfg(target_os = "macos")]
+mod ascii {
+    pub const CTRL_OFFSET: u32 = 0x40;
+    pub const CTRL_RANGE_START: u32 = 0x00;
+    pub const CTRL_RANGE_END: u32 = 0x1f;
+}
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
     text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
@@ -189,14 +197,51 @@ impl KeyboardManager {
     }
 
     fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
+        self.normalized_key_text(key_event)
+            .map(|text| self.format_key_text(text.as_ref(), false))
+    }
+
+    fn normalized_key_text<'a>(&self, key_event: &'a KeyEvent) -> Option<Cow<'a, str>> {
+        if let Some(text) = self.platform_normalized_text(key_event) {
+            return Some(text);
+        }
+
         key_event
             .text
-            .as_ref()
-            .or(match &key_event.logical_key {
-                Key::Character(text) => Some(text),
+            .as_deref()
+            .map(Cow::Borrowed)
+            .or_else(|| match &key_event.logical_key {
+                Key::Character(text) => Some(Cow::from(text.as_str())),
                 _ => None,
             })
-            .map(|text| self.format_key_text(text.as_str(), false))
+    }
+
+    #[cfg(target_os = "macos")]
+    fn platform_normalized_text<'a>(&self, key_event: &'a KeyEvent) -> Option<Cow<'a, str>> {
+        self.ctrl_option_printable_character(key_event)
+            .map(Cow::Owned)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn platform_normalized_text<'a>(&self, _key_event: &'a KeyEvent) -> Option<Cow<'a, str>> {
+        None
+    }
+
+    #[cfg(target_os = "macos")]
+    fn ctrl_option_printable_character(&self, key_event: &KeyEvent) -> Option<String> {
+        let state = self.modifiers.state();
+        if !(state.control_key() && state.alt_key() && !self.meta_is_pressed) {
+            return None;
+        }
+
+        let text = key_event.text_with_all_modifiers()?;
+        let mut chars = text.chars();
+        let ctrl_char = chars.next()?;
+        if chars.next().is_some() {
+            return None;
+        }
+
+        control_char_to_text(ctrl_char).map(|c| c.to_string())
     }
 
     fn format_key_text(&self, text: &str, is_special: bool) -> String {
@@ -254,6 +299,16 @@ impl KeyboardManager {
         (have_meta).then(|| ret += "M-");
         state.super_key().then(|| ret += "D-");
         ret
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn control_char_to_text(ch: char) -> Option<char> {
+    let value = u32::from(ch);
+    if (ascii::CTRL_RANGE_START..=ascii::CTRL_RANGE_END).contains(&value) {
+        char::from_u32(value + ascii::CTRL_OFFSET)
+    } else {
+        None
     }
 }
 
@@ -381,3 +436,16 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
 // avoid confusing users who have a post-2017 keyboard and are not aware of this
 // history, it is probably best to refer to this physical key as the 'option'
 // key, and not as the 'alt' key.
+//
+// Additional macOS note:
+//
+// When 'option' is *not* mapped to meta, macOS reports printable option-layer
+// characters even if control is held by exposing the resulting ASCII control
+// code via `text_with_all_modifiers()`. In those cases we recover the original
+// printable symbol (e.g. ^] from the control code 0x1D) before forwarding the
+// `<C-...>` string to Neovim. This keeps ctrl+option navigation working on
+// non-US layouts.
+//
+// TODO(macos): If winit ever promotes control-modified printable characters to logical_key
+// (see create_key_event and the KeyEventExtModifierSupplement docs), we can drop the
+// reconstruction layer.
