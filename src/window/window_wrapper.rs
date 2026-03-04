@@ -175,6 +175,7 @@ struct RouteCore {
     last_synced_grid_size: Option<GridSize<u32>>,
     inferred_theme: Option<Theme>,
     should_show_observed: bool,
+    font_changed_last_frame: bool,
 }
 
 #[derive(Clone)]
@@ -291,6 +292,7 @@ impl WinitWindowWrapper {
                 last_synced_grid_size: None,
                 inferred_theme: None,
                 should_show_observed: false,
+                font_changed_last_frame: false,
             },
         );
     }
@@ -1477,6 +1479,7 @@ impl WinitWindowWrapper {
         let mut route_inferred_theme = None;
         let mut route_mouse_enabled = true;
         let mut should_apply_initial_window_size = false;
+        let mut route_font_changed_last_frame = false;
 
         let WindowSettings {
             input_ime,
@@ -1508,6 +1511,7 @@ impl WinitWindowWrapper {
                 route_inferred_theme = route_core.inferred_theme;
                 route_mouse_enabled = route_core.mouse_enabled;
                 should_apply_initial_window_size = route_core.should_show_observed;
+                route_font_changed_last_frame = route_core.font_changed_last_frame;
                 (
                     route_core.renderer,
                     route_core.neovim_handler,
@@ -1704,6 +1708,7 @@ impl WinitWindowWrapper {
         state.saved_inner_size = saved_inner_size;
         state.vsync = Some(vsync);
         state.inferred_theme = route_inferred_theme;
+        state.font_changed_last_frame = route_font_changed_last_frame;
         let route = Route {
             route_id,
             window: RouteWindow {
@@ -1788,6 +1793,8 @@ impl WinitWindowWrapper {
             let mut renderer = route_core.renderer.borrow_mut();
             renderer.handle_draw_commands(batch)
         };
+
+        route_core.font_changed_last_frame |= handle_draw_commands_result.font_changed;
 
         if handle_draw_commands_result.should_show {
             route_core.should_show_observed = true;
