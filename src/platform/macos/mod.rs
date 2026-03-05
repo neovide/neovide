@@ -1,3 +1,4 @@
+mod scrollbar;
 pub mod settings;
 mod switcher;
 
@@ -10,7 +11,10 @@ use std::sync::{
     OnceLock,
     atomic::{AtomicBool, Ordering},
 };
-use std::{cell::RefCell, ffi::CString, os::raw::c_void, path::Path, ptr, str, sync::Arc};
+use std::{
+    cell::RefCell, collections::HashMap, ffi::CString, os::raw::c_void, path::Path, ptr, str,
+    sync::Arc,
+};
 
 use glamour::Point2;
 use objc2::{
@@ -54,6 +58,11 @@ use crate::window::macos::hotkey::GlobalHotkeys;
 use crate::window::{
     EventPayload, ForceClickKind, MacShortcutCommand, UserEvent, WindowSettings,
     WindowSettingsChanged,
+};
+
+use self::scrollbar::{
+    ScrollbarColors, ScrollbarControlKey, ScrollbarEntry, ScrollbarGridState,
+    ScrollbarLaneGeometry, ScrollbarLanes, ScrollbarSegment, ScrollbarSide,
 };
 
 thread_local! {
@@ -351,6 +360,13 @@ pub struct MacosWindowFeature {
     neovim_handler: NeovimHandler,
     simple_fullscreen: bool,
     has_transparent_titlebar: bool,
+    scrollbar_grid_states: HashMap<u64, ScrollbarGridState>,
+    scrollbar_controls: HashMap<ScrollbarControlKey, ScrollbarEntry>,
+    scrollbar_tracks: HashMap<ScrollbarSide, ScrollbarEntry>,
+    scrollbar_lanes: ScrollbarLanes,
+    scrollbar_colors: Option<ScrollbarColors>,
+    scrollbar_segments: HashMap<ScrollbarControlKey, ScrollbarSegment>,
+    scrollbar_geometry: ScrollbarLaneGeometry,
 }
 
 impl MacosWindowFeature {
@@ -439,6 +455,13 @@ impl MacosWindowFeature {
             neovim_handler,
             simple_fullscreen,
             has_transparent_titlebar,
+            scrollbar_grid_states: HashMap::new(),
+            scrollbar_controls: HashMap::new(),
+            scrollbar_tracks: HashMap::new(),
+            scrollbar_lanes: ScrollbarLanes::default(),
+            scrollbar_colors: None,
+            scrollbar_segments: HashMap::new(),
+            scrollbar_geometry: ScrollbarLaneGeometry::default(),
         };
 
         let mut macos_window_feature = macos_window_feature;
@@ -865,6 +888,8 @@ impl MacosWindowFeature {
             self.is_fullscreen = is_fullscreen;
             self.set_titlebar_click_handler_visible(!is_fullscreen);
         }
+
+        self.update_scrollbar_frames();
     }
 
     /// Get the extra titlebar height in pixels, so Neovide can do the correct top padding.
@@ -969,6 +994,9 @@ impl MacosWindowFeature {
             }
             WindowSettingsChanged::MacosSimpleFullscreen(enabled) => {
                 self.set_simple_fullscreen_mode(enabled);
+            }
+            WindowSettingsChanged::Theme(_) => {
+                self.refresh_scrollbar_appearance();
             }
             _ => {}
         }

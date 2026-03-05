@@ -2,6 +2,8 @@ use std::{collections::HashMap, ops::Range, sync::Arc};
 
 use log::warn;
 
+#[cfg(target_os = "macos")]
+use crate::renderer::rendered_window::BASE_GRID_ID;
 use crate::{
     bridge::GridLineCell,
     editor::{AnchorInfo, DrawCommand, DrawCommandBatcher, grid::CharacterGrid, style::Style},
@@ -13,6 +15,23 @@ use crate::{
 pub enum WindowType {
     Editor,
     Message { scrolled: bool },
+}
+
+/// The window identity and outer rectangle supplied by win_pos.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TiledWindowLayout {
+    pub window: u64,
+    pub rect: GridRect<u64>,
+}
+
+/// Buffer positions reported by win_viewport, independent of grid placement.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WindowViewport {
+    pub window: u64,
+    pub top_line: f64,
+    pub bottom_line: f64,
+    pub current_line: f64,
+    pub line_count: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -112,6 +131,11 @@ pub struct Window {
 
     pub anchor_info: Option<AnchorInfo>,
     grid_position: (f64, f64),
+    visible: bool,
+    tiled_layout: Option<TiledWindowLayout>,
+    viewport: Option<WindowViewport>,
+    viewport_top_margin: u64,
+    viewport_bottom_margin: u64,
 }
 
 impl Window {
@@ -129,9 +153,91 @@ impl Window {
             window_type,
             anchor_info,
             grid_position,
+            visible: true,
+            tiled_layout: None,
+            viewport: None,
+            viewport_top_margin: 0,
+            viewport_bottom_margin: 0,
         };
         window.send_updated_position(draw_command_batcher);
         window
+    }
+
+    pub fn new_tiled(
+        grid_id: u64,
+        layout: TiledWindowLayout,
+        batcher: &mut DrawCommandBatcher,
+    ) -> Self {
+        let mut window = Self::new(
+            grid_id,
+            WindowType::Editor,
+            None,
+            (layout.rect.min.x as f64, layout.rect.min.y as f64),
+            (layout.rect.size().width, layout.rect.size().height),
+            batcher,
+        );
+
+        window.set_tiled_layout(layout);
+
+        window
+    }
+
+    /// Returns a tiled layout only while the grid is displayed as an editor window.
+    #[cfg(target_os = "macos")]
+    pub fn visible_tiled_layout(&self) -> Option<TiledWindowLayout> {
+        if !self.visible
+            || self.grid_id == BASE_GRID_ID
+            || self.window_type != WindowType::Editor
+            || self.anchor_info.is_some()
+        {
+            return None;
+        }
+
+        self.tiled_layout.filter(|layout| !layout.rect.is_empty())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn viewport(&self) -> Option<WindowViewport> {
+        self.viewport
+    }
+
+    pub fn set_viewport(&mut self, viewport: WindowViewport) {
+        self.viewport = Some(viewport);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn clear_viewport_for_window(&mut self, window: u64) {
+        if self.viewport.is_some_and(|viewport| viewport.window == window) {
+            self.viewport = None;
+        }
+    }
+
+    fn set_tiled_layout(&mut self, layout: TiledWindowLayout) {
+        let previous_window = self
+            .tiled_layout
+            .map(|layout| layout.window)
+            .or_else(|| self.viewport.map(|viewport| viewport.window));
+
+        if previous_window.is_some_and(|window| window != layout.window) {
+            self.viewport = None;
+            self.viewport_top_margin = 0;
+            self.viewport_bottom_margin = 0;
+        }
+
+        self.tiled_layout = Some(layout);
+        self.window_type = WindowType::Editor;
+    }
+
+    pub fn position_tiled(&mut self, batcher: &mut DrawCommandBatcher, layout: TiledWindowLayout) {
+        self.set_tiled_layout(layout);
+        self.position(
+            batcher,
+            None,
+            (layout.rect.size().width, layout.rect.size().height),
+            (layout.rect.min.x as f64, layout.rect.min.y as f64),
+        );
+
+        self.show(batcher);
     }
 
     fn send_command(&self, batcher: &mut DrawCommandBatcher, command: WindowDrawCommand) {
@@ -183,6 +289,16 @@ impl Window {
         self.grid_position
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn viewport_margins(&self) -> (u64, u64) {
+        (self.viewport_top_margin, self.viewport_bottom_margin)
+    }
+
+    pub fn set_viewport_margins(&mut self, top: u64, bottom: u64) {
+        self.viewport_top_margin = top;
+        self.viewport_bottom_margin = bottom;
+    }
+
     pub fn position(
         &mut self,
         batcher: &mut DrawCommandBatcher,
@@ -192,6 +308,9 @@ impl Window {
     ) {
         self.grid.resize((grid_size.0 as usize, grid_size.1 as usize));
         self.anchor_info = anchor_info;
+        if self.anchor_info.is_some() || self.window_type != WindowType::Editor {
+            self.tiled_layout = None;
+        }
         self.grid_position = grid_position;
         self.send_updated_position(batcher);
     }
@@ -480,11 +599,13 @@ impl Window {
         }
     }
 
-    pub fn hide(&self, batcher: &mut DrawCommandBatcher) {
+    pub fn hide(&mut self, batcher: &mut DrawCommandBatcher) {
+        self.visible = false;
         self.send_command(batcher, WindowDrawCommand::Hide);
     }
 
-    pub fn show(&self, batcher: &mut DrawCommandBatcher) {
+    pub fn show(&mut self, batcher: &mut DrawCommandBatcher) {
+        self.visible = true;
         self.send_command(batcher, WindowDrawCommand::Show);
     }
 
@@ -523,6 +644,11 @@ mod tests {
             window_type: WindowType::Editor,
             anchor_info: None,
             grid_position: (0.0, 0.0),
+            visible: true,
+            tiled_layout: None,
+            viewport: None,
+            viewport_top_margin: 0,
+            viewport_bottom_margin: 0,
         }
     }
 
@@ -749,6 +875,11 @@ mod tests {
             window_type: WindowType::Editor,
             anchor_info: None,
             grid_position: (0.0, 0.0),
+            visible: true,
+            tiled_layout: None,
+            viewport: None,
+            viewport_top_margin: 0,
+            viewport_bottom_margin: 0,
         };
 
         assert_eq!(window.get_cursor_grid_cell(0, 0), (" ".to_string(), None, false));

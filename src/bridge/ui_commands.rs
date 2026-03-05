@@ -20,6 +20,8 @@ use super::{
 };
 #[cfg(feature = "profiling")]
 use crate::profiling::scroll_tick_count;
+#[cfg(all(feature = "profiling", target_os = "macos"))]
+use crate::profiling::scroll_to_exec_lua_latency;
 use crate::{
     bridge::{NeovimWriter, nvim_dict},
     cmd_line::CmdLineSettings,
@@ -118,6 +120,86 @@ async fn ime_call(
         .context(context)
 }
 
+#[cfg(target_os = "macos")]
+async fn scroll_to_call(
+    nvim: &Neovim<NeovimWriter>,
+    window: i64,
+    buffer: i64,
+    topline: i64,
+    cursor_lnum: i64,
+) -> Result<()> {
+    trace!(
+        "ScrollTo execute window={window} buffer={buffer} topline={topline} cursor_lnum={cursor_lnum}"
+    );
+    let Some(buffer) = scroll_to_request(nvim, window, topline, cursor_lnum, buffer).await? else {
+        return Ok(());
+    };
+
+    // terminal-mode restores the live cursor when it exits so we wait for that work
+    // before restoring the scrollback view without releasing the serial queue.
+    nvim.get_mode().await.context("Waiting for terminal to leave input mode failed")?;
+    let pending = scroll_to_request(nvim, window, topline, cursor_lnum, buffer).await?;
+    anyhow::ensure!(pending.is_none(), "Terminal re-entered input mode while scrolling");
+
+    Ok(())
+}
+
+/// Returns the buffer to retry after leaving Terminal-mode, or none when finished.
+/// Both attempts must still target the buffer that produced the scroll command.
+#[cfg(target_os = "macos")]
+async fn scroll_to_request(
+    nvim: &Neovim<NeovimWriter>,
+    window: i64,
+    topline: i64,
+    cursor_lnum: i64,
+    expected_buffer: i64,
+) -> Result<Option<i64>> {
+    const SCROLL_TO_LUA: &str = indoc! {"
+        local win, topline, cursor_lnum, expected_buffer = ...
+        if not vim.api.nvim_win_is_valid(win) then
+          return
+        end
+        local buffer = vim.api.nvim_win_get_buf(win)
+        if buffer ~= expected_buffer then
+          return
+        end
+        if win == vim.api.nvim_get_current_win()
+            and vim.bo[buffer].buftype == 'terminal'
+            and vim.api.nvim_get_mode().mode == 't' then
+          vim.cmd('stopinsert')
+          return buffer
+        end
+        vim.api.nvim_win_call(win, function()
+          local view = vim.fn.winsaveview()
+          view.topline = topline
+          view.lnum = cursor_lnum
+          vim.fn.winrestview(view)
+          vim.api.nvim__redraw({
+            win = win,
+            cursor = true,
+            flush = true,
+          })
+        end)
+    "};
+
+    let args = call_args![window, topline, cursor_lnum, expected_buffer];
+
+    #[cfg(feature = "profiling")]
+    let rpc_start = std::time::Instant::now();
+
+    let result = nvim.exec_lua(SCROLL_TO_LUA, args).await;
+
+    #[cfg(feature = "profiling")]
+    scroll_to_exec_lua_latency(rpc_start.elapsed());
+
+    let result = result.context("ScrollTo failed")?;
+    if result.is_nil() {
+        Ok(None)
+    } else {
+        result.as_i64().map(Some).context("ScrollTo returned an invalid terminal buffer")
+    }
+}
+
 async fn scroll_call(
     nvim: &Neovim<NeovimWriter>,
     direction: &str,
@@ -149,7 +231,6 @@ async fn scroll_call(
 
     Ok(())
 }
-
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
@@ -184,6 +265,13 @@ pub enum SerialCommand {
         grid_id: u64,
         position: (u32, u32),
         modifier_string: String,
+    },
+    #[cfg(target_os = "macos")]
+    ScrollTo {
+        window: i64,
+        buffer: i64,
+        topline: i64,
+        cursor_lnum: i64,
     },
     #[cfg(target_os = "macos")]
     ForceClickCommand,
@@ -247,6 +335,23 @@ impl SerialCommand {
                 None
             }
             (_, other) => Some(other),
+        }
+    }
+
+    /// Replaces a queued position only for the same buffer in the same window.
+    /// Other targets, wheel ticks, and keyboard input remain ordering barriers.
+    #[cfg(target_os = "macos")]
+    fn try_merge_scroll_to(&mut self, next: Self) -> Option<Self> {
+        if matches!((&*self, &next),
+            (
+                Self::ScrollTo { window, buffer, .. },
+                Self::ScrollTo { window: next_window, buffer: next_buffer, .. },
+            ) if window == next_window && buffer == next_buffer)
+        {
+            *self = next;
+            None
+        } else {
+            Some(next)
         }
     }
 
@@ -341,6 +446,10 @@ impl SerialCommand {
                 )
                 .await
                 .context("Mouse Drag Failed"),
+            #[cfg(target_os = "macos")]
+            SerialCommand::ScrollTo { window, buffer, topline, cursor_lnum } => {
+                scroll_to_call(nvim, window, buffer, topline, cursor_lnum).await
+            }
             #[cfg(target_os = "macos")]
             SerialCommand::ForceClickCommand => {
                 nvim.command("NeovideForceClick").await.context("Force click command failed")
@@ -654,6 +763,16 @@ pub fn start_ui_command_handler(
                     None => break,
                 },
             };
+
+            #[cfg(target_os = "macos")]
+            if matches!(serial_command, SerialCommand::ScrollTo { .. }) {
+                while let Ok(next_command) = serial_rx.try_recv() {
+                    if let Some(other) = serial_command.try_merge_scroll_to(next_command) {
+                        pending_command = Some(other);
+                        break;
+                    }
+                }
+            }
 
             if matches!(serial_command, SerialCommand::Scroll { .. }) {
                 while let Ok(next_command) = serial_rx.try_recv() {

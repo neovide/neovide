@@ -115,7 +115,9 @@ xdg = "3.0.0"
 objc2 = "0.6.1"
 objc2-app-kit = { version = "0.3.1", default-features = false, features = [
   "NSApplication",
+  "NSAppearance",
   "NSAttributedString",
+  "NSBezierPath",
   "NSButton",
   "NSButtonCell",
   "NSCell",
@@ -133,6 +135,7 @@ objc2-app-kit = { version = "0.3.1", default-features = false, features = [
   "NSMenu",
   "NSMenuItem",
   "NSResponder",
+  "NSScroller",
   "NSScrollView",
   "NSScreen",
   "NSText",
@@ -163,9 +166,12 @@ objc2-core-video = { version = "0.3.1", default-features = false, features = [
 objc2-foundation = { version = "0.3.1", default-features = false, features = [
   "NSArray",
   "NSAttributedString",
+  "NSDate",
   "NSDictionary",
+  "NSObjCRuntime",
   "NSProcessInfo",
   "NSString",
+  "NSRunLoop",
   "NSTimer",
   "NSURL",
   "NSUserDefaults",

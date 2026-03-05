@@ -1,9 +1,4 @@
-use crate::{
-    editor::DrawCommand,
-    window::{EventPayload, RouteId},
-};
-
-use winit::event_loop::EventLoopProxy;
+use crate::editor::DrawCommand;
 
 pub struct DrawCommandBatcher {
     batch: Vec<DrawCommand>,
@@ -20,28 +15,22 @@ impl DrawCommandBatcher {
         self.batch.push(draw_command);
     }
 
-    pub fn set_enabled(
-        &mut self,
-        enabled: bool,
-        route_id: RouteId,
-        proxy: &EventLoopProxy<EventPayload>,
-    ) {
+    pub fn set_enabled(&mut self, enabled: bool) -> Vec<Vec<DrawCommand>> {
         log::info!("Set redraw {enabled}");
-        if enabled && !self.enabled {
-            for queued in self.queued.drain(..) {
-                proxy.send_event(EventPayload::for_route(queued.into(), route_id)).ok();
-            }
-        }
+        let queued =
+            if enabled && !self.enabled { std::mem::take(&mut self.queued) } else { Vec::new() };
         self.enabled = enabled;
+        queued
     }
 
-    pub fn send_batch(&mut self, route_id: RouteId, proxy: &EventLoopProxy<EventPayload>) {
+    /// Finishes one redraw, keeping its commands together while display is paused.
+    pub fn finish_batch(&mut self) -> Option<Vec<DrawCommand>> {
+        let batch = std::mem::take(&mut self.batch);
         if self.enabled {
-            proxy
-                .send_event(EventPayload::for_route(self.batch.split_off(0).into(), route_id))
-                .ok();
+            Some(batch)
         } else {
-            self.queued.push(self.batch.split_off(0));
+            self.queued.push(batch);
+            None
         }
     }
 }
