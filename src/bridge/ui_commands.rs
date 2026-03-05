@@ -33,12 +33,39 @@ pub static HANDLER_REGISTRY: LazyLock<Mutex<Option<NeovimHandler>>> =
 pub static ROUTE_HANDLER_REGISTRY: LazyLock<Mutex<HashMap<RouteId, NeovimHandler>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Startup buffer for macOS cold start. file drops that can arrive before any
+/// neovim handler is active. Flushed when the first route handler registers
+#[cfg(target_os = "macos")]
+static PENDING_FILE_DROPS: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+
 pub fn get_active_handler() -> Option<NeovimHandler> {
     HANDLER_REGISTRY.lock().unwrap().clone()
 }
 
 pub fn require_active_handler() -> NeovimHandler {
     get_active_handler().expect("NeovimHandler has not been initialized")
+}
+
+#[cfg(target_os = "macos")]
+pub fn send_or_queue_file_drop(path: String) {
+    if let Some(handler) = get_active_handler() {
+        send_ui(ParallelCommand::FileDrop(path), &handler);
+        return;
+    }
+
+    PENDING_FILE_DROPS.lock().unwrap().push(path);
+}
+
+#[cfg(target_os = "macos")]
+fn flush_pending_file_drops(handler: &NeovimHandler) {
+    let pending = {
+        let mut pending = PENDING_FILE_DROPS.lock().unwrap();
+        std::mem::take(&mut *pending)
+    };
+
+    for path in pending {
+        send_ui(ParallelCommand::FileDrop(path), handler);
+    }
 }
 
 async fn ime_call(
@@ -371,6 +398,8 @@ pub fn start_ui_command_handler(
 ) {
     handler.update_current_neovim(nvim, can_support_ime_api);
     register_route_handler(route_id, handler.clone());
+    #[cfg(target_os = "macos")]
+    flush_pending_file_drops(&handler);
     if handler.mark_ui_command_started() {
         return;
     }

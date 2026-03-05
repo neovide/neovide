@@ -47,7 +47,7 @@ pub use events::*;
 pub use restart::RestartDetails;
 pub use session::NeovimWriter;
 #[cfg(target_os = "macos")]
-pub use ui_commands::get_active_handler;
+pub use ui_commands::send_or_queue_file_drop;
 pub use ui_commands::{
     require_active_handler, send_ui, set_active_route_handler, start_ui_command_handler,
     unregister_route_handler, ParallelCommand, SerialCommand,
