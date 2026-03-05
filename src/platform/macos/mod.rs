@@ -31,8 +31,7 @@ use objc2_foundation::{
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use crate::bridge::{
-    get_active_handler, require_active_handler, send_ui, NeovimHandler, ParallelCommand,
-    SerialCommand,
+    require_active_handler, send_or_queue_file_drop, send_ui, NeovimHandler, SerialCommand,
 };
 use crate::renderer::fonts::font_options::FontOptions;
 use crate::settings::Settings;
@@ -1768,10 +1767,8 @@ pub fn is_tab_overview_active() -> bool {
 
 pub fn register_file_handler() {
     fn dispatch_file_drops(filenames: &NSArray<NSString>) {
-        if let Some(handler) = get_active_handler() {
-            for filename in filenames.iter() {
-                send_ui(ParallelCommand::FileDrop(filename.to_string()), &handler);
-            }
+        for filename in filenames.iter() {
+            send_or_queue_file_drop(filename.to_string());
         }
     }
 
