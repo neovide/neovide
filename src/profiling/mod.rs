@@ -16,3 +16,5 @@ pub use profiling_disabled::*;
 pub use profiling_enabled::*;
 #[cfg(feature = "profiling")]
 pub use scroll::scroll_tick_count;
+#[cfg(all(feature = "profiling", target_os = "macos"))]
+pub use scroll::scroll_to_exec_lua_latency;

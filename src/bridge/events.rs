@@ -2,10 +2,11 @@ use std::{
     convert::TryInto,
     error,
     fmt::{self, Debug},
+    io::Cursor,
 };
 
 use log::{debug, warn};
-use rmpv::Value;
+use rmpv::{Value, decode::read_value};
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
@@ -311,6 +312,7 @@ pub enum RedrawEvent {
     /// previously hidden, it should now be shown again.
     WindowPosition {
         grid: u64,
+        window: u64,
         start_row: u64,
         start_column: u64,
         width: u64,
@@ -383,6 +385,8 @@ pub enum RedrawEvent {
     /// win_viewport is received.
     WindowViewport {
         grid: u64,
+        #[allow(unused)]
+        window: u64,
         #[allow(unused)]
         top_line: f64,
         #[allow(unused)]
@@ -467,7 +471,20 @@ pub enum RedrawEvent {
     NeovimSessionStarted,
     StartupMessageUiRestored,
     NeovideSetRedraw(bool),
+    #[cfg(target_os = "macos")]
+    ScrollbarWindow {
+        window: u64,
+        metadata: Option<ScrollbarWindowMetadata>,
+    },
     NeovideIntroBannerAllowed(bool),
+}
+
+/// Buffer identity and scrollbar eligibility reported for a Neovim window.
+#[cfg(target_os = "macos")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ScrollbarWindowMetadata {
+    pub buffer: u64,
+    pub eligible: bool,
 }
 
 fn unpack_color(packed_color: u64) -> Color4f {
@@ -532,6 +549,18 @@ fn parse_string(string_value: Value) -> Result<String> {
 
 fn parse_u64(u64_value: Value) -> Result<u64> {
     u64_value.try_into().map_err(ParseError::U64)
+}
+
+fn parse_handle_u64(value: Value) -> Result<u64> {
+    match value {
+        Value::Ext(_, data) => {
+            let mut cursor = Cursor::new(data);
+            let inner =
+                read_value(&mut cursor).map_err(|_| ParseError::Format("invalid handle".into()))?;
+            parse_u64(inner)
+        }
+        other => parse_u64(other),
+    }
 }
 
 fn parse_i64(i64_value: Value) -> Result<i64> {
@@ -856,11 +885,11 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid, _window, start_row, start_column, width, height] =
-        extract_values(win_pos_arguments)?;
+    let [grid, window, start_row, start_column, width, height] = extract_values(win_pos_arguments)?;
 
     Ok(RedrawEvent::WindowPosition {
         grid: parse_u64(grid)?,
+        window: parse_handle_u64(window)?,
         start_row: parse_u64(start_row)?,
         start_column: parse_u64(start_column)?,
         width: parse_u64(width)?,
@@ -933,12 +962,13 @@ fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
 
 fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let (
-        [grid, _window, top_line, bottom_line, current_line, current_column],
+        [grid, window, top_line, bottom_line, current_line, current_column],
         [line_count, scroll_delta],
     ) = extract_values_with_optional(win_viewport_arguments)?;
 
     Ok(RedrawEvent::WindowViewport {
         grid: parse_u64(grid)?,
+        window: parse_handle_u64(window)?,
         top_line: parse_f64(top_line)?,
         bottom_line: parse_f64(bottom_line)?,
         current_line: parse_f64(current_line)?,
