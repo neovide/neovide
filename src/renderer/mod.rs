@@ -43,7 +43,7 @@ use crate::{
         rendered_layer::{group_windows, FloatingLayer},
     },
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos},
+    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect},
     window::{EventPayload, ShouldRender},
     WindowSettings,
 };
@@ -241,7 +241,12 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(
+        &mut self,
+        root_canvas: &Canvas,
+        content_region: Option<&PixelRect<f32>>,
+        dt: f32,
+    ) {
         tracy_zone!("renderer_draw_frame");
         let window_settings = self.settings.get::<WindowSettings>();
         let opacity = if window_settings.normal_opacity < 1.0 {
@@ -260,7 +265,9 @@ impl Renderer {
         root_canvas.save();
         root_canvas.reset_matrix();
 
-        if let Some(root_window) = self.rendered_windows.get(&1) {
+        if let Some(content_region) = content_region {
+            root_canvas.clip_rect(to_skia_rect(content_region), None, Some(false));
+        } else if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
@@ -336,15 +343,32 @@ impl Renderer {
         };
 
         let settings = self.settings.get::<RendererSettings>();
+        let max_root_x = max_window_max_x(&root_windows, grid_scale);
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, default_background, grid_scale))
+            .map(|window| {
+                let region = window.pixel_region(grid_scale);
+                let rightmost_root_window = is_rightmost_window_edge(region.max.x, max_root_x);
+                window.draw(
+                    root_canvas,
+                    default_background,
+                    grid_scale,
+                    content_region.copied(),
+                    rightmost_root_window,
+                )
+            })
             .collect_vec();
 
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
-                layer.draw(root_canvas, &settings, default_background, grid_scale)
+                layer.draw(
+                    root_canvas,
+                    &settings,
+                    default_background,
+                    grid_scale,
+                    content_region.copied(),
+                )
             })
             .collect_vec();
 
@@ -615,6 +639,17 @@ impl Renderer {
             DEFAULT_GRID_SIZE
         }
     }
+}
+
+pub fn is_rightmost_window_edge(region_max_x: f32, max_x: f32) -> bool {
+    max_x.is_finite() && (region_max_x - max_x).abs() <= f32::EPSILON
+}
+
+pub fn max_window_max_x(windows: &[&mut RenderedWindow], grid_scale: GridScale) -> f32 {
+    windows.iter().fold(f32::NEG_INFINITY, |max_x, window| {
+        let region = window.pixel_region(grid_scale);
+        max_x.max(region.max.x)
+    })
 }
 
 /// Defines how floating windows are sorted.

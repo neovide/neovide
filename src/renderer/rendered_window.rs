@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
+use skia_safe::{
+    Canvas, Color, Color4f, Matrix, Paint, Path, PathBuilder, Picture, PictureRecorder, Rect,
+};
 
 use crate::{
     bridge::WindowAnchor,
@@ -16,6 +18,13 @@ use crate::{
 #[cfg(target_os = "macos")]
 pub const BASE_GRID_ID: u64 = 1;
 pub const NO_MULTIGRID_GRID_ID: u64 = 0;
+
+// Window layouts can leave a tiny remainder to the right of the last full
+// grid cell when the content width is not an exact multiple of the cell
+// width. We extend the last column's background slightly into that gap, capped
+// to a few cell widths so the line never appears visibly stretched if the grid
+// briefly lags a resize.
+const MAX_TRAILING_FILL_CELLS: f32 = 1.0;
 
 #[derive(Debug)]
 pub struct ViewportMargins {
@@ -66,8 +75,14 @@ struct RenderedLine {
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
     boxchar_picture: Option<(Picture, PixelPos<f32>)>,
+    trailing_background: Option<Color4f>,
     has_transparency: bool,
     is_valid: bool,
+}
+
+struct TrailingFillRect {
+    rect: Rect,
+    color: Color4f,
 }
 
 pub struct RenderedWindow {
@@ -247,8 +262,11 @@ impl RenderedWindow {
                 pics += 1;
             }
         }
+
         log::trace!("region: {pixel_region:?}, inner: {inner_region:?}, pics: {pics}");
         canvas.restore();
+
+        self.draw_trailing_background_surface(canvas, pixel_region, grid_scale);
     }
 
     pub fn draw_foreground_surface(
@@ -314,9 +332,17 @@ impl RenderedWindow {
         root_canvas: &Canvas,
         default_background: Color,
         grid_scale: GridScale,
+        content_region: Option<PixelRect<f32>>,
+        rightmost_window: bool,
     ) -> WindowDrawDetails {
         let pixel_region_box = self.pixel_region(grid_scale);
-        let pixel_region = to_skia_rect(&pixel_region_box);
+        let draw_region_box = self.expanded_pixel_region(
+            pixel_region_box,
+            content_region,
+            grid_scale,
+            rightmost_window,
+        );
+        let pixel_region = to_skia_rect(&draw_region_box);
 
         if !self.valid {
             return WindowDrawDetails {
@@ -331,17 +357,174 @@ impl RenderedWindow {
         root_canvas.clip_rect(pixel_region, None, Some(false));
         root_canvas.clear(default_background);
 
-        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
-        self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
+        self.draw_background_surface(root_canvas, draw_region_box, grid_scale);
+        self.draw_foreground_surface(root_canvas, draw_region_box, grid_scale);
 
         root_canvas.restore();
 
         WindowDrawDetails {
             id: self.id,
-            region: pixel_region_box,
+            region: draw_region_box,
             grid_size: self.grid_size,
             window_type: self.window_type,
         }
+    }
+
+    pub fn expanded_pixel_region(
+        &self,
+        pixel_region: PixelRect<f32>,
+        content_region: Option<PixelRect<f32>>,
+        grid_scale: GridScale,
+        rightmost_window: bool,
+    ) -> PixelRect<f32> {
+        let Some(content_region) = content_region else {
+            return pixel_region;
+        };
+
+        let mut region = pixel_region;
+        let right_gap = content_region.max.x - region.max.x;
+        if rightmost_window
+            && right_gap > 0.0
+            && right_gap <= grid_scale.width() * MAX_TRAILING_FILL_CELLS + f32::EPSILON
+        {
+            region.max.x = content_region.max.x;
+        }
+
+        region
+    }
+
+    pub fn draw_trailing_background_surface(
+        &self,
+        canvas: &Canvas,
+        pixel_region: PixelRect<f32>,
+        grid_scale: GridScale,
+    ) {
+        let mut paint = Paint::default();
+        paint.set_anti_alias(false);
+        paint.set_blend_mode(skia_safe::BlendMode::SrcOver);
+
+        // the trailing fill follows the same clipping model as the normal
+        // background pass. fixed rows like border and margins rows can
+        // paint across the full window region, but scrollable rows need
+        // stay inside the inner viewport. So keeping those as separate
+        // clip scopes prevents the buffered scroll rows from leaking into
+        // fixed UI rows.
+        canvas.save();
+        canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
+
+        for fill in self.trailing_fill_rects(pixel_region, grid_scale) {
+            paint.set_color4f(fill.color, None);
+            canvas.draw_rect(fill.rect, &paint);
+        }
+
+        canvas.restore();
+    }
+
+    pub fn trailing_fill_path_and_bounds(
+        &self,
+        pixel_region: PixelRect<f32>,
+        grid_scale: GridScale,
+    ) -> Option<(Path, Rect)> {
+        let mut builder = PathBuilder::new();
+        let mut bounds = None;
+
+        for fill in self.trailing_fill_rects(pixel_region, grid_scale) {
+            self.push_trailing_fill_rect_path(&mut builder, &mut bounds, fill.rect);
+        }
+
+        bounds.map(|bounds| (builder.detach(), bounds))
+    }
+
+    fn trailing_fill_rects(
+        &self,
+        pixel_region: PixelRect<f32>,
+        grid_scale: GridScale,
+    ) -> Vec<TrailingFillRect> {
+        let base_region = self.pixel_region(grid_scale);
+        let inner_region = self.inner_region(pixel_region, grid_scale);
+        let extra_width = (pixel_region.max.x - base_region.max.x)
+            .min(grid_scale.width() * MAX_TRAILING_FILL_CELLS);
+
+        if extra_width <= 0.0 {
+            return Vec::new();
+        }
+
+        let mut fills = Vec::new();
+        for (i, line) in self.iter_border_lines() {
+            let line = line.borrow();
+            let Some(color) = line.trailing_background else {
+                continue;
+            };
+
+            fills.push(TrailingFillRect {
+                rect: self.trailing_fill_rect(
+                    base_region.max.x,
+                    extra_width,
+                    pixel_region.min.y + i as f32 * grid_scale.height(),
+                    grid_scale.height(),
+                ),
+                color,
+            });
+        }
+
+        // this fill is part of the rendered grid background, not a separete
+        // overlay. when the window is mid-scroll, the scrollable rows can
+        // sit at a fractional cell offset, so this fill has to use that
+        // same pixel offset too.
+        //
+        // See https://github.com/neovide/neovide/pull/3387
+        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
+        let scroll_offset_pixels = (scroll_offset * grid_scale.height()).round();
+        for (i, line) in self.iter_scrollable_lines() {
+            let line = line.borrow();
+            let Some(color) = line.trailing_background else {
+                continue;
+            };
+
+            let y = pixel_region.min.y
+                + scroll_offset_pixels
+                + (i + self.viewport_margins.top as isize) as f32 * grid_scale.height();
+            let top = y.max(inner_region.top);
+            let bottom = (y + grid_scale.height()).min(inner_region.bottom);
+            if bottom <= top {
+                continue;
+            }
+
+            fills.push(TrailingFillRect {
+                rect: self.trailing_fill_rect(base_region.max.x, extra_width, top, bottom - top),
+                color,
+            });
+        }
+
+        fills
+    }
+
+    fn trailing_fill_rect(&self, left: f32, width: f32, top: f32, height: f32) -> Rect {
+        Rect::from_xywh(left, top, width, height)
+    }
+
+    fn push_trailing_fill_rect_path(
+        &self,
+        builder: &mut PathBuilder,
+        bounds: &mut Option<Rect>,
+        rect: Rect,
+    ) {
+        if rect.is_empty() {
+            return;
+        }
+
+        builder
+            .move_to((rect.left, rect.top))
+            .line_to((rect.right, rect.top))
+            .line_to((rect.right, rect.bottom))
+            .line_to((rect.left, rect.bottom))
+            .close();
+
+        *bounds = Some(match *bounds {
+            Some(current) => Rect::join2(current, rect),
+            None => rect,
+        });
     }
 
     fn line_for_row(&self, row: u32) -> Option<Rc<RefCell<RenderedLine>>> {
@@ -517,6 +700,7 @@ impl RenderedWindow {
                     background_picture: None,
                     foreground_picture: None,
                     boxchar_picture: None,
+                    trailing_background: None,
                     has_transparency: false,
                     is_valid: false,
                 };
@@ -783,9 +967,17 @@ impl RenderedWindow {
                 position,
             ));
 
+            let trailing_background = line
+                .line
+                .fragments()
+                .filter(|fragment| fragment.cells.end == self.grid_size.width)
+                .last()
+                .map(|fragment| grid_renderer.background_paint_color(fragment.style, opacity));
+
             line.background_picture = background_picture;
             line.foreground_picture = foreground_picture;
             line.boxchar_picture = boxchar_picture;
+            line.trailing_background = trailing_background;
             line.has_transparency = has_transparency;
             line.is_valid = true;
         };
