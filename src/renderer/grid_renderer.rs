@@ -1,7 +1,9 @@
 use std::{ops::Range, sync::Arc};
 
 use log::trace;
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, PathBuilder, HSV};
+use skia_safe::{
+    colors, dash_path_effect, BlendMode, Canvas, Color, Color4f, Paint, PathBuilder, HSV,
+};
 
 use crate::{
     editor::{Colors, LineFragment, Style, UnderlineStyle},
@@ -121,6 +123,30 @@ impl GridRenderer {
         let alpha = opacity * (100 - self.default_style.blend) as f32 / 100.0;
         self.get_default_background_color()
             .with_a((alpha * 255.0) as u8)
+    }
+
+    pub fn background_paint_color(&self, style: &Option<Arc<Style>>, opacity: f32) -> Color4f {
+        let style = style.as_ref().unwrap_or(&self.default_style);
+        let style_background = style.background(&self.default_style.colors).to_color();
+
+        let mut paint = Paint::default();
+        paint.set_anti_alias(false);
+        paint.set_blend_mode(BlendMode::Src);
+        paint.set_color(style_background);
+
+        let is_default_background = style_background == self.get_default_background_color();
+        let normal_opacity = self.settings.get::<WindowSettings>().normal_opacity;
+
+        let alpha = if normal_opacity < 1.0 && is_default_background {
+            normal_opacity
+        } else if style.blend > 0 {
+            ((100 - style.blend) as f32 / 100.0) * opacity
+        } else {
+            opacity
+        };
+
+        paint.set_alpha_f(alpha);
+        paint.color4f()
     }
 
     /// Draws a single background cell with the same style
