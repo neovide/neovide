@@ -35,9 +35,11 @@ pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     create_tokio_nvim_command(&cmdline_settings, true)
 }
 
-pub fn create_restart_nvim_command(details: &RestartDetails) -> TokioCommand {
+pub fn create_restart_nvim_command(settings: &Settings, details: &RestartDetails) -> TokioCommand {
     let mut cmd = TokioCommand::new(&details.progpath);
-    cmd.arg("--embed");
+    if !settings.get::<CmdLineSettings>().no_embed_arg {
+        cmd.arg("--embed");
+    }
     for arg in details.argv.iter().skip(1) {
         cmd.arg(arg);
     }
@@ -77,7 +79,7 @@ fn build_nvim_command_parts(
         .clone()
         .unwrap_or_else(|| "nvim".to_owned());
     let mut args = Vec::new();
-    if embed {
+    if embed && !cmdline_settings.no_embed_arg {
         args.push("--embed".to_string());
     }
     args.extend(cmdline_settings.neovim_args.clone());

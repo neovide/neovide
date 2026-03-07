@@ -155,6 +155,10 @@ pub struct CmdLineSettings {
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
     pub neovim_bin: Option<String>,
 
+    /// Do not automatically append `--embed` to neovim_args
+    #[arg(long = "no-embed-arg", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    pub no_embed_arg: bool,
+
     /// The app ID to show to the compositor (Wayland only, useful for setting WM rules)
     #[arg(
         long = "wayland_app_id",

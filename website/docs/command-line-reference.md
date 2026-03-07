@@ -281,6 +281,32 @@ Sets where to find neovim's executable. If unset, neovide will try to find `nvim
 environment variable instead. If you're running a Unix-alike, be sure that binary has the executable
 permission bit set.
 
+### Neovim Binary Arguments
+
+```sh
+-- extra args passed to nvim binary
+```
+
+Any arguments beyond a `--` are passed unchanged as arguments to `--neovim-bin`.
+
+`--embed` is automatically prepended to the arguments given here, unless `--no-embed-arg` is given.
+
+`-p` is automatically prepended to the arguments given here, unless `--no-tabs` is given.
+
+Any files to open are prepended to the arguments given here.
+
+### Disabling automatic --embed argument
+
+```sh
+--no-embed-arg
+```
+
+**Nightly.**
+
+Neovide automatically prepends `--embed` to the command line of `--neovim-bin`. Passing
+`--no-embed-arg` to neovide prevents this. If you use this option, you likely want to add `--embed`
+yourself to the argument list in some fashion.
+
 ### Wayland / X11
 
 ```sh

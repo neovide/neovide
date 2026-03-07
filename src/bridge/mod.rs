@@ -96,7 +96,9 @@ async fn neovim_instance(
     restart: Option<&RestartDetails>,
 ) -> Result<NeovimInstance> {
     if let Some(info) = restart {
-        return Ok(NeovimInstance::Embedded(create_restart_nvim_command(info)));
+        return Ok(NeovimInstance::Embedded(create_restart_nvim_command(
+            settings, info,
+        )));
     }
 
     if let Some(address) = settings.get::<CmdLineSettings>().server {
