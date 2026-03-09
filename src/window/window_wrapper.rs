@@ -17,7 +17,7 @@ use super::{
 
 #[cfg(target_os = "macos")]
 use {
-    crate::units::{GridPos, Pixel, PixelRect},
+    crate::units::{GridPos, Pixel},
     crate::window::macos::tab_navigation::{TabNavigationAction, TabNavigationHotkeys},
     crate::window::macos::{
         hide_application, is_focus_suppressed, is_tab_overview_active, native_tab_bar_enabled,
@@ -46,7 +46,7 @@ use crate::{
         clamped_grid_size, font::FontSettings, load_last_window_settings, Config, HotReloadConfigs,
         Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
-    units::{GridRect, GridScale, GridSize, PixelPos, PixelSize},
+    units::{GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelSize},
     window::{
         create_window, determine_grid_size, determine_window_size, PhysicalSize, ShouldRender,
         ThemeSettings,
@@ -1354,9 +1354,13 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, window_id: WindowId, dt: f32) {
         tracy_zone!("draw_frame");
+
+        let content_rect = self.get_content_pixel_rect_from_window(window_id);
+
         let Some(route) = self.routes.get_mut(&window_id) else {
             return;
         };
+
         let mut renderer = route.window.renderer.borrow_mut();
         let window = route.window.winit_window.clone();
         let mut skia_renderer = route.window.skia_renderer.borrow_mut();
@@ -1364,17 +1368,21 @@ impl WinitWindowWrapper {
             return;
         };
 
-        renderer.draw_frame(skia_renderer.canvas(), dt);
+        renderer.draw_frame(skia_renderer.canvas(), Some(&content_rect), dt);
+
         skia_renderer.flush();
+
         {
             tracy_gpu_zone!("wait for vsync");
             vsync.wait_for_vsync();
         }
+
         skia_renderer.swap_buffers();
         if self.ui_state == UIState::FirstFrame {
             window.set_visible(true);
             self.ui_state = UIState::Showing;
         }
+
         tracy_frame();
         tracy_gpu_collect();
     }
@@ -2380,6 +2388,31 @@ impl WinitWindowWrapper {
             })
             .unwrap_or_else(|| PixelPos::new(0, 0).cast() / grid_scale);
         GridRect::<f32>::from_origin_and_size(pos, size)
+    }
+
+    fn get_content_pixel_rect_from_window(&self, window_id: WindowId) -> PixelRect<f32> {
+        let Some(route) = self.routes.get(&window_id) else {
+            return PixelRect::new(PixelPos::new(0.0, 0.0), PixelPos::new(0.0, 0.0));
+        };
+
+        let window_padding = route.state.window_padding;
+        let window_padding_size: PixelSize<u32> = PixelSize::new(
+            window_padding.left + window_padding.right,
+            window_padding.top + window_padding.bottom,
+        );
+
+        let content_size = PixelSize::new(
+            route.state.saved_inner_size.width,
+            route.state.saved_inner_size.height,
+        ) - window_padding_size;
+
+        let min = PixelPos::new(window_padding.left as f32, window_padding.top as f32);
+        let max = PixelPos::new(
+            (window_padding.left + content_size.width) as f32,
+            (window_padding.top + content_size.height) as f32,
+        );
+
+        PixelRect::new(min, max)
     }
 
     fn update_grid_size_from_window(&mut self, window_id: WindowId) {
