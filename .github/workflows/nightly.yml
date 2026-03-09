@@ -38,6 +38,10 @@ jobs:
             This is a pre-release build of Neovide.
 
             **Note:** This release is not guaranteed to be stable.
+
+            Neovide will always be free and open-source.
+
+            [Sponsorship](https://github.com/sponsors/neovide) is highly appreciated.
           draft: true
           prerelease: true
 
