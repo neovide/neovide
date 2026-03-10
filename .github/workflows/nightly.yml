@@ -4,14 +4,60 @@ on:
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild nightly even if HEAD already matches the nightly tag
+        type: boolean
+        required: false
+        default: false
 
 defaults:
   run:
     shell: bash # necessary for windows
 
 jobs:
+  check_current_nightly:
+    name: Check Current Nightly
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.compare.outputs.should_skip }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare HEAD to nightly tag
+        id: compare
+        env:
+          FORCE_REBUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.force && 'true' || 'false' }}
+        run: |
+          if [[ "$FORCE_REBUILD" == "true" ]]; then
+            echo "Force rebuild requested"
+            echo "should_skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          head_sha=$(git rev-parse HEAD)
+          nightly_sha=$(
+            git ls-remote origin "refs/tags/nightly" "refs/tags/nightly^{}" |
+              awk '
+                /\^\{\}$/ { peeled = $1 }
+                !/\^\{\}$/ { direct = $1 }
+                END { print peeled ? peeled : direct }
+              '
+          )
+
+          if [[ -n "$nightly_sha" && "$nightly_sha" == "$head_sha" ]]; then
+            echo "Nightly already points at $head_sha"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nightly needs update"
+            echo "HEAD: ${head_sha}"
+            echo "nightly: ${nightly_sha:-<missing>}"
+            echo "should_skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   create_release:
     name: Create Release
+    needs: check_current_nightly
+    if: needs.check_current_nightly.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,7 +93,8 @@ jobs:
 
   build_and_upload:
     name: Build and Upload
-    needs: create_release
+    needs: [check_current_nightly, create_release]
+    if: needs.check_current_nightly.outputs.should_skip != 'true'
     permissions:
       contents: write
     strategy:
@@ -330,7 +377,8 @@ jobs:
 
   publish_release:
     name: Publish Release
-    needs: [create_release, build_and_upload]
+    needs: [check_current_nightly, create_release, build_and_upload]
+    if: needs.check_current_nightly.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
