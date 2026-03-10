@@ -37,10 +37,10 @@ pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
 
 pub fn create_restart_nvim_command(details: &RestartDetails) -> TokioCommand {
     let mut cmd = TokioCommand::new(&details.progpath);
-    cmd.arg("--embed");
     for arg in details.argv.iter().skip(1) {
         cmd.arg(arg);
     }
+    cmd.arg("--embed");
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
@@ -77,10 +77,10 @@ fn build_nvim_command_parts(
         .clone()
         .unwrap_or_else(|| "nvim".to_owned());
     let mut args = Vec::new();
+    args.extend(cmdline_settings.neovim_args.clone());
     if embed {
         args.push("--embed".to_string());
     }
-    args.extend(cmdline_settings.neovim_args.clone());
     (bin, args)
 }
 
