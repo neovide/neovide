@@ -35,12 +35,12 @@ pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     create_tokio_nvim_command(&cmdline_settings, true)
 }
 
-pub fn create_restart_nvim_command(details: &RestartDetails) -> TokioCommand {
-    let mut cmd = TokioCommand::new(&details.progpath);
-    cmd.arg("--embed");
-    for arg in details.argv.iter().skip(1) {
-        cmd.arg(arg);
-    }
+pub fn create_restart_nvim_command(settings: &Settings, details: &RestartDetails) -> TokioCommand {
+    let settings = settings.get::<CmdLineSettings>();
+    let spec = create_restart_command_spec(details, &settings);
+
+    #[allow(unused_mut)]
+    let mut cmd = tokio_command_from_spec(spec);
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
@@ -76,12 +76,32 @@ fn build_nvim_command_parts(
         .neovim_bin
         .clone()
         .unwrap_or_else(|| "nvim".to_owned());
-    let mut args = Vec::new();
+    let mut args = cmdline_settings.neovim_args.clone();
     if embed {
+        append_embed_arg(&mut args);
+    }
+
+    (bin, args)
+}
+
+fn create_restart_command_spec(
+    details: &RestartDetails,
+    cmdline_settings: &CmdLineSettings,
+) -> CommandSpec {
+    let (program, args) = build_restart_command_parts(details);
+    create_command_spec(&program, &args, cmdline_settings)
+}
+
+fn build_restart_command_parts(details: &RestartDetails) -> (String, Vec<String>) {
+    let mut args = details.argv.iter().skip(1).cloned().collect::<Vec<_>>();
+    append_embed_arg(&mut args);
+    (details.progpath.clone(), args)
+}
+
+fn append_embed_arg(args: &mut Vec<String>) {
+    if !args.iter().any(|arg| arg == "--embed") {
         args.push("--embed".to_string());
     }
-    args.extend(cmdline_settings.neovim_args.clone());
-    (bin, args)
 }
 
 fn tokio_command_from_spec(spec: CommandSpec) -> TokioCommand {
