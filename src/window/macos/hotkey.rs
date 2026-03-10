@@ -153,10 +153,7 @@ impl GlobalHotkeys {
             let shortcut = match ActivationShortcut::parse(&shortcut_definition) {
                 Ok(shortcut) => shortcut,
                 Err(err) => {
-                    warn!(
-                        "Failed to parse macOS hotkey '{}': {}",
-                        shortcut_definition, err
-                    );
+                    warn!("Failed to parse macOS hotkey '{}': {}", shortcut_definition, err);
                     continue;
                 }
             };
@@ -184,10 +181,7 @@ impl GlobalHotkeys {
         }
 
         unsafe {
-            let context = Box::new(HotkeyContext {
-                proxy,
-                entries: Vec::new(),
-            });
+            let context = Box::new(HotkeyContext { proxy, entries: Vec::new() });
             let context_ptr = Box::into_raw(context);
 
             let mut seen_combinations = HashSet::new();
@@ -216,10 +210,7 @@ impl GlobalHotkeys {
             let mut hotkey_refs = Vec::new();
 
             for shortcut in prepared {
-                let combo = (
-                    shortcut.registration.key_code,
-                    shortcut.registration.modifiers,
-                );
+                let combo = (shortcut.registration.key_code, shortcut.registration.modifiers);
                 if !seen_combinations.insert(combo) {
                     warn!(
                         "Skipping macOS shortcut '{}' because that key combination is already assigned",
@@ -232,20 +223,14 @@ impl GlobalHotkeys {
                 let status = RegisterEventHotKey(
                     shortcut.registration.key_code,
                     shortcut.registration.modifiers,
-                    EventHotKeyID {
-                        signature: HOTKEY_SIGNATURE,
-                        id: shortcut.action.id(),
-                    },
+                    EventHotKeyID { signature: HOTKEY_SIGNATURE, id: shortcut.action.id() },
                     GetApplicationEventTarget(),
                     0,
                     &mut hotkey_ref,
                 );
 
                 if status != NO_ERR {
-                    warn!(
-                        "Failed to register macOS hotkey '{}': {}",
-                        shortcut.description, status
-                    );
+                    warn!("Failed to register macOS hotkey '{}': {}", shortcut.description, status);
                     continue;
                 }
 
@@ -255,10 +240,7 @@ impl GlobalHotkeys {
                     action: shortcut.action,
                 });
 
-                info!(
-                    "Registered macOS activation shortcut: {}",
-                    shortcut.description
-                );
+                info!("Registered macOS activation shortcut: {}", shortcut.description);
 
                 hotkey_refs.push(hotkey_ref);
             }
@@ -269,11 +251,7 @@ impl GlobalHotkeys {
                 return None;
             }
 
-            Some(Self {
-                handler_ref,
-                hotkey_refs,
-                context: context_ptr,
-            })
+            Some(Self { handler_ref, hotkey_refs, context: context_ptr })
         }
     }
 }
@@ -347,15 +325,8 @@ unsafe extern "C" fn hotkey_handler(
     }
 
     let context = &*(user_data as *mut HotkeyContext);
-    if let Some(entry) = context
-        .entries
-        .iter()
-        .find(|entry| entry.id == hotkey_id.id)
-    {
-        info!(
-            "macOS activation shortcut detected; requesting focus ({})",
-            entry.description
-        );
+    if let Some(entry) = context.entries.iter().find(|entry| entry.id == hotkey_id.id) {
+        info!("macOS activation shortcut detected; requesting focus ({})", entry.description);
         let payload = EventPayload::all(UserEvent::MacShortcut(entry.action.command()));
         let _ = context.proxy.send_event(payload);
     }
@@ -404,11 +375,7 @@ impl ActivationShortcut {
         let mut modifiers = NSEventModifierFlags::empty();
         let mut key: Option<ActivationKey> = None;
 
-        for token in input
-            .split('+')
-            .map(str::trim)
-            .filter(|token| !token.is_empty())
-        {
+        for token in input.split('+').map(str::trim).filter(|token| !token.is_empty()) {
             match modifier_from_token(token) {
                 Some(flag) => modifiers |= flag,
                 None => {
@@ -420,10 +387,7 @@ impl ActivationShortcut {
             }
         }
 
-        Ok(Self {
-            key: key.ok_or(ShortcutParseError::MissingKey)?,
-            modifiers,
-        })
+        Ok(Self { key: key.ok_or(ShortcutParseError::MissingKey)?, modifiers })
     }
 
     fn describe(&self) -> String {
@@ -454,10 +418,7 @@ impl HotkeyRegistration {
         let key_code = shortcut.key.key_code()?;
         let modifiers = modifiers_to_carbon(shortcut.modifiers);
 
-        Some(Self {
-            key_code,
-            modifiers,
-        })
+        Some(Self { key_code, modifiers })
     }
 }
 
@@ -487,10 +448,7 @@ enum ActivationKey {
 impl ActivationKey {
     fn from_token(token: &str) -> Result<Self, ShortcutParseError> {
         let mut chars = token.chars();
-        let ch = chars
-            .next()
-            .ok_or(ShortcutParseError::MissingKey)?
-            .to_ascii_lowercase();
+        let ch = chars.next().ok_or(ShortcutParseError::MissingKey)?.to_ascii_lowercase();
 
         if chars.next().is_some() {
             return Err(ShortcutParseError::UnsupportedToken(token.to_string()));

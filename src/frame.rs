@@ -2,7 +2,7 @@ use core::fmt;
 
 use serde::Deserialize;
 
-use clap::{builder::PossibleValue, ValueEnum};
+use clap::{ValueEnum, builder::PossibleValue};
 
 // Options for the frame decorations
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Default, Deserialize)]

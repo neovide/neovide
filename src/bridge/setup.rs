@@ -1,24 +1,21 @@
 use anyhow::{Context, Result};
-use nvim_rs::{call_args, rpc::IntoVal, Neovim};
+use nvim_rs::{Neovim, call_args, rpc::IntoVal};
 use rmpv::Value;
 
 use super::{
-    api_info::{parse_api_info, ApiInformation},
+    api_info::{ApiInformation, parse_api_info},
     nvim_dict, nvim_exec_output,
 };
 use crate::{
     bridge::NeovimWriter,
-    settings::{config::config_path, SettingLocation, Settings},
+    settings::{SettingLocation, Settings, config::config_path},
 };
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
 pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInformation> {
     // Retrieve the channel number for communicating with neovide.
-    let api_info = nvim
-        .get_api_info()
-        .await
-        .context("Error getting API info")?;
+    let api_info = nvim.get_api_info().await.context("Error getting API info")?;
 
     let version = nvim_exec_output(nvim, "version").await?;
     log::info!("Neovim version: {version:#?}");

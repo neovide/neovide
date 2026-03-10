@@ -1,7 +1,7 @@
 use log::{error, trace, warn};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use winit::{event_loop::EventLoopProxy, window::Window};
@@ -19,20 +19,19 @@ use objc2_core_graphics::CGDirectDisplayID;
 // support them. So we still use these old APIs.
 #[allow(deprecated)]
 use objc2_core_video::{
-    kCVReturnDisplayLinkAlreadyRunning, kCVReturnSuccess, CVDisplayLink,
-    CVDisplayLinkCreateWithCGDisplay, CVDisplayLinkSetOutputCallback, CVDisplayLinkStart,
-    CVDisplayLinkStop, CVReturn, CVTimeStamp,
+    CVDisplayLink, CVDisplayLinkCreateWithCGDisplay, CVDisplayLinkSetOutputCallback,
+    CVDisplayLinkStart, CVDisplayLinkStop, CVReturn, CVTimeStamp,
+    kCVReturnDisplayLinkAlreadyRunning, kCVReturnSuccess,
 };
-use objc2_foundation::{ns_string, NSNumber};
+use objc2_foundation::{NSNumber, ns_string};
 
 // Here is the doc about how to do this. https://developer.apple.com/documentation/appkit/nsscreen/1388360-devicedescription?language=objc
 pub fn get_display_id_of_window(window: &Window) -> Option<CGDirectDisplayID> {
     let ns_window = get_ns_window(window);
     let screen = ns_window.screen()?;
     let description = screen.deviceDescription();
-    let display_id_ns_number = description
-        .objectForKey(ns_string!("NSScreenNumber"))?
-        .downcast::<NSNumber>();
+    let display_id_ns_number =
+        description.objectForKey(ns_string!("NSScreenNumber"))?.downcast::<NSNumber>();
     if let Ok(ns_number) = display_id_ns_number {
         Some(ns_number.unsignedIntValue())
     } else {
@@ -63,10 +62,9 @@ unsafe extern "C-unwind" fn display_link_callback(
     let context = unsafe { &mut *(displayLinkContext as *mut MacosDisplayLinkCallbackContext) };
 
     if context.redraw_requested.swap(false, Ordering::Relaxed) {
-        let _ = context.proxy.send_event(EventPayload::for_window(
-            UserEvent::RedrawRequested,
-            context.window_id,
-        ));
+        let _ = context
+            .proxy
+            .send_event(EventPayload::for_window(UserEvent::RedrawRequested, context.window_id));
     }
 
     kCVReturnSuccess
@@ -90,11 +88,7 @@ impl VSyncMacosDisplayLink {
             _pin: PhantomPinned,
         });
 
-        let mut vsync = Self {
-            redraw_requested,
-            display_link: None,
-            context,
-        };
+        let mut vsync = Self { redraw_requested, display_link: None, context };
 
         vsync.create_and_start_display_link(window);
 
@@ -127,7 +121,9 @@ impl VSyncMacosDisplayLink {
                 );
 
                 if return_code != kCVReturnSuccess {
-                    error!("Failed to set output callback of display link, CVReturn code: {return_code}.");
+                    error!(
+                        "Failed to set output callback of display link, CVReturn code: {return_code}."
+                    );
                     return;
                 }
 
@@ -143,7 +139,9 @@ impl VSyncMacosDisplayLink {
                     }
                     #[allow(non_upper_case_globals)]
                     kCVReturnDisplayLinkAlreadyRunning => {
-                        warn!("Display link already started. This does not affect function. But it might be a bug.");
+                        warn!(
+                            "Display link already started. This does not affect function. But it might be a bug."
+                        );
                     }
                     code => {
                         error!("Failed to start display link, CVReturn code: {code}.");

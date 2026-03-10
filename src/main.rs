@@ -39,7 +39,7 @@ extern crate derive_new;
 
 use std::{
     env::{self, args},
-    fs::{create_dir_all, File, OpenOptions},
+    fs::{File, OpenOptions, create_dir_all},
     io::Write,
     path::PathBuf,
     process::ExitCode,
@@ -49,8 +49,8 @@ use std::{
 
 use anyhow::Result;
 use log::trace;
-use std::panic::{set_hook, PanicHookInfo};
-use time::{macros::format_description, OffsetDateTime};
+use std::panic::{PanicHookInfo, set_hook};
+use time::{OffsetDateTime, macros::format_description};
 use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 
 #[cfg(not(test))]
@@ -60,18 +60,18 @@ use backtrace::Backtrace;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
 use renderer::{
-    cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings, RendererSettings,
+    RendererSettings, cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings,
 };
 use window::{
-    create_event_loop, determine_grid_size, determine_window_size, Application, EventPayload,
-    WindowSettings,
+    Application, EventPayload, WindowSettings, create_event_loop, determine_grid_size,
+    determine_window_size,
 };
 
 pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, Settings};
+use crate::settings::{Config, Settings, load_last_window_settings};
 
 pub use profiling::startup_profiler;
 
@@ -261,11 +261,7 @@ pub fn init_logger(settings: &Settings) {
         Logger::try_with_env_or_str("neovide")
             .expect("Could not init logger")
             .log_to_file(FileSpec::default())
-            .rotate(
-                Criterion::Size(10_000_000),
-                Naming::Timestamps,
-                Cleanup::KeepLogFiles(1),
-            )
+            .rotate(Criterion::Size(10_000_000), Naming::Timestamps, Cleanup::KeepLogFiles(1))
             .duplicate_to_stderr(Duplicate::Error)
     } else {
         Logger::try_with_env_or_str("neovide = error").expect("Could not init logger")
@@ -289,16 +285,20 @@ fn maybe_disown(settings: &Settings) {
         Ok(fork::Fork::Parent(_)) => process::exit(0),
         Ok(fork::Fork::Child) => {
             if let Ok(current_exe) = env::current_exe() {
-                assert!(process::Command::new(current_exe)
-                    .stdin(process::Stdio::null())
-                    .stdout(process::Stdio::null())
-                    .stderr(process::Stdio::null())
-                    .args(env::args().skip(1))
-                    .spawn()
-                    .is_ok());
+                assert!(
+                    process::Command::new(current_exe)
+                        .stdin(process::Stdio::null())
+                        .stdout(process::Stdio::null())
+                        .stderr(process::Stdio::null())
+                        .args(env::args().skip(1))
+                        .spawn()
+                        .is_ok()
+                );
                 process::exit(0);
             } else {
-                eprintln!("error in disowning process, cannot obtain the path for the current executable, exiting...");
+                eprintln!(
+                    "error in disowning process, cannot obtain the path for the current executable, exiting..."
+                );
                 process::exit(1);
             }
         }
@@ -367,9 +367,7 @@ fn generate_panic_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace)
     let system_time: OffsetDateTime = SystemTime::now().into();
 
     let timestamp = system_time
-        .format(format_description!(
-            "[year]-[month]-[day] [hour]:[minute]:[second]"
-        ))
+        .format(format_description!("[year]-[month]-[day] [hour]:[minute]:[second]"))
         .expect("Failed to parse current time");
 
     let partial_panic_msg = generate_panic_message(panic_info);
@@ -398,5 +396,7 @@ fn generate_panic_message(panic_info: &PanicHookInfo) -> String {
         None => return "Could not parse panic payload to a string. This is a bug.".to_owned(),
     };
 
-    format!("Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})")
+    format!(
+        "Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})"
+    )
 }

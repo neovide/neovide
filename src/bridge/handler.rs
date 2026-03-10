@@ -1,11 +1,11 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex, RwLock,
+    atomic::{AtomicBool, Ordering},
 };
 
 use async_trait::async_trait;
 use log::{trace, warn};
-use nvim_rs::{call_args, Handler, Neovim};
+use nvim_rs::{Handler, Neovim, call_args};
 use rmpv::Value;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use winit::event_loop::EventLoopProxy;
@@ -13,17 +13,18 @@ use winit::event_loop::EventLoopProxy;
 #[cfg(target_os = "macos")]
 use crate::window::ForceClickKind;
 use crate::{
+    LoggingReceiver, LoggingSender,
     bridge::{
+        GuiOption, NeovimWriter, ParallelCommand, RedrawEvent,
         clipboard::{get_clipboard_contents, set_clipboard_contents},
         events::parse_redraw_event,
-        parse_progress_bar_event, send_ui, GuiOption, NeovimWriter, ParallelCommand, RedrawEvent,
+        parse_progress_bar_event, send_ui,
     },
     clipboard::ClipboardHandle,
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
     settings::{FontConfigState, Settings},
     window::{EventPayload, RouteId, UserEvent, WindowCommand},
-    LoggingReceiver, LoggingSender,
 };
 
 use super::ui_commands::UiCommand;
@@ -88,10 +89,7 @@ impl NeovimHandler {
     }
 
     pub fn get_ui_command_channel(&self) -> (LoggingSender<UiCommand>, LoggingReceiver<UiCommand>) {
-        (
-            self.ui_command_sender.clone(),
-            self.ui_command_receiver.clone(),
-        )
+        (self.ui_command_sender.clone(), self.ui_command_receiver.clone())
     }
 
     pub(crate) fn update_current_neovim(
@@ -106,19 +104,12 @@ impl NeovimHandler {
     }
 
     pub(crate) fn clone_current_neovim(&self) -> Option<Neovim<NeovimWriter>> {
-        self.current_neovim
-            .read()
-            .ok()
-            .and_then(|guard| guard.nvim.as_ref().cloned())
+        self.current_neovim.read().ok().and_then(|guard| guard.nvim.as_ref().cloned())
     }
 
     pub(crate) fn clone_current_neovim_with_ime(&self) -> Option<(Neovim<NeovimWriter>, bool)> {
         self.current_neovim.read().ok().and_then(|guard| {
-            guard
-                .nvim
-                .as_ref()
-                .cloned()
-                .map(|nvim| (nvim, guard.can_support_ime_api))
+            guard.nvim.as_ref().cloned().map(|nvim| (nvim, guard.can_support_ime_api))
         })
     }
 
@@ -140,30 +131,28 @@ impl Handler for NeovimHandler {
         trace!("Neovim request: {:?}", &event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => self
-                .clipboard
-                .upgrade()
-                .ok_or(Value::from("clipboard unavailable"))
-                .and_then(|clipboard| {
-                    let mut clipboard = clipboard.lock().unwrap();
-                    get_clipboard_contents(&mut clipboard, &arguments[0])
-                        .map_err(|_| Value::from("cannot get clipboard contents"))
-                }),
-            "neovide.set_clipboard" => self
-                .clipboard
-                .upgrade()
-                .ok_or(Value::from("clipboard unavailable"))
-                .and_then(|clipboard| {
-                    let mut clipboard = clipboard.lock().unwrap();
-                    set_clipboard_contents(&mut clipboard, &arguments[0], &arguments[1])
-                        .map_err(|_| Value::from("cannot set clipboard contents"))
-                }),
+            "neovide.get_clipboard" => {
+                self.clipboard.upgrade().ok_or(Value::from("clipboard unavailable")).and_then(
+                    |clipboard| {
+                        let mut clipboard = clipboard.lock().unwrap();
+                        get_clipboard_contents(&mut clipboard, &arguments[0])
+                            .map_err(|_| Value::from("cannot get clipboard contents"))
+                    },
+                )
+            }
+            "neovide.set_clipboard" => {
+                self.clipboard.upgrade().ok_or(Value::from("clipboard unavailable")).and_then(
+                    |clipboard| {
+                        let mut clipboard = clipboard.lock().unwrap();
+                        set_clipboard_contents(&mut clipboard, &arguments[0], &arguments[1])
+                            .map_err(|_| Value::from("cannot set clipboard contents"))
+                    },
+                )
+            }
             "neovide.quit" => {
-                let error_code = arguments[0]
-                    .as_i64()
-                    .expect("Could not parse error code from neovim");
-                self.running_tracker
-                    .quit_with_code(error_code as u8, "Quit from neovim");
+                let error_code =
+                    arguments[0].as_i64().expect("Could not parse error code from neovim");
+                self.running_tracker.quit_with_code(error_code as u8, "Quit from neovim");
                 Ok(Value::Nil)
             }
             _ => Ok(Value::from("rpcrequest not handled")),
@@ -248,9 +237,7 @@ impl Handler for NeovimHandler {
             "neovide.set_redraw" => {
                 if let Some(value) = arguments.first() {
                     let value = value.as_bool().unwrap_or(true);
-                    let _ = self
-                        .redraw_event_sender
-                        .send(RedrawEvent::NeovideSetRedraw(value));
+                    let _ = self.redraw_event_sender.send(RedrawEvent::NeovideSetRedraw(value));
                 }
             }
             "neovide.intro_banner_allowed" => {
@@ -312,22 +299,16 @@ async fn skip_default_guifont(
         return false;
     }
 
-    guifont_was_set(nvim)
-        .await
-        .map(|was_set| !was_set)
-        .unwrap_or_else(|error| {
-            warn!("Failed to determine if guifont was set: {error}");
-            false
-        })
+    guifont_was_set(nvim).await.map(|was_set| !was_set).unwrap_or_else(|error| {
+        warn!("Failed to determine if guifont was set: {error}");
+        false
+    })
 }
 
 // https://neovim.io/doc/user/api.html#nvim_get_option_info2()
 async fn guifont_was_set(nvim: &Neovim<NeovimWriter>) -> Result<bool, String> {
     let value = nvim
-        .exec_lua(
-            "return vim.api.nvim_get_option_info2('guifont', {}).was_set",
-            call_args![],
-        )
+        .exec_lua("return vim.api.nvim_get_option_info2('guifont', {}).was_set", call_args![])
         .await
         .map_err(|error| error.to_string())?;
 
@@ -335,10 +316,5 @@ async fn guifont_was_set(nvim: &Neovim<NeovimWriter>) -> Result<bool, String> {
 }
 
 fn is_guifont_option_set(event: &RedrawEvent) -> bool {
-    matches!(
-        event,
-        RedrawEvent::OptionSet {
-            gui_option: GuiOption::GuiFont(_),
-        }
-    )
+    matches!(event, RedrawEvent::OptionSet { gui_option: GuiOption::GuiFont(_) })
 }

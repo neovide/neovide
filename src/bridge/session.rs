@@ -9,9 +9,9 @@ use std::{
 };
 
 use anyhow::Context;
-use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
+use nvim_rs::{Handler, error::LoopError, neovim::Neovim};
 use tokio::{
-    io::{split, AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader},
+    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader, split},
     net::TcpStream,
     process::{Child, Command},
     spawn,
@@ -36,9 +36,7 @@ pub struct NeovimSession {
 #[cfg(debug_assertions)]
 impl fmt::Debug for NeovimSession {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NeovimSession")
-            .field("io_handle", &self.io_handle)
-            .finish()
+        f.debug_struct("NeovimSession").field("io_handle", &self.io_handle).finish()
     }
 }
 
@@ -128,30 +126,14 @@ impl NeovimInstance {
         mut cmd: Command,
     ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
         log::debug!("Starting neovim with: {cmd:?}");
-        let mut child = cmd
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let reader = Box::new(
-            child
-                .stdout
-                .take()
-                .ok_or_else(|| Error::other("Can't open stdout"))?,
-        );
-        let writer = Box::new(
-            child
-                .stdin
-                .take()
-                .ok_or_else(|| Error::other("Can't open stdin"))?,
-        );
+        let mut child =
+            cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        let reader =
+            Box::new(child.stdout.take().ok_or_else(|| Error::other("Can't open stdout"))?);
+        let writer = Box::new(child.stdin.take().ok_or_else(|| Error::other("Can't open stdin"))?);
 
-        let stderr_reader = Box::new(
-            child
-                .stderr
-                .take()
-                .ok_or_else(|| Error::other("Can't open stderr"))?,
-        );
+        let stderr_reader =
+            Box::new(child.stderr.take().ok_or_else(|| Error::other("Can't open stderr"))?);
 
         Ok((reader, writer, Some(stderr_reader), Some(child)))
     }
@@ -186,7 +168,7 @@ impl NeovimInstance {
 
     #[cfg(not(target_os = "windows"))]
     fn forward_stdin(&self) -> Option<rustix::fd::OwnedFd> {
-        use rustix::fs::{fstat, FileType};
+        use rustix::fs::{FileType, fstat};
         use std::os::fd::AsFd;
 
         // stdin should be forwarded only in embedded mode when stdio is piped or redirected
@@ -205,9 +187,7 @@ impl NeovimInstance {
                 // We have to use rustix here, since the Rust standard library currently sets O_CLOEXEC
                 // on all file handles. And there's no way to pass file handles to subprocesses.
                 // See [Tracking Issue for std::os::fd::CommandExt::fd](https://github.com/rust-lang/rust/issues/144989)
-                should_forward
-                    .then(|| rustix::io::dup(stdin).ok())
-                    .flatten()
+                should_forward.then(|| rustix::io::dup(stdin).ok()).flatten()
             }
             Self::Server { .. } => None,
         }

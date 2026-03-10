@@ -2,19 +2,19 @@ use std::{ops::Range, sync::Arc};
 
 use log::trace;
 use skia_safe::{
-    colors, dash_path_effect, BlendMode, Canvas, Color, Color4f, Paint, PathBuilder, HSV,
+    BlendMode, Canvas, Color, Color4f, HSV, Paint, PathBuilder, colors, dash_path_effect,
 };
 
 use crate::{
     editor::{Colors, LineFragment, Style, UnderlineStyle},
     profiling::tracy_zone,
     renderer::{
-        box_drawing::{self},
         CachingShaper, RendererSettings,
+        box_drawing::{self},
     },
     settings::*,
     units::{
-        to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
+        GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec, to_skia_point, to_skia_rect,
     },
     window::WindowSettings,
 };
@@ -101,8 +101,7 @@ impl GridRenderer {
         self.em_size = self.shaper.current_size();
         self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
         let new_cell_size = GridSize::new(1, 1) * self.grid_scale;
-        self.box_char_renderer
-            .update_dimensions(new_cell_size, self.em_size);
+        self.box_char_renderer.update_dimensions(new_cell_size, self.em_size);
         self.is_ready = true;
         trace!("Updated font dimensions: {:?}", self.grid_scale);
     }
@@ -121,8 +120,7 @@ impl GridRenderer {
     pub fn get_default_background(&self, opacity: f32) -> Color {
         log::info!("blend {}", self.default_style.blend);
         let alpha = opacity * (100 - self.default_style.blend) as f32 / 100.0;
-        self.get_default_background_color()
-            .with_a((alpha * 255.0) as u8)
+        self.get_default_background_color().with_a((alpha * 255.0) as u8)
     }
 
     pub fn background_paint_color(&self, style: &Option<Arc<Style>>, opacity: f32) -> Color4f {
@@ -198,10 +196,7 @@ impl GridRenderer {
             canvas.draw_rect(to_skia_rect(&region), &paint);
         }
 
-        BackgroundInfo {
-            custom_color,
-            transparent: alpha < 1.0,
-        }
+        BackgroundInfo { custom_color, transparent: alpha < 1.0 }
     }
 
     /// Draws some foreground text.
@@ -215,9 +210,7 @@ impl GridRenderer {
     ) -> (bool, bool) {
         tracy_zone!("draw_foreground");
 
-        let LineFragment {
-            text, cells, style, ..
-        } = fragment;
+        let LineFragment { text, cells, style, .. } = fragment;
 
         let region = self.compute_text_region(cells);
 
@@ -313,10 +306,7 @@ impl GridRenderer {
         let mut underline_paint = Paint::default();
         underline_paint.set_anti_alias(false);
         underline_paint.set_blend_mode(BlendMode::SrcOver);
-        let underline_stroke_scale = self
-            .settings
-            .get::<RendererSettings>()
-            .underline_stroke_scale;
+        let underline_stroke_scale = self.settings.get::<RendererSettings>().underline_stroke_scale;
         // at least 1 and in whole pixels
         let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
 

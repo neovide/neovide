@@ -3,7 +3,7 @@ use std::{rc::Rc, sync::Arc};
 
 use crate::{
     profiling::tracy_zone,
-    renderer::{animation_utils::lerp, fonts::font_loader::*, RendererSettings},
+    renderer::{RendererSettings, animation_utils::lerp, fonts::font_loader::*},
     settings::Settings,
 };
 use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
@@ -101,11 +101,7 @@ impl Profiler {
 
         let mut prev_point = (rect.left - 10.0, self.position.y + rect.bottom);
         for (i, dt) in self.frametimes.iter().enumerate() {
-            let x = lerp(
-                rect.left,
-                rect.right,
-                i as f32 / self.frametimes.len() as f32,
-            );
+            let x = lerp(rect.left, rect.right, i as f32 / self.frametimes.len() as f32);
             let y = rect.bottom - graph_height * (*dt - min_g) / diff;
             let point = (x, y);
             root_canvas.draw_line(prev_point, point, &paint);

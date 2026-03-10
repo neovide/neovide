@@ -6,14 +6,14 @@ use std::{
 use anyhow::{Context, Result};
 use indoc::indoc;
 use log::trace;
-use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim};
+use nvim_rs::{Neovim, call_args, error::CallError, rpc::model::IntoVal};
 use rmpv::Value;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{set_background_if_allowed, show_error_message, NeovimHandler, Settings};
+use super::{NeovimHandler, Settings, set_background_if_allowed, show_error_message};
 use crate::{
-    bridge::{nvim_dict, NeovimWriter},
+    bridge::{NeovimWriter, nvim_dict},
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
     utils::handle_wslpaths,
@@ -129,10 +129,7 @@ impl SerialCommand {
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {input_command}");
-                nvim.input(&input_command)
-                    .await
-                    .map(|_| ())
-                    .context("Input failed")
+                nvim.input(&input_command).await.map(|_| ()).context("Input failed")
             }
             SerialCommand::KeyboardImeCommit { formatted, raw } => {
                 // Notified ime commit event, the text is guaranteed not to be None.
@@ -148,10 +145,7 @@ impl SerialCommand {
                     .await
                 } else {
                     trace!("Keyboard Input Sent: {formatted}");
-                    nvim.input(&formatted)
-                        .await
-                        .map(|_| ())
-                        .context("Input failed")
+                    nvim.input(&formatted).await.map(|_| ()).context("Input failed")
                 }
             }
             SerialCommand::KeyboardImePreedit { raw, cursor_offset } => {
@@ -224,10 +218,9 @@ impl SerialCommand {
                 .await
                 .context("Mouse Drag Failed"),
             #[cfg(target_os = "macos")]
-            SerialCommand::ForceClickCommand => nvim
-                .command("NeovideForceClick")
-                .await
-                .context("Force click command failed"),
+            SerialCommand::ForceClickCommand => {
+                nvim.command("NeovideForceClick").await.context("Force click command failed")
+            }
         };
 
         if let Err(error) = result {
@@ -287,12 +280,7 @@ async fn display_available_fonts(
         nvim_dict! {},
     )
     .await?;
-    let _ = nvim
-        .call(
-            "nvim_buf_set_lines",
-            call_args![0i64, 0i64, -1i64, false, content],
-        )
-        .await?;
+    let _ = nvim.call("nvim_buf_set_lines", call_args![0i64, 0i64, -1i64, false, content]).await?;
     Ok(())
 }
 
@@ -338,17 +326,15 @@ impl ParallelCommand {
                 .await
                 .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
-            ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
-                .await
-                .context("DisplayAvailableFonts failed"),
+            ParallelCommand::DisplayAvailableFonts(fonts) => {
+                display_available_fonts(nvim, fonts).await.context("DisplayAvailableFonts failed")
+            }
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067
                 // nvim_err_write[ln] is broken for multiline messages
                 // We should go back to it whenever that bug gets fixed.
-                show_error_message(nvim, &lines)
-                    .await
-                    .context("ShowError failed")
+                show_error_message(nvim, &lines).await.context("ShowError failed")
             }
             ParallelCommand::SetBackground { background } => {
                 set_background_if_allowed(&background, nvim).await;
@@ -423,9 +409,7 @@ pub fn start_ui_command_handler(
                     let settings = settings_for_parallel.clone();
                     tokio::spawn(async move {
                         if let Some(ui_command_nvim) = handler_for_command.clone_current_neovim() {
-                            parallel_command
-                                .execute(&ui_command_nvim, settings.as_ref())
-                                .await;
+                            parallel_command.execute(&ui_command_nvim, settings.as_ref()).await;
                         } else {
                             log::warn!("Parallel command received without an active Neovim handle");
                         }
@@ -464,26 +448,16 @@ where
 {
     let command: UiCommand = command.into();
     let sender = handler.get_ui_command_channel().0;
-    sender
-        .send(command)
-        .expect("The UI command channel has not been initialized");
+    sender.send(command).expect("The UI command channel has not been initialized");
 }
 
 pub fn register_route_handler(route_id: RouteId, handler: NeovimHandler) {
-    ROUTE_HANDLER_REGISTRY
-        .lock()
-        .unwrap()
-        .insert(route_id, handler.clone());
+    ROUTE_HANDLER_REGISTRY.lock().unwrap().insert(route_id, handler.clone());
     HANDLER_REGISTRY.lock().unwrap().replace(handler);
 }
 
 pub fn set_active_route_handler(route_id: RouteId) {
-    if let Some(handler) = ROUTE_HANDLER_REGISTRY
-        .lock()
-        .unwrap()
-        .get(&route_id)
-        .cloned()
-    {
+    if let Some(handler) = ROUTE_HANDLER_REGISTRY.lock().unwrap().get(&route_id).cloned() {
         HANDLER_REGISTRY.lock().unwrap().replace(handler);
     }
 }

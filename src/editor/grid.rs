@@ -18,9 +18,7 @@ struct GridLine {
 
 impl GridLine {
     pub fn new(length: usize) -> GridLine {
-        GridLine {
-            characters: vec![default_cell!(); length],
-        }
+        GridLine { characters: vec![default_cell!(); length] }
     }
 }
 
@@ -34,11 +32,7 @@ pub struct CharacterGrid {
 
 impl CharacterGrid {
     pub fn new((width, height): (usize, usize)) -> CharacterGrid {
-        CharacterGrid {
-            width,
-            height,
-            lines: RingBuffer::new(height, GridLine::new(width)),
-        }
+        CharacterGrid { width, height, lines: RingBuffer::new(height, GridLine::new(width)) }
     }
 
     pub fn resize(&mut self, (width, height): (usize, usize)) {
@@ -73,11 +67,7 @@ impl CharacterGrid {
     }
 
     pub fn row(&self, row_index: usize) -> Option<&[GridCell]> {
-        if row_index < self.height {
-            Some(&self.lines[row_index].characters[..])
-        } else {
-            None
-        }
+        if row_index < self.height { Some(&self.lines[row_index].characters[..]) } else { None }
     }
 
     /// Scroll the region defined by top, bottom, left, and right by rows and columns.
@@ -158,11 +148,7 @@ mod tests {
             let size = (rng().random_range(1..=500), rng().random_range(1..=500));
             let (x, y) = (rng().random_range(0..size.0), rng().random_range(0..size.1));
             Self {
-                none_colors: Colors {
-                    foreground: None,
-                    background: None,
-                    special: None,
-                },
+                none_colors: Colors { foreground: None, background: None, special: None },
                 size,
                 x,
                 y,
@@ -223,20 +209,12 @@ mod tests {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
-        character_grid.lines[context.y].characters[context.x] = (
-            "foo".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
-        let result = (
-            "foo".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
+        character_grid.lines[context.y].characters[context.x] =
+            ("foo".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
+        let result = ("foo".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
 
         // RUN FUNCTION
-        assert_eq!(
-            character_grid.get_cell(context.x, context.y).unwrap(),
-            &result
-        );
+        assert_eq!(character_grid.get_cell(context.x, context.y).unwrap(), &result);
     }
 
     #[test]
@@ -244,35 +222,22 @@ mod tests {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
-        character_grid.lines[context.y].characters[context.x] = (
-            "foo".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
-        let result = (
-            "bar".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
+        character_grid.lines[context.y].characters[context.x] =
+            ("foo".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
+        let result = ("bar".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
 
         // RUN FUNCTION
         let cell = character_grid.get_cell_mut(context.x, context.y).unwrap();
-        *cell = (
-            "bar".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
+        *cell = ("bar".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
 
-        assert_eq!(
-            character_grid.get_cell_mut(context.x, context.y).unwrap(),
-            &result
-        );
+        assert_eq!(character_grid.get_cell_mut(context.x, context.y).unwrap(), &result);
     }
 
     #[test]
     fn set_all_characters_sets_all_cells_to_given_character() {
         let context = Context::new();
-        let grid_cell = (
-            "foo".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
+        let grid_cell =
+            ("foo".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
         let mut character_grid = CharacterGrid::new(context.size);
 
         // RUN FUNCTION
@@ -285,10 +250,8 @@ mod tests {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
-        let grid_cell = (
-            "foo".to_string(),
-            Some(Arc::new(Style::new(context.none_colors.clone()))),
-        );
+        let grid_cell =
+            ("foo".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
         character_grid.set_all_characters(grid_cell.clone());
 
         // RUN FUNCTION
@@ -305,10 +268,7 @@ mod tests {
         let mut character_grid = CharacterGrid::new(context.size);
         let (width, height) = (rng().random_range(1..=500), rng().random_range(1..=500));
 
-        let grid_cell = (
-            "foo".to_string(),
-            Some(Arc::new(Style::new(context.none_colors))),
-        );
+        let grid_cell = ("foo".to_string(), Some(Arc::new(Style::new(context.none_colors))));
         character_grid.set_all_characters(grid_cell.clone());
 
         // RUN FUNCTION

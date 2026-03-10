@@ -24,13 +24,13 @@ use crate::{
     units::GridSize,
     window::{EventPayload, RouteId, UserEvent, WindowSettings},
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use futures::StreamExt;
 pub use handler::NeovimHandler;
 use itertools::Itertools;
 use log::info;
 use mundy::{Interest, Preferences};
-use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
+use nvim_rs::{Neovim, UiAttachOptions, Value, error::CallError};
 use rmpv::Utf8String;
 use session::{NeovimInstance, NeovimSession};
 use setup::{get_api_information, setup_neovide_specific_state};
@@ -49,8 +49,8 @@ pub use session::NeovimWriter;
 #[cfg(target_os = "macos")]
 pub use ui_commands::send_or_queue_file_drop;
 pub use ui_commands::{
-    require_active_handler, send_ui, set_active_route_handler, start_ui_command_handler,
-    unregister_route_handler, ParallelCommand, SerialCommand,
+    ParallelCommand, SerialCommand, require_active_handler, send_ui, set_active_route_handler,
+    start_ui_command_handler, unregister_route_handler,
 };
 
 const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 10, 0);
@@ -96,9 +96,7 @@ async fn neovim_instance(
     restart: Option<&RestartDetails>,
 ) -> Result<NeovimInstance> {
     if let Some(info) = restart {
-        return Ok(NeovimInstance::Embedded(create_restart_nvim_command(
-            settings, info,
-        )));
+        return Ok(NeovimInstance::Embedded(create_restart_nvim_command(settings, info)));
     }
 
     if let Some(address) = settings.get::<CmdLineSettings>().server {
@@ -147,18 +145,14 @@ async fn create_neovim_session(
         .context("Could not locate or start neovim process")?;
 
     let api_information = get_api_information(&session.neovim).await?;
-    info!(
-        "Neovide registered to nvim with channel id {}",
-        api_information.channel
-    );
+    info!("Neovide registered to nvim with channel id {}", api_information.channel);
 
     let (major, minor, patch) = NEOVIM_REQUIRED_VERSION;
-    if !api_information
-        .version
-        .has_version(major, minor, patch, None)
-    {
+    if !api_information.version.has_version(major, minor, patch, None) {
         let found = api_information.version.string;
-        bail!("Neovide requires nvim version {major}.{minor}.{patch} or higher, but {found} was detected. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
+        bail!(
+            "Neovide requires nvim version {major}.{minor}.{patch} or higher, but {found} was detected. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim"
+        );
     }
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
@@ -249,19 +243,14 @@ async fn run(route_id: RouteId, session: NeovimSession, proxy: EventLoopProxy<Ev
         timeout(Duration::from_millis(500), stderr_task).await.ok();
     };
 
-    proxy
-        .send_event(EventPayload::for_route(UserEvent::NeovimExited, route_id))
-        .ok();
+    proxy.send_event(EventPayload::for_route(UserEvent::NeovimExited, route_id)).ok();
 }
 
 pub async fn set_background_if_allowed(background: &str, neovim: &Neovim<NeovimWriter>) {
     // Unfortunately neovim does not set the last_set_chan for options when they are set through
     // exec_lua. The last_set_sid is also generic, so we are forced to do two calls.
     if let Ok(can_set) = neovim
-        .exec_lua(
-            "return neovide.private.can_set_background()",
-            vec![background.into()],
-        )
+        .exec_lua("return neovide.private.can_set_background()", vec![background.into()])
         .await
     {
         if can_set.as_bool().unwrap() {
@@ -282,9 +271,9 @@ fn background_from_preferences(preferences: &mundy::Preferences) -> Option<&'sta
 
 async fn initial_background_from_stream(stream: &mut mundy::PreferencesStream) -> String {
     match timeout(Duration::from_millis(200), stream.next()).await {
-        Ok(Some(preferences)) => background_from_preferences(&preferences)
-            .unwrap_or("dark")
-            .to_string(),
+        Ok(Some(preferences)) => {
+            background_from_preferences(&preferences).unwrap_or("dark").to_string()
+        }
         Ok(None) => "dark".to_string(),
         Err(_) => "dark".to_string(),
     }
@@ -304,9 +293,7 @@ async fn update_colorscheme(
                 }
             }
             send_ui(
-                ParallelCommand::SetBackground {
-                    background: background.to_string(),
-                },
+                ParallelCommand::SetBackground { background: background.to_string() },
                 &handler,
             );
         }
@@ -341,9 +328,8 @@ impl NeovimRuntime {
             settings.clone(),
             self.clipboard.clone(),
         );
-        let initial_background = self
-            .runtime()
-            .block_on(initial_background_from_stream(&mut colorscheme_stream));
+        let initial_background =
+            self.runtime().block_on(initial_background_from_stream(&mut colorscheme_stream));
         self.set_background_preference(&initial_background);
 
         let mut font_config_state = settings.get::<FontConfigState>();
@@ -373,8 +359,7 @@ impl NeovimRuntime {
             editor_handler.clone(),
         ));
 
-        self.runtime()
-            .spawn(run(route_id, session, event_loop_proxy));
+        self.runtime().spawn(run(route_id, session, event_loop_proxy));
 
         Ok(editor_handler)
     }
@@ -402,16 +387,13 @@ impl NeovimRuntime {
             Some(&restart_details),
         ))?;
 
-        self.runtime()
-            .spawn(run(route_id, session, event_loop_proxy));
+        self.runtime().spawn(run(route_id, session, event_loop_proxy));
 
         Ok(())
     }
 
     fn runtime(&self) -> &Runtime {
-        self.runtime
-            .as_ref()
-            .expect("runtime must be available while NeovimRuntime is alive")
+        self.runtime.as_ref().expect("runtime must be available while NeovimRuntime is alive")
     }
 
     pub fn shutdown_timeout(&mut self, timeout: Duration) {

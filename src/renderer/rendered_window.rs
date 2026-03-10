@@ -9,9 +9,9 @@ use crate::{
     cmd_line::CmdLineSettings,
     editor::{AnchorInfo, Line, LineFragment, SortOrder, WindowType},
     profiling::{tracy_plot, tracy_zone},
-    renderer::{animation_utils::*, GridRenderer, RendererSettings},
+    renderer::{GridRenderer, RendererSettings, animation_utils::*},
     settings::Settings,
-    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
+    units::{GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelVec, to_skia_rect},
     utils::RingBuffer,
 };
 
@@ -117,11 +117,7 @@ pub struct WindowDrawDetails {
 
 impl WindowDrawDetails {
     pub fn event_grid_id(&self, settings: &Settings) -> u64 {
-        if settings.get::<CmdLineSettings>().no_multi_grid {
-            NO_MULTIGRID_GRID_ID
-        } else {
-            self.id
-        }
+        if settings.get::<CmdLineSettings>().no_multi_grid { NO_MULTIGRID_GRID_ID } else { self.id }
     }
 }
 
@@ -165,10 +161,7 @@ impl RenderedWindow {
 
         match self.anchor_info {
             None => destination,
-            Some(AnchorInfo {
-                anchor_type: WindowAnchor::Absolute,
-                ..
-            }) => destination,
+            Some(AnchorInfo { anchor_type: WindowAnchor::Absolute, .. }) => destination,
             _ => {
                 let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
 
@@ -179,10 +172,7 @@ impl RenderedWindow {
                 }
                 // If a floating window is partially outside the grid, then move it in from the right, but
                 // ensure that the left edge is always visible.
-                let x = destination
-                    .x
-                    .min(grid_rect.max.x - grid_size.width)
-                    .max(grid_rect.min.x);
+                let x = destination.x.min(grid_rect.max.x - grid_size.width).max(grid_rect.min.x);
 
                 // For messages the last line is most important, (it shows press enter), so let the position go negative
                 // Otherwise ensure that the window start row is within the screen
@@ -221,9 +211,7 @@ impl RenderedWindow {
         );
         animating |= self.grid_current_position != prev_position;
 
-        let scrolling = self
-            .scroll_animation
-            .update(dt, settings.scroll_animation_length);
+        let scrolling = self.scroll_animation.update(dt, settings.scroll_animation_length);
 
         animating |= scrolling;
 
@@ -548,9 +536,7 @@ impl RenderedWindow {
 
         let inner_row = row - top_margin;
         let scroll_offset = self.scroll_animation.position.floor() as isize;
-        self.scrollback_lines[scroll_offset + inner_row]
-            .as_ref()
-            .cloned()
+        self.scrollback_lines[scroll_offset + inner_row].as_ref().cloned()
     }
 
     pub fn line_text_range(&self, row: u32, start_col: u32, end_col: u32) -> Option<String> {
@@ -564,11 +550,7 @@ impl RenderedWindow {
         let max_col = cells.len().saturating_sub(1) as u32;
         let start = start_col.min(max_col);
         let end = end_col.min(max_col);
-        let (start, end) = if start <= end {
-            (start, end)
-        } else {
-            (end, start)
-        };
+        let (start, end) = if start <= end { (start, end) } else { (end, start) };
 
         let mut text = String::new();
         for col in start..=end {
@@ -599,11 +581,8 @@ impl RenderedWindow {
         let row = row.min(max_row);
         let start_col = col_start.min(max_col);
         let end_col = col_end.min(max_col);
-        let (start_col, end_col) = if start_col <= end_col {
-            (start_col, end_col)
-        } else {
-            (end_col, start_col)
-        };
+        let (start_col, end_col) =
+            if start_col <= end_col { (start_col, end_col) } else { (end_col, start_col) };
 
         let pixel_region = self.pixel_region(grid_scale);
         let line_height = grid_scale.height();
@@ -630,12 +609,7 @@ impl RenderedWindow {
 
     pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
         match draw_command {
-            WindowDrawCommand::Position {
-                grid_position,
-                grid_size,
-                anchor_info,
-                window_type,
-            } => {
+            WindowDrawCommand::Position { grid_position, grid_size, anchor_info, window_type } => {
                 tracy_zone!("position_cmd", 0);
 
                 self.valid = true;
@@ -678,7 +652,7 @@ impl RenderedWindow {
                 if self.hidden {
                     self.hidden = false;
                     self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
-                                           // so we set t to 2.0 to stop animations.
+                    // so we set t to 2.0 to stop animations.
                     self.grid_start_position = grid_position;
                     self.grid_destination = grid_position;
                 }
@@ -707,14 +681,7 @@ impl RenderedWindow {
 
                 self.actual_lines[row] = Some(Rc::new(RefCell::new(line)));
             }
-            WindowDrawCommand::Scroll {
-                top,
-                bottom,
-                left,
-                right,
-                rows,
-                cols,
-            } => {
+            WindowDrawCommand::Scroll { top, bottom, left, right, rows, cols } => {
                 tracy_zone!("scroll_cmd", 0);
                 if top == 0
                     && bottom == u64::from(self.grid_size.height)
@@ -728,9 +695,7 @@ impl RenderedWindow {
             WindowDrawCommand::Clear => {
                 tracy_zone!("clear_cmd", 0);
                 self.scroll_delta = 0;
-                self.scrollback_lines
-                    .iter_mut()
-                    .for_each(|line| *line = None);
+                self.scrollback_lines.iter_mut().for_each(|line| *line = None);
                 self.scroll_animation.reset();
             }
             WindowDrawCommand::Show => {
@@ -738,7 +703,7 @@ impl RenderedWindow {
                 if self.hidden {
                     self.hidden = false;
                     self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
-                                           // so we set t to 2.0 to stop animations.
+                    // so we set t to 2.0 to stop animations.
                     self.grid_start_position = self.grid_destination;
                     self.scroll_animation.reset();
                 }
@@ -788,10 +753,8 @@ impl RenderedWindow {
         if scroll_delta != 0 {
             let mut scroll_offset = self.scroll_animation.position;
 
-            let max_delta = self
-                .scrollback_lines
-                .len()
-                .saturating_sub(self.grid_size.height as usize);
+            let max_delta =
+                self.scrollback_lines.len().saturating_sub(self.grid_size.height as usize);
             log::trace!(
                 "Scroll offset {scroll_offset}, delta {scroll_delta}, max_delta {max_delta}"
             );
@@ -842,16 +805,10 @@ impl RenderedWindow {
             - self.viewport_margins.top as isize
             - self.viewport_margins.bottom as isize;
 
-        let line_indices = if inner_size > 0 {
-            0..inner_size + 1
-        } else {
-            0..0
-        };
+        let line_indices = if inner_size > 0 { 0..inner_size + 1 } else { 0..0 };
 
         line_indices.filter_map(move |i| {
-            self.scrollback_lines[scroll_offset_lines + i]
-                .as_ref()
-                .map(|line| (i, line))
+            self.scrollback_lines[scroll_offset_lines + i].as_ref().map(|line| (i, line))
         })
     }
 
@@ -962,10 +919,8 @@ impl RenderedWindow {
             }
             let foreground_picture =
                 text_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
-            let boxchar_picture = boxchar_drawn.then_some((
-                boxchar_recorder.finish_recording_as_picture(None).unwrap(),
-                position,
-            ));
+            let boxchar_picture = boxchar_drawn
+                .then_some((boxchar_recorder.finish_recording_as_picture(None).unwrap(), position));
 
             let trailing_background = line
                 .line
@@ -992,10 +947,8 @@ impl RenderedWindow {
             }
         }
 
-        for line in self
-            .actual_lines
-            .iter_range_mut(0..self.viewport_margins.top as isize)
-            .flatten()
+        for line in
+            self.actual_lines.iter_range_mut(0..self.viewport_margins.top as isize).flatten()
         {
             prepare_line(line)
         }

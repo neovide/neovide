@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::bridge::GridLineCell;
 
-use super::{window::Window, DrawCommandBatcher};
+use super::{DrawCommandBatcher, window::Window};
 
 const INTRO_HEADER_PREFIX: &str = "NVIM ";
 const INTRO_FINAL_LINE: &str = "type  :help Kuwasha<Enter>    for information";

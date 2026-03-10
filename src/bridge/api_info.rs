@@ -231,11 +231,8 @@ fn parse_version(
     // NVIM v0.12.0-dev-1253+gfb2d736481
     let mut prerelease_version = 0;
     let mut prerelease_commit = String::default();
-    if let Some((_, dev, version)) = version_str
-        .strip_suffix("-dirty")
-        .unwrap_or(version_str)
-        .split('-')
-        .collect_tuple()
+    if let Some((_, dev, version)) =
+        version_str.strip_suffix("-dirty").unwrap_or(version_str).split('-').collect_tuple()
     {
         if dev == "dev" {
             if let Some((version, commit)) = version.split("+").collect_tuple() {
@@ -297,10 +294,7 @@ fn parse_functions(
     value: ValueRef,
 ) -> std::result::Result<HashSet<ApiFunction>, ApiInfoParseError> {
     let functions: Vec<ValueRef> = value.try_into()?;
-    functions
-        .into_iter()
-        .map(parse_function)
-        .collect::<std::result::Result<HashSet<_>, _>>()
+    functions.into_iter().map(parse_function).collect::<std::result::Result<HashSet<_>, _>>()
 }
 
 fn parse_parameter_type(
@@ -327,10 +321,7 @@ fn parse_parameter(value: ValueRef) -> std::result::Result<ApiParameter, ApiInfo
 
 fn parse_parameters(value: ValueRef) -> std::result::Result<Vec<ApiParameter>, ApiInfoParseError> {
     let parameters: Vec<ValueRef> = value.try_into()?;
-    parameters
-        .into_iter()
-        .map(parse_parameter)
-        .collect::<std::result::Result<Vec<_>, _>>()
+    parameters.into_iter().map(parse_parameter).collect::<std::result::Result<Vec<_>, _>>()
 }
 
 fn parse_string(value: ValueRef) -> std::result::Result<String, ApiInfoParseError> {
@@ -343,10 +334,7 @@ fn parse_string(value: ValueRef) -> std::result::Result<String, ApiInfoParseErro
 
 fn parse_string_vec(value: ValueRef) -> std::result::Result<Vec<String>, ApiInfoParseError> {
     let options: Vec<ValueRef> = value.try_into()?;
-    options
-        .into_iter()
-        .map(parse_string)
-        .collect::<std::result::Result<Vec<_>, _>>()
+    options.into_iter().map(parse_string).collect::<std::result::Result<Vec<_>, _>>()
 }
 
 fn parse_ui_event(value: ValueRef) -> std::result::Result<ApiEvent, ApiInfoParseError> {
@@ -376,10 +364,7 @@ fn parse_ui_event(value: ValueRef) -> std::result::Result<ApiEvent, ApiInfoParse
 
 fn parse_ui_events(value: ValueRef) -> std::result::Result<HashSet<ApiEvent>, ApiInfoParseError> {
     let functions: Vec<ValueRef> = value.try_into()?;
-    functions
-        .into_iter()
-        .map(parse_ui_event)
-        .collect::<std::result::Result<HashSet<_>, _>>()
+    functions.into_iter().map(parse_ui_event).collect::<std::result::Result<HashSet<_>, _>>()
 }
 
 pub fn parse_api_info(
@@ -455,11 +440,8 @@ fn version_match_prerelease() {
         "api_prerelease" => false,
     };
 
-    let version = parse_version(
-        Value::from(value).as_ref(),
-        "NVIM v1.12.0-dev-1253+gfb2d736481",
-    )
-    .unwrap();
+    let version =
+        parse_version(Value::from(value).as_ref(), "NVIM v1.12.0-dev-1253+gfb2d736481").unwrap();
     assert!(version.has_version(1, 11, 4, None));
     assert!(version.has_version(1, 11, 3, None));
     assert!(version.has_version(1, 10, 0, None));

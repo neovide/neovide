@@ -1,6 +1,6 @@
 use log::error;
 use nvim_rs::Value;
-use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Rect};
+use skia_safe::{BlendMode, Canvas, Color, Paint, Rect, paint::Style};
 
 use crate::{
     editor::Cursor,
@@ -147,11 +147,7 @@ pub struct PointHighlight {
 
 impl PointHighlight {
     pub fn new(mode: &HighlightMode) -> PointHighlight {
-        PointHighlight {
-            t: 0.0,
-            center_position: PixelPos::new(0.0, 0.0),
-            mode: mode.clone(),
-        }
+        PointHighlight { t: 0.0, center_position: PixelPos::new(0.0, 0.0), mode: mode.clone() }
     }
 }
 
@@ -266,12 +262,7 @@ impl ParticleTrail {
         rotation_speed: f32,
         lifetime: f32,
     ) {
-        self.particles.push(ParticleData {
-            pos,
-            speed,
-            rotation_speed,
-            lifetime,
-        });
+        self.particles.push(ParticleData { pos, speed, rotation_speed, lifetime });
     }
 
     // Note this method doesn't keep particles in order
@@ -446,19 +437,14 @@ struct RngState {
 
 impl RngState {
     fn new() -> RngState {
-        RngState {
-            state: 0x853C_49E6_748F_EA9Bu64,
-            inc: (0xDA3E_39CB_94B9_5BDBu64 << 1) | 1,
-        }
+        RngState { state: 0x853C_49E6_748F_EA9Bu64, inc: (0xDA3E_39CB_94B9_5BDBu64 << 1) | 1 }
     }
     fn next(&mut self) -> u32 {
         let old_state = self.state;
 
         // Implementation copied from:
         // https://rust-random.github.io/rand/src/rand_pcg/pcg64.rs.html#103
-        let new_state = old_state
-            .wrapping_mul(6_364_136_223_846_793_005u64)
-            .wrapping_add(self.inc);
+        let new_state = old_state.wrapping_mul(6_364_136_223_846_793_005u64).wrapping_add(self.inc);
 
         self.state = new_state;
 

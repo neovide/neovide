@@ -14,15 +14,15 @@ use winit::{
 };
 
 use super::{
-    save_window_size, CmdLineSettings, EventPayload, EventTarget, RouteId, WindowSettings,
-    WindowSize, WinitWindowWrapper,
+    CmdLineSettings, EventPayload, EventTarget, RouteId, WindowSettings, WindowSize,
+    WinitWindowWrapper, save_window_size,
 };
 use crate::{
     clipboard::{Clipboard, ClipboardHandle},
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     running_tracker::RunningTracker,
-    settings::{font::FontSettings, Settings},
+    settings::{Settings, font::FontSettings},
     units::Grid,
     window::UserEvent,
 };
@@ -74,9 +74,7 @@ impl ShouldRender {
             ShouldRender::Deadline(instant) => {
                 tracy_plot!(
                     "should_render",
-                    instant
-                        .saturating_duration_since(Instant::now())
-                        .as_secs_f64()
+                    instant.saturating_duration_since(Instant::now()).as_secs_f64()
                 );
             }
         }
@@ -202,8 +200,7 @@ impl Application {
             }
 
             let focused = self.focused_state_for_window(window_id);
-            self.render_states
-                .insert(window_id, RenderState::new(focused));
+            self.render_states.insert(window_id, RenderState::new(focused));
         }
     }
 
@@ -217,8 +214,7 @@ impl Application {
         }
 
         let focused = self.focused_state_for_window(window_id);
-        self.render_states
-            .insert(window_id, RenderState::new(focused));
+        self.render_states.insert(window_id, RenderState::new(focused));
     }
 
     fn mark_should_render_for_window(&mut self, window_id: WindowId) {
@@ -296,8 +292,7 @@ impl Application {
         #[cfg(feature = "profiling")]
         self.aggregate_should_render().plot_tracy();
         if self.create_window_allowed && self.window_wrapper.has_pending_window_creation() {
-            self.window_wrapper
-                .try_create_window(event_loop, &self.proxy);
+            self.window_wrapper.try_create_window(event_loop, &self.proxy);
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
@@ -321,10 +316,7 @@ impl Application {
         let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
         let step = dt / num_steps;
         for _ in 0..num_steps {
-            if self
-                .window_wrapper
-                .animate_frame(window_id, step.as_secs_f32())
-            {
+            if self.window_wrapper.animate_frame(window_id, step.as_secs_f32()) {
                 if let Some(state) = self.render_states.get_mut(&window_id) {
                     state.should_render = ShouldRender::Immediately;
                 }
@@ -337,10 +329,7 @@ impl Application {
             return;
         }
 
-        let dt = match self
-            .window_wrapper
-            .refresh_rate_for_window(window_id, &self.settings)
-        {
+        let dt = match self.window_wrapper.refresh_rate_for_window(window_id, &self.settings) {
             Some(rate) => Duration::from_secs_f32(rate),
             None => return,
         };
@@ -361,11 +350,7 @@ impl Application {
             delta = dt;
         }
         // Catchup immediately if the delta is more than one frame, otherwise smooth it over 10 frames
-        let catchup = if delta >= dt {
-            delta
-        } else {
-            delta.div_f64(10.0)
-        };
+        let catchup = if delta >= dt { delta } else { delta.div_f64(10.0) };
 
         let dt = dt + catchup;
         tracy_plot!("Simulation dt", dt.as_secs_f64());
@@ -384,10 +369,7 @@ impl Application {
             Some(state) => {
                 state.pending_render = false;
                 tracy_plot!("pending_render", state.pending_render as u8 as f64);
-                (
-                    state.last_dt,
-                    matches!(state.focused, FocusedState::UnfocusedNotDrawn),
-                )
+                (state.last_dt, matches!(state.focused, FocusedState::UnfocusedNotDrawn))
             }
             None => return,
         };
@@ -400,10 +382,7 @@ impl Application {
             }
 
             state.num_consecutive_rendered += 1;
-            tracy_plot!(
-                "num_consecutive_rendered",
-                state.num_consecutive_rendered as f64
-            );
+            tracy_plot!("num_consecutive_rendered", state.num_consecutive_rendered as f64);
             state.last_dt = state.previous_frame_start.elapsed().as_secs_f32();
             state.previous_frame_start = Instant::now();
         }
@@ -526,10 +505,7 @@ impl Application {
 
                 if let Some(state) = self.render_states.get_mut(&window_id) {
                     state.num_consecutive_rendered = 0;
-                    tracy_plot!(
-                        "num_consecutive_rendered",
-                        state.num_consecutive_rendered as f64
-                    );
+                    tracy_plot!("num_consecutive_rendered", state.num_consecutive_rendered as f64);
                     state.last_dt = state.previous_frame_start.elapsed().as_secs_f32();
                     state.previous_frame_start = Instant::now();
                 }
@@ -539,11 +515,8 @@ impl Application {
 
     fn redraw_requested(&mut self, window_id: WindowId) {
         self.ensure_render_state(window_id);
-        let pending_render = self
-            .render_states
-            .get(&window_id)
-            .map(|state| state.pending_render)
-            .unwrap_or(false);
+        let pending_render =
+            self.render_states.get(&window_id).map(|state| state.pending_render).unwrap_or(false);
         if pending_render {
             tracy_zone!("render (redraw requested)");
             self.render(window_id);
@@ -637,8 +610,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 if remaining_before <= 1 && window_id.is_some() {
                     save_window_size(&self.window_wrapper, &self.settings);
                 }
-                self.window_wrapper
-                    .handle_neovim_exit_route(route_id, &self.proxy);
+                self.window_wrapper.handle_neovim_exit_route(route_id, &self.proxy);
                 if let Some(window_id) = window_id {
                     self.render_states.remove(&window_id);
                 }
@@ -706,8 +678,7 @@ impl ApplicationHandler<EventPayload> for Application {
                                 self.mark_should_render_for_window(window_id);
                             }
                         } else {
-                            self.window_wrapper
-                                .handle_draw_commands_for_route(route_id, batch);
+                            self.window_wrapper.handle_draw_commands_for_route(route_id, batch);
                         }
                     }
                     _ => {
@@ -717,8 +688,7 @@ impl ApplicationHandler<EventPayload> for Application {
             }
             #[cfg(target_os = "macos")]
             UserEvent::CreateWindow => {
-                self.window_wrapper
-                    .try_create_window(event_loop, &self.proxy);
+                self.window_wrapper.try_create_window(event_loop, &self.proxy);
                 self.sync_render_states();
                 self.mark_should_render_all();
             }
@@ -742,8 +712,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 }
             }
             payload => {
-                self.window_wrapper
-                    .handle_user_event(EventPayload { payload, target });
+                self.window_wrapper.handle_user_event(EventPayload { payload, target });
                 match target {
                     EventTarget::Window(window_id) => self.mark_should_render_for_window(window_id),
                     EventTarget::Route(route_id) => {

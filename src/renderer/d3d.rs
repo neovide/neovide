@@ -1,15 +1,14 @@
 use std::{rc::Rc, sync::Arc};
 
 use skia_safe::{
+    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
     gpu::{
+        BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
         d3d::{BackendContext, TextureResourceInfo},
         surfaces::wrap_backend_render_target,
-        BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
     },
     surface::BackendSurfaceAccess,
-    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
 };
-use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
@@ -18,17 +17,17 @@ use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_SAMPLE_DESC,
 };
 use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory2, IDXGISwapChain1, IDXGISwapChain3,
-    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SCALING_STRETCH,
+    CreateDXGIFactory1, DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SCALING_STRETCH,
     DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-    DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    DXGI_USAGE_RENDER_TARGET_OUTPUT, IDXGIAdapter1, IDXGIFactory2, IDXGISwapChain1,
+    IDXGISwapChain3,
 };
 use windows::Win32::Graphics::{Direct3D::D3D_FEATURE_LEVEL_11_0, Dxgi::DXGI_SWAP_CHAIN_DESC1};
 use windows::Win32::Graphics::{
     Direct3D12::{
-        D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
         D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
-        D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
+        D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT, D3D12CreateDevice, ID3D12CommandQueue,
+        ID3D12Device, ID3D12Fence, ID3D12Resource,
     },
     Dxgi::DXGI_SWAP_CHAIN_FLAG,
 };
@@ -37,20 +36,21 @@ use windows::Win32::Graphics::{
     Direct3D12::{D3D12GetDebugInterface, ID3D12Debug},
     Dxgi::{CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG},
 };
-use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
+use windows::Win32::System::Threading::{CreateEventW, INFINITE, WaitForSingleObjectEx};
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HWND},
     Graphics::Dxgi::DXGI_PRESENT,
 };
+use windows::core::{Interface, PCWSTR, Result};
 use winit::{
     event_loop::EventLoopProxy,
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
     window::Window,
 };
 
-use super::{vsync::VSyncWinSwapChain, RendererSettings, SkiaRenderer, VSync};
+use super::{RendererSettings, SkiaRenderer, VSync, vsync::VSyncWinSwapChain};
 #[cfg(feature = "gpu_profiling")]
-use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
+use crate::profiling::{GpuCtx, d3d::create_d3d_gpu_context};
 use crate::{
     profiling::{tracy_gpu_zone, tracy_zone},
     settings::Settings,
@@ -119,9 +119,7 @@ impl D3DSkiaRenderer {
             D3D12GetDebugInterface(&mut debug_controller)
                 .expect("Failed to create Direct3D debug controller");
 
-            debug_controller
-                .expect("Failed to enable debug layer")
-                .EnableDebugLayer();
+            debug_controller.expect("Failed to enable debug layer").EnableDebugLayer();
 
             CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG).expect("Failed to create DXGI factory")
         };
@@ -163,10 +161,7 @@ impl D3DSkiaRenderer {
             Height: size.height,
             Format: DXGI_FORMAT_R8G8B8A8_UNORM,
             Stereo: false.into(),
-            SampleDesc: DXGI_SAMPLE_DESC {
-                Count: 1,
-                Quality: 0,
-            },
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
             BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
             BufferCount: 2,
             Scaling: DXGI_SCALING_STRETCH,
@@ -175,10 +170,8 @@ impl D3DSkiaRenderer {
             Flags: DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT.0 as u32,
         };
 
-        let hwnd = if let RawWindowHandle::Win32(handle) = window
-            .window_handle()
-            .expect("Failed to fetch window handle")
-            .as_raw()
+        let hwnd = if let RawWindowHandle::Win32(handle) =
+            window.window_handle().expect("Failed to fetch window handle").as_raw()
         {
             HWND(handle.hwnd.get() as *mut _)
         } else {
@@ -196,9 +189,7 @@ impl D3DSkiaRenderer {
             IDXGISwapChain1::cast(&swap_chain).expect("Failed to cast");
 
         unsafe {
-            swap_chain
-                .SetMaximumFrameLatency(1)
-                .expect("Failed to set maximum frame latency");
+            swap_chain.SetMaximumFrameLatency(1).expect("Failed to set maximum frame latency");
         }
         let composition_device: IDCompositionDevice = unsafe {
             DCompositionCreateDevice2(None).expect("Could not create composition device")
@@ -209,21 +200,13 @@ impl D3DSkiaRenderer {
                 .expect("Could not create composition target")
         };
         let visual = unsafe {
-            composition_device
-                .CreateVisual()
-                .expect("Could not create composition visual")
+            composition_device.CreateVisual().expect("Could not create composition visual")
         };
 
         unsafe {
-            visual
-                .SetContent(&swap_chain)
-                .expect("Failed to set composition content");
-            target
-                .SetRoot(&visual)
-                .expect("Failed to set composition root");
-            composition_device
-                .Commit()
-                .expect("Failed to commit composition");
+            visual.SetContent(&swap_chain).expect("Failed to set composition content");
+            target.SetRoot(&visual).expect("Failed to set composition root");
+            composition_device.Commit().expect("Failed to commit composition");
         }
 
         let swap_chain_waitable = unsafe { swap_chain.GetFrameLatencyWaitableObject() };
@@ -292,9 +275,7 @@ impl D3DSkiaRenderer {
                 let current_fence_value = self.fence_values[self.frame_index];
 
                 // Schedule a Signal command in the queue.
-                self.command_queue
-                    .Signal(&self.fence, current_fence_value)
-                    .unwrap();
+                self.command_queue.Signal(&self.fence, current_fence_value).unwrap();
 
                 // Update the frame index.
                 self.frame_index = self.swap_chain.GetCurrentBackBufferIndex() as usize;
@@ -302,9 +283,7 @@ impl D3DSkiaRenderer {
 
                 // If the next frame is not ready to be rendered yet, wait until it is ready.
                 if self.fence.GetCompletedValue() < old_fence_value {
-                    self.fence
-                        .SetEventOnCompletion(old_fence_value, self.fence_event)
-                        .unwrap();
+                    self.fence.SetEventOnCompletion(old_fence_value, self.fence_event).unwrap();
                     WaitForSingleObjectEx(self.fence_event, INFINITE, false);
                 }
 
@@ -319,14 +298,10 @@ impl D3DSkiaRenderer {
         unsafe {
             let current_fence_value = *self.fence_values.iter().max().unwrap();
             // Schedule a Signal command in the queue.
-            self.command_queue
-                .Signal(&self.fence, current_fence_value)
-                .unwrap();
+            self.command_queue.Signal(&self.fence, current_fence_value).unwrap();
 
             // Wait until the fence has been processed.
-            self.fence
-                .SetEventOnCompletion(current_fence_value, self.fence_event)
-                .unwrap();
+            self.fence.SetEventOnCompletion(current_fence_value, self.fence_event).unwrap();
             WaitForSingleObjectEx(self.fence_event, INFINITE, false);
 
             // Increment all fence values
@@ -347,11 +322,8 @@ impl D3DSkiaRenderer {
         self.buffers.clear();
         self.surfaces.clear();
         for i in 0..self.swap_chain_desc.BufferCount {
-            let buffer: ID3D12Resource = unsafe {
-                self.swap_chain
-                    .GetBuffer(i)
-                    .expect("Could not get swapchain buffer")
-            };
+            let buffer: ID3D12Resource =
+                unsafe { self.swap_chain.GetBuffer(i).expect("Could not get swapchain buffer") };
             self.buffers.push(buffer.clone());
 
             let info = TextureResourceInfo {

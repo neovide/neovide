@@ -49,20 +49,12 @@ pub fn ease_in_out_cubic(t: f32) -> f32 {
 
 #[allow(dead_code)]
 pub fn ease_in_expo(t: f32) -> f32 {
-    if t == 0.0 {
-        0.0
-    } else {
-        2.0f32.powf(10.0 * (t - 1.0))
-    }
+    if t == 0.0 { 0.0 } else { 2.0f32.powf(10.0 * (t - 1.0)) }
 }
 
 #[allow(dead_code)]
 pub fn ease_out_expo(t: f32) -> f32 {
-    if (t - 1.0).abs() < f32::EPSILON {
-        1.0
-    } else {
-        1.0 - 2.0f32.powf(-10.0 * t)
-    }
+    if (t - 1.0).abs() < f32::EPSILON { 1.0 } else { 1.0 - 2.0f32.powf(-10.0 * t) }
 }
 
 pub fn lerp(start: f32, end: f32, t: f32) -> f32 {
@@ -79,10 +71,7 @@ pub fn ease_point<T: Unit<Scalar = f32>>(
     end: Point2<T>,
     t: f32,
 ) -> Point2<T> {
-    Point2::new(
-        ease(ease_func, start.x, end.x, t),
-        ease(ease_func, start.y, end.y, t),
-    )
+    Point2::new(ease(ease_func, start.x, end.x, t), ease(ease_func, start.y, end.y, t))
 }
 
 #[derive(Clone)]
@@ -93,10 +82,7 @@ pub struct CriticallyDampedSpringAnimation {
 
 impl CriticallyDampedSpringAnimation {
     pub fn new() -> Self {
-        Self {
-            position: 0.0,
-            velocity: 0.0,
-        }
+        Self { position: 0.0, velocity: 0.0 }
     }
 
     pub fn update(&mut self, dt: f32, animation_length: f32) -> bool {

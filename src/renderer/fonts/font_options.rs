@@ -5,8 +5,8 @@ use log::warn;
 use rmpv::Value;
 use serde::Deserialize;
 use skia_safe::{
-    font_style::{Slant, Weight, Width},
     FontStyle,
+    font_style::{Slant, Weight, Width},
 };
 
 use crate::{editor, error_msg, settings::ParseFromValue};
@@ -65,10 +65,7 @@ impl CoarseStyle {
     pub fn permutations() -> impl Iterator<Item = CoarseStyle> {
         iter::repeat_n([true, false], 2)
             .multi_cartesian_product()
-            .map(|values| CoarseStyle {
-                bold: values[0],
-                italic: values[1],
-            })
+            .map(|values| CoarseStyle { bold: values[0], italic: values[1] })
     }
 }
 
@@ -85,10 +82,7 @@ impl From<CoarseStyle> for FontStyle {
 
 impl From<&editor::Style> for CoarseStyle {
     fn from(fine_style: &editor::Style) -> Self {
-        Self {
-            bold: fine_style.bold,
-            italic: fine_style.italic,
-        }
+        Self { bold: fine_style.bold, italic: fine_style.italic }
     }
 }
 
@@ -138,9 +132,7 @@ impl FontOptions {
     pub fn parse(guifont_setting: &str) -> Result<FontOptions, &str> {
         let mut font_options = FontOptions::default();
 
-        let mut parts = guifont_setting
-            .split(FONT_OPTS_SEPARATOR)
-            .filter(|part| !part.is_empty());
+        let mut parts = guifont_setting.split(FONT_OPTS_SEPARATOR).filter(|part| !part.is_empty());
 
         if let Some(parts) = parts.next() {
             let parsed_font_list = parts
@@ -153,10 +145,7 @@ impl FontOptions {
             if !parsed_font_list.is_empty() {
                 font_options.normal = parsed_font_list
                     .into_iter()
-                    .map(|family| FontDescription {
-                        family,
-                        style: None,
-                    })
+                    .map(|family| FontDescription { family, style: None })
                     .collect();
             }
         }
@@ -364,7 +353,9 @@ impl ParseFromValue for PixelGeometry {
             Some("RGBV") => *self = Self::RGBV,
             Some("BGRV") => *self = Self::BGRV,
             _ => {
-                error_msg!("Setting expected \"RGBH\", \"BGRH\", \"RGBV\", \"BGRV\", or \"Unknown\", but received {value:?}");
+                error_msg!(
+                    "Setting expected \"RGBH\", \"BGRH\", \"RGBV\", \"BGRV\", or \"Unknown\", but received {value:?}"
+                );
             }
         }
     }
@@ -574,10 +565,7 @@ mod tests {
         let guifont_setting = "Fira Code Mono:h15.a";
         let err = FontOptions::parse(guifont_setting).unwrap_err();
 
-        assert_eq!(
-            err, INVALID_SIZE_ERR,
-            "parse err should equal {INVALID_SIZE_ERR}, but {err}",
-        );
+        assert_eq!(err, INVALID_SIZE_ERR, "parse err should equal {INVALID_SIZE_ERR}, but {err}",);
     }
 
     #[test]
@@ -585,10 +573,7 @@ mod tests {
         let guifont_setting = "Fira Code Mono:w1.b";
         let err = FontOptions::parse(guifont_setting).unwrap_err();
 
-        assert_eq!(
-            err, INVALID_WIDTH_ERR,
-            "parse err should equal {INVALID_WIDTH_ERR}, but {err}",
-        );
+        assert_eq!(err, INVALID_WIDTH_ERR, "parse err should equal {INVALID_WIDTH_ERR}, but {err}",);
     }
 
     #[test]

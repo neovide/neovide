@@ -43,9 +43,7 @@ macro_rules! cstr {
 }
 
 macro_rules! file_cstr {
-    ( ) => {{
-        unsafe { std::mem::transmute::<_, &std::ffi::CStr>(concat!(std::file!(), "\0")) }
-    }};
+    ( ) => {{ unsafe { std::mem::transmute::<_, &std::ffi::CStr>(concat!(std::file!(), "\0")) } }};
 }
 
 pub const fn _create_location_data(
@@ -89,13 +87,7 @@ pub struct _Zone {
 impl _Zone {
     pub fn new(loc_data: &___tracy_source_location_data, gpu: bool) -> Self {
         let context = unsafe { ___tracy_emit_zone_begin(loc_data, 1) };
-        let gpu_id = {
-            if gpu && gpu_enabled() {
-                gpu_begin(loc_data)
-            } else {
-                -1
-            }
-        };
+        let gpu_id = { if gpu && gpu_enabled() { gpu_begin(loc_data) } else { -1 } };
         _Zone { context, gpu_id }
     }
 

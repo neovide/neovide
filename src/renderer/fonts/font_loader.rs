@@ -6,7 +6,7 @@ use std::{
 
 use log::trace;
 use lru::LruCache;
-use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr};
+use skia_safe::{Data, Font, FontHinting as SkiaHinting, FontMgr, font::Edging as SkiaEdging};
 
 use crate::{
     profiling::tracy_zone,
@@ -39,11 +39,7 @@ impl FontPair {
         let index = index & 0xFFFF;
         let swash_font = SwashFont::from_data(font_data, index)?;
 
-        Some(Self {
-            key,
-            skia_font,
-            swash_font,
-        })
+        Some(Self { key, skia_font, swash_font })
     }
 }
 
@@ -122,8 +118,7 @@ impl FontLoader {
     ) -> Option<Rc<FontPair>> {
         let font_style = coarse_style.into();
         let typeface =
-            self.font_mgr
-                .match_family_style_character("", font_style, &[], character as i32)?;
+            self.font_mgr.match_family_style_character("", font_style, &[], character as i32)?;
 
         let font_key = FontKey {
             font_desc: Some(FontDescription {
@@ -152,10 +147,8 @@ impl FontLoader {
             let data = Data::new_copy(LAST_RESORT_FONT);
 
             let typeface = self.font_mgr.new_from_data(&data, 0)?;
-            let font_pair = Rc::new(FontPair::new(
-                font_key,
-                Font::from_typeface(typeface, self.font_size),
-            )?);
+            let font_pair =
+                Rc::new(FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))?);
 
             self.last_resort = Some(font_pair.clone());
             Some(font_pair)

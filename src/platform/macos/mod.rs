@@ -1,17 +1,17 @@
 pub mod settings;
 use std::cell::Cell;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     OnceLock,
+    atomic::{AtomicBool, Ordering},
 };
 use std::{cell::RefCell, ffi::CString, os::raw::c_void, path::Path, ptr, str, sync::Arc};
 
 use glamour::Point2;
 use objc2::{
-    class, define_class, msg_send,
+    AnyThread, MainThreadOnly, Message, class, define_class, msg_send,
     rc::Retained,
     runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
-    sel, AnyThread, MainThreadOnly, Message,
+    sel,
 };
 
 use objc2_app_kit::{
@@ -23,15 +23,15 @@ use objc2_app_kit::{
 };
 use objc2_core_foundation::CGFloat;
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSAttributedString, NSData, NSDictionary, NSInteger,
-    NSNotification, NSNotificationCenter, NSObject, NSObjectProtocol, NSPoint, NSProcessInfo,
-    NSRange, NSRect, NSSize, NSString, NSTimer, NSUserDefaults, NSURL,
+    MainThreadMarker, NSArray, NSAttributedString, NSData, NSDictionary, NSInteger, NSNotification,
+    NSNotificationCenter, NSObject, NSObjectProtocol, NSPoint, NSProcessInfo, NSRange, NSRect,
+    NSSize, NSString, NSTimer, NSURL, NSUserDefaults, ns_string,
 };
 
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use crate::bridge::{
-    require_active_handler, send_or_queue_file_drop, send_ui, NeovimHandler, SerialCommand,
+    NeovimHandler, SerialCommand, require_active_handler, send_or_queue_file_drop, send_ui,
 };
 use crate::renderer::fonts::font_options::FontOptions;
 use crate::settings::Settings;
@@ -270,19 +270,13 @@ impl QuickLookPreviewController {
 }
 
 pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
-    match window
-        .window_handle()
-        .expect("Failed to fetch window handle")
-        .as_raw()
-    {
+    match window.window_handle().expect("Failed to fetch window handle").as_raw() {
         RawWindowHandle::AppKit(handle) => {
             let ns_view: Retained<NSView> = unsafe {
                 Retained::retain(handle.ns_view.as_ptr().cast())
                     .expect("Failed to get NSView instance.")
             };
-            ns_view
-                .window()
-                .expect("NSView was not installed in a window")
+            ns_view.window().expect("NSView was not installed in a window")
         }
         _ => panic!("Not an AppKit window"),
     }
@@ -414,9 +408,7 @@ impl MacosWindowFeature {
             None
         };
 
-        let is_fullscreen = ns_window
-            .styleMask()
-            .contains(NSWindowStyleMask::FullScreen);
+        let is_fullscreen = ns_window.styleMask().contains(NSWindowStyleMask::FullScreen);
 
         store_event_loop_proxy(proxy.clone());
         let activation_hotkey = GlobalHotkeys::register(proxy, show_native_tabs);
@@ -570,9 +562,7 @@ impl MacosWindowFeature {
     }
 
     fn focus_target_window(app: &NSApplication) -> Option<Retained<NSWindow>> {
-        app.mainWindow()
-            .or_else(|| app.keyWindow())
-            .or_else(|| app.windows().firstObject())
+        app.mainWindow().or_else(|| app.keyWindow()).or_else(|| app.windows().firstObject())
     }
 
     pub fn activate_and_focus_existing_window() -> bool {
@@ -746,16 +736,14 @@ impl MacosWindowFeature {
             if let Some(handler) = self.titlebar_click_handler.take() {
                 handler.removeFromSuperview();
             }
-            self.ns_window
-                .setTabbingMode(NSWindowTabbingMode::Disallowed);
+            self.ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
             if let Some(tab_group) = self.ns_window.tabGroup() {
                 if tab_group.isTabBarVisible() {
                     self.ns_window.toggleTabBar(None);
                 }
             }
         } else {
-            self.ns_window
-                .setTabbingMode(NSWindowTabbingMode::Preferred);
+            self.ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
             Self::configure_native_tabbing(&self.ns_window);
             if self.has_transparent_titlebar && self.titlebar_click_handler.is_none() {
                 if let Some(mtm) = MainThreadMarker::new() {
@@ -910,11 +898,7 @@ impl MacosWindowFeature {
 
     fn definition_font_request(guifont: &str, cell_height_px: f32) -> (f64, Option<String>) {
         let options = FontOptions::parse(guifont).unwrap_or_default();
-        let font_size = if options.size > 0.0 {
-            options.size
-        } else {
-            cell_height_px
-        } as f64;
+        let font_size = if options.size > 0.0 { options.size } else { cell_height_px } as f64;
         let requested_family = options.normal.first().map(|font| font.family.to_string());
         (font_size, requested_family)
     }
@@ -958,10 +942,7 @@ impl MacosWindowFeature {
     }
 
     pub fn handle_size_changed(&mut self) {
-        let is_fullscreen = self
-            .ns_window
-            .styleMask()
-            .contains(NSWindowStyleMask::FullScreen);
+        let is_fullscreen = self.ns_window.styleMask().contains(NSWindowStyleMask::FullScreen);
         if is_fullscreen != self.is_fullscreen {
             self.is_fullscreen = is_fullscreen;
             self.set_titlebar_click_handler_visible(!is_fullscreen);
@@ -992,12 +973,7 @@ impl MacosWindowFeature {
         }
         let tab_padding = self.tab_bar_padding_in_pixels();
         if self.buttonless_padding {
-            if self
-                .ns_window
-                .tabGroup()
-                .map(|group| group.isTabBarVisible())
-                .unwrap_or(false)
-            {
+            if self.ns_window.tabGroup().map(|group| group.isTabBarVisible()).unwrap_or(false) {
                 tab_padding + self.extra_titlebar_height_in_pixel
             } else {
                 0
@@ -1028,12 +1004,8 @@ impl MacosWindowFeature {
 
     /// Update background color, opacity, shadow and blur of a window.
     fn update_background(&self) {
-        let WindowSettings {
-            show_border,
-            opacity,
-            normal_opacity,
-            ..
-        } = self.settings.get::<WindowSettings>();
+        let WindowSettings { show_border, opacity, normal_opacity, .. } =
+            self.settings.get::<WindowSettings>();
         let opaque = opacity.min(normal_opacity) >= 1.0;
         self.update_ns_background(opaque, show_border);
     }
@@ -1079,7 +1051,9 @@ impl MacosWindowFeature {
                 }
             }
             None => {
-                log::warn!("macOS activation shortcut attempted to activate window outside the main thread");
+                log::warn!(
+                    "macOS activation shortcut attempted to activate window outside the main thread"
+                );
             }
         }
     }
@@ -1092,10 +1066,7 @@ impl MacosWindowFeature {
         if !should_show_native_tab_bar() {
             return false;
         }
-        self.ns_window
-            .tabGroup()
-            .map(|group| group.windows().len() > 1)
-            .unwrap_or(false)
+        self.ns_window.tabGroup().map(|group| group.windows().len() > 1).unwrap_or(false)
     }
 
     pub fn select_next_tab(&self) {
@@ -1501,9 +1472,8 @@ impl WindowMenuNotificationHandler {
             return;
         };
 
-        let _: Retained<NSWindow> = object
-            .downcast()
-            .expect("notification object was not an NSWindow");
+        let _: Retained<NSWindow> =
+            object.downcast().expect("notification object was not an NSWindow");
 
         unsafe { self.schedule_refresh() }
     }

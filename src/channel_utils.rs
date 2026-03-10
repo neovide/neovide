@@ -2,11 +2,11 @@ use std::{fmt::Debug, sync::Arc};
 
 use log::trace;
 use tokio::sync::{
-    mpsc::{
-        error::{SendError as TokioSendError, TryRecvError},
-        UnboundedReceiver, UnboundedSender,
-    },
     Mutex,
+    mpsc::{
+        UnboundedReceiver, UnboundedSender,
+        error::{SendError as TokioSendError, TryRecvError},
+    },
 };
 
 use crate::profiling::tracy_dynamic_zone;
@@ -25,10 +25,7 @@ where
     T: Debug + AsRef<str>,
 {
     pub fn attach(tx: UnboundedSender<T>, channel_name: &str) -> Self {
-        Self {
-            tx,
-            channel_name: channel_name.to_string(),
-        }
+        Self { tx, channel_name: channel_name.to_string() }
     }
 
     pub fn send(&self, message: T) -> Result<(), TokioSendError<T>> {
@@ -52,10 +49,7 @@ where
     T: Debug + AsRef<str>,
 {
     pub fn attach(rx: UnboundedReceiver<T>, channel_name: &str) -> Self {
-        Self {
-            rx: Arc::new(Mutex::new(rx)),
-            channel_name: channel_name.to_string(),
-        }
+        Self { rx: Arc::new(Mutex::new(rx)), channel_name: channel_name.to_string() }
     }
 
     pub async fn recv(&mut self) -> Option<T> {

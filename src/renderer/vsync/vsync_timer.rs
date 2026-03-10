@@ -15,11 +15,7 @@ pub struct VSyncTimer {
 
 impl VSyncTimer {
     pub fn new(settings: Arc<Settings>) -> Self {
-        VSyncTimer {
-            sleeper: SpinSleeper::default(),
-            last_refresh: Instant::now(),
-            settings,
-        }
+        VSyncTimer { sleeper: SpinSleeper::default(), last_refresh: Instant::now(), settings }
     }
 
     pub fn wait_for_vsync(&mut self) {
