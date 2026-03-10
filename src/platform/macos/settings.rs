@@ -19,7 +19,9 @@ impl ParseFromValue for OptionAsMeta {
                 "both" => OptionAsMeta::Both,
                 "none" => OptionAsMeta::None,
                 value => {
-                    error_msg!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
+                    error_msg!(
+                        "Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}"
+                    );
                     return;
                 }
             };

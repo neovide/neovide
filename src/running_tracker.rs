@@ -1,8 +1,8 @@
 use std::{
     process::ExitCode,
     sync::{
-        atomic::{AtomicU8, Ordering},
         Arc,
+        atomic::{AtomicU8, Ordering},
     },
 };
 
@@ -15,9 +15,7 @@ pub struct RunningTracker {
 
 impl RunningTracker {
     pub fn new() -> Self {
-        Self {
-            exit_code: Arc::new(AtomicU8::new(0)),
-        }
+        Self { exit_code: Arc::new(AtomicU8::new(0)) }
     }
 
     pub fn quit_with_code(&self, code: u8, reason: &str) {

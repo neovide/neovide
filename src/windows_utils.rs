@@ -1,8 +1,8 @@
 use windows::Win32::{
-    System::Console::{AttachConsole, ATTACH_PARENT_PROCESS},
-    UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2},
+    System::Console::{ATTACH_PARENT_PROCESS, AttachConsole},
+    UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
 };
-use windows_registry::{Result, CURRENT_USER};
+use windows_registry::{CURRENT_USER, Result};
 
 use crate::error_msg;
 
@@ -13,11 +13,7 @@ const REGISTRY_PATH_FOLDER: &str = "Software\\Classes\\*\\shell\\Neovide";
 const REGISTRY_PATH_FOLDER_COMMAND: &str = "Software\\Classes\\*\\shell\\Neovide\\command";
 
 fn get_neovide_path() -> String {
-    std::env::current_exe()
-        .unwrap_or_default()
-        .to_str()
-        .unwrap_or_default()
-        .to_string()
+    std::env::current_exe().unwrap_or_default().to_str().unwrap_or_default().to_string()
 }
 
 fn unregister_rightclick() -> Result<()> {

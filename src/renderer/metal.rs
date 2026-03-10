@@ -9,13 +9,12 @@ use objc2_metal::{
 };
 use objc2_quartz_core::{CAMetalDrawable, CAMetalLayer};
 use skia_safe::{
+    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
     gpu::{
-        self,
+        self, DirectContext, SurfaceOrigin,
         mtl::{BackendContext, TextureInfo},
         surfaces::wrap_backend_render_target,
-        DirectContext, SurfaceOrigin,
     },
-    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use winit::{event_loop::EventLoopProxy, window::Window};
 
@@ -94,12 +93,8 @@ impl MetalSkiaRenderer {
         let ns_window = get_ns_window(&window);
 
         ns_window.setColorSpace(Some(
-            if srgb {
-                NSColorSpace::sRGBColorSpace()
-            } else {
-                NSColorSpace::deviceRGBColorSpace()
-            }
-            .as_ref(),
+            if srgb { NSColorSpace::sRGBColorSpace() } else { NSColorSpace::deviceRGBColorSpace() }
+                .as_ref(),
         ));
 
         let device =
@@ -121,9 +116,7 @@ impl MetalSkiaRenderer {
             metal_layer
         };
 
-        let command_queue = device
-            .newCommandQueue()
-            .expect("Failed to create command queue.");
+        let command_queue = device.newCommandQueue().expect("Failed to create command queue.");
 
         let backend = unsafe {
             BackendContext::new(
@@ -150,16 +143,11 @@ impl MetalSkiaRenderer {
         tracy_gpu_zone!("move_to_next_frame");
 
         let drawable = {
-            self.metal_layer
-                .nextDrawable()
-                .expect("Failed to get next drawable of metal layer.")
+            self.metal_layer.nextDrawable().expect("Failed to get next drawable of metal layer.")
         };
 
-        self.metal_drawable_surface = Some(MetalDrawableSurface::new(
-            drawable,
-            &mut self.context,
-            &self.settings,
-        ));
+        self.metal_drawable_surface =
+            Some(MetalDrawableSurface::new(drawable, &mut self.context, &self.settings));
     }
 }
 
@@ -177,15 +165,10 @@ impl SkiaRenderer for MetalSkiaRenderer {
     fn swap_buffers(&mut self) {
         tracy_gpu_zone!("swap buffers");
 
-        let command_buffer = self
-            .command_queue
-            .commandBuffer()
-            .expect("Failed to create command buffer.");
+        let command_buffer =
+            self.command_queue.commandBuffer().expect("Failed to create command buffer.");
         command_buffer.presentDrawable(
-            self.metal_drawable_surface
-                .as_mut()
-                .expect("No drawable surface now.")
-                .mtl_drawable(),
+            self.metal_drawable_surface.as_mut().expect("No drawable surface now.").mtl_drawable(),
         );
         command_buffer.commit();
 

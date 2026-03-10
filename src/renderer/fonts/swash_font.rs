@@ -14,10 +14,6 @@ impl SwashFont {
     }
 
     pub fn as_ref(&self) -> FontRef<'_> {
-        FontRef {
-            data: &self.data,
-            offset: self.offset,
-            key: self.key,
-        }
+        FontRef { data: &self.data, offset: self.offset, key: self.key }
     }
 }

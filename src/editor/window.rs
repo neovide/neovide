@@ -4,8 +4,8 @@ use log::warn;
 
 use crate::{
     bridge::GridLineCell,
-    editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
-    renderer::{box_drawing, WindowDrawCommand},
+    editor::{AnchorInfo, DrawCommand, DrawCommandBatcher, grid::CharacterGrid, style::Style},
+    renderer::{WindowDrawCommand, box_drawing},
     units::{GridRect, GridSize},
 };
 
@@ -78,34 +78,25 @@ impl LineFragment<'_> {
             let start = word.text_offset as usize;
             let end = start + size;
             let text = &self.text[start..end];
-            Word {
-                text,
-                cell: word.cell,
-                cluster_sizes,
-            }
+            Word { text, cell: word.cell, cluster_sizes }
         })
     }
 }
 
 impl<'a> Word<'a> {
     pub fn new(text: &'a str, cluster_sizes: &'a [u8]) -> Self {
-        Self {
-            text,
-            cell: 0,
-            cluster_sizes,
-        }
+        Self { text, cell: 0, cluster_sizes }
     }
 
     pub fn grapheme_clusters(&self) -> impl Iterator<Item = (usize, &'a str)> + Clone {
-        self.cluster_sizes
-            .iter()
-            .enumerate()
-            .filter(|(_, size)| **size > 0)
-            .scan(0, |current_pos, (cell_nr, size)| {
+        self.cluster_sizes.iter().enumerate().filter(|(_, size)| **size > 0).scan(
+            0,
+            |current_pos, (cell_nr, size)| {
                 let start = *current_pos;
                 *current_pos += *size as u32;
                 Some((cell_nr, &self.text[start as usize..*current_pos as usize]))
-            })
+            },
+        )
     }
 }
 
@@ -139,10 +130,7 @@ impl Window {
     }
 
     fn send_command(&self, batcher: &mut DrawCommandBatcher, command: WindowDrawCommand) {
-        batcher.queue(DrawCommand::Window {
-            grid_id: self.grid_id,
-            command,
-        });
+        batcher.queue(DrawCommand::Window { grid_id: self.grid_id, command });
     }
 
     fn send_updated_position(&self, batcher: &mut DrawCommandBatcher) {
@@ -197,8 +185,7 @@ impl Window {
         grid_size: (u64, u64),
         grid_position: (f64, f64),
     ) {
-        self.grid
-            .resize((grid_size.0 as usize, grid_size.1 as usize));
+        self.grid.resize((grid_size.0 as usize, grid_size.1 as usize));
         self.anchor_info = anchor_info;
         self.grid_position = grid_position;
         self.send_updated_position(batcher);
@@ -305,10 +292,7 @@ impl Window {
                 continue;
             }
 
-            let is_whitespace = cluster
-                .chars()
-                .next()
-                .is_some_and(|char| char.is_whitespace());
+            let is_whitespace = cluster.chars().next().is_some_and(|char| char.is_whitespace());
             if is_whitespace {
                 if !current_word.cluster_sizes.is_empty() {
                     // Finish the current word
@@ -360,21 +344,13 @@ impl Window {
             .then(|| self.row_cells(row))
             .flatten();
 
-        let line = Line {
-            text,
-            fragments: line_fragments,
-            cells,
-        };
+        let line = Line { text, fragments: line_fragments, cells };
 
         self.send_command(batcher, WindowDrawCommand::DrawLine { row, line });
     }
 
     fn row_cells(&self, row: usize) -> Option<Vec<String>> {
-        self.grid.row(row).map(|line| {
-            line.iter()
-                .map(|(character, _)| character.clone())
-                .collect()
-        })
+        self.grid.row(row).map(|line| line.iter().map(|(character, _)| character.clone()).collect())
     }
 
     pub fn draw_grid_line(
@@ -390,13 +366,7 @@ impl Window {
         if row < self.grid.height {
             let mut column_pos = column_start as usize;
             for cell in cells {
-                self.modify_grid(
-                    row,
-                    &mut column_pos,
-                    cell,
-                    defined_styles,
-                    &mut previous_style,
-                );
+                self.modify_grid(row, &mut column_pos, cell, defined_styles, &mut previous_style);
             }
 
             self.redraw_line(batcher, row);
@@ -427,11 +397,8 @@ impl Window {
         }
 
         let text_width = text.chars().count();
-        let start_column = if text_width >= self.grid.width {
-            0
-        } else {
-            (self.grid.width - text_width) / 2
-        };
+        let start_column =
+            if text_width >= self.grid.width { 0 } else { (self.grid.width - text_width) / 2 };
 
         for (offset, ch) in text.chars().enumerate() {
             let column = start_column + offset;
@@ -472,14 +439,7 @@ impl Window {
 
         self.send_command(
             batcher,
-            WindowDrawCommand::Scroll {
-                top,
-                bottom,
-                left,
-                right,
-                rows,
-                cols,
-            },
+            WindowDrawCommand::Scroll { top, bottom, left, right, rows, cols },
         );
 
         // There's no need to send any updates for pure up/down scrolling, the actual new lines
@@ -532,7 +492,7 @@ impl Window {
 mod tests {
     use super::*;
     use crate::editor::style::{Colors, Style};
-    use skia_safe::{colors, Color4f};
+    use skia_safe::{Color4f, colors};
     use std::sync::Arc;
 
     fn make_style(color: Color4f) -> Arc<Style> {

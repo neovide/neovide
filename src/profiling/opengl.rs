@@ -1,6 +1,6 @@
 use gl::{
-    GenQueries, GetInteger64v, GetQueryObjectiv, GetQueryObjectui64v, QueryCounter, QUERY_RESULT,
-    QUERY_RESULT_AVAILABLE, TIMESTAMP,
+    GenQueries, GetInteger64v, GetQueryObjectiv, GetQueryObjectui64v, QUERY_RESULT,
+    QUERY_RESULT_AVAILABLE, QueryCounter, TIMESTAMP,
 };
 use std::{
     ffi::CString,
@@ -35,12 +35,7 @@ impl GpuCtxOpenGL {
             query.set_len(len);
         }
 
-        Self {
-            id: CONTEXT_ID.fetch_add(1, Ordering::Relaxed),
-            query,
-            head: 0,
-            tail: 0,
-        }
+        Self { id: CONTEXT_ID.fetch_add(1, Ordering::Relaxed), query, head: 0, tail: 0 }
     }
 
     fn next_query_id(&mut self) -> usize {
@@ -84,11 +79,7 @@ impl GpuCtx for GpuCtxOpenGL {
         while self.tail != self.head {
             let mut available: i32 = 0;
             unsafe {
-                GetQueryObjectiv(
-                    self.query[self.tail],
-                    QUERY_RESULT_AVAILABLE,
-                    &mut available,
-                );
+                GetQueryObjectiv(self.query[self.tail], QUERY_RESULT_AVAILABLE, &mut available);
             }
             if available <= 0 {
                 break;
@@ -133,10 +124,7 @@ impl GpuCtx for GpuCtxOpenGL {
         let glquery = self.query[query];
         let context = self.id;
 
-        let gpu_data = ___tracy_gpu_zone_end_data {
-            queryId: query as u16,
-            context,
-        };
+        let gpu_data = ___tracy_gpu_zone_end_data { queryId: query as u16, context };
         unsafe {
             QueryCounter(glquery, TIMESTAMP);
             ___tracy_emit_gpu_zone_end_serial(gpu_data);

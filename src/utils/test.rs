@@ -24,10 +24,7 @@ pub fn ascii_to_rects(ascii: &str) -> Vec<Rect> {
             if IGNOREABLE_CHARACTERS.contains(&c) {
                 continue;
             }
-            points_by_label
-                .entry(c)
-                .or_insert_with(Vec::new)
-                .push((x, y));
+            points_by_label.entry(c).or_insert_with(Vec::new).push((x, y));
         }
     }
 
@@ -87,10 +84,7 @@ fn ascii_to_rect_works() {
             1-+-1 |
               2---2
         "}),
-        vec![
-            Rect::from_xywh(0., 0., 5., 3.),
-            Rect::from_xywh(2., 1., 5., 3.),
-        ]
+        vec![Rect::from_xywh(0., 0., 5., 3.), Rect::from_xywh(2., 1., 5., 3.),]
     );
 
     // Overlapping rects with shared corner
@@ -102,10 +96,7 @@ fn ascii_to_rect_works() {
             |  |
             2--2
         "}),
-        vec![
-            Rect::from_xywh(0., 0., 6., 3.),
-            Rect::from_xywh(0., 2., 4., 3.),
-        ]
+        vec![Rect::from_xywh(0., 0., 6., 3.), Rect::from_xywh(0., 2., 4., 3.),]
     );
 
     // Adjacent rects
@@ -118,10 +109,7 @@ fn ascii_to_rect_works() {
             |  |
             2--2
         "}),
-        vec![
-            Rect::from_xywh(0., 0., 6., 3.),
-            Rect::from_xywh(0., 3., 4., 3.),
-        ]
+        vec![Rect::from_xywh(0., 0., 6., 3.), Rect::from_xywh(0., 3., 4., 3.),]
     );
 }
 
@@ -142,12 +130,7 @@ fn ascii_to_points_works() {
             | |
             3-4
         "}),
-        vec![
-            Point::new(0., 0.),
-            Point::new(2., 0.),
-            Point::new(0., 2.),
-            Point::new(2., 2.),
-        ]
+        vec![Point::new(0., 0.), Point::new(2., 0.), Point::new(0., 2.), Point::new(2., 2.),]
     );
 
     // More complicated shape

@@ -4,7 +4,7 @@ use winit::{
     keyboard::{Key, NamedKey},
 };
 
-use crate::{settings::Settings, CmdLineSettings};
+use crate::{CmdLineSettings, settings::Settings};
 
 #[derive(Clone, Copy)]
 pub(crate) enum TabNavigationAction {
@@ -90,24 +90,17 @@ impl KeyCombo {
     fn modifiers_match(&self, modifiers: &Modifiers) -> bool {
         let state = modifiers.state();
         (self.command, self.control, self.option, self.shift)
-            == (
-                state.super_key(),
-                state.control_key(),
-                state.alt_key(),
-                state.shift_key(),
-            )
+            == (state.super_key(), state.control_key(), state.alt_key(), state.shift_key())
     }
 }
 
 fn pressed_character(event: &KeyEvent) -> Option<char> {
-    event
-        .text
-        .as_ref()
-        .and_then(|text| text.chars().next())
-        .or_else(|| match event.logical_key.as_ref() {
+    event.text.as_ref().and_then(|text| text.chars().next()).or_else(|| {
+        match event.logical_key.as_ref() {
             Key::Character(text) if !text.is_empty() => text.chars().next(),
             _ => None,
-        })
+        }
+    })
 }
 
 fn parse_token(value: &str, raw: &str) -> Option<ParsedToken> {
@@ -128,10 +121,7 @@ fn parse_token(value: &str, raw: &str) -> Option<ParsedToken> {
 fn parse_character_key(value: &str, raw: &str) -> Option<char> {
     let mut chars = value.chars();
     let Some(ch) = chars.next() else {
-        warn!(
-            "macOS tab navigation shortcut '{}' has no key; ignoring",
-            raw
-        );
+        warn!("macOS tab navigation shortcut '{}' has no key; ignoring", raw);
         return None;
     };
 
@@ -176,10 +166,7 @@ impl ParseState {
     fn set_key(&mut self, value: KeyMatch, raw: &str) -> Option<()> {
         match self.key {
             Some(_) => {
-                warn!(
-                    "macOS tab navigation shortcut '{}' has multiple keys; ignoring",
-                    raw
-                );
+                warn!("macOS tab navigation shortcut '{}' has multiple keys; ignoring", raw);
                 None
             }
             None => {

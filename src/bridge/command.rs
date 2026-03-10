@@ -72,10 +72,7 @@ fn build_nvim_command_parts(
     cmdline_settings: &CmdLineSettings,
     embed: bool,
 ) -> (String, Vec<String>) {
-    let bin = cmdline_settings
-        .neovim_bin
-        .clone()
-        .unwrap_or_else(|| "nvim".to_owned());
+    let bin = cmdline_settings.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
     let mut args = cmdline_settings.neovim_args.clone();
     if embed {
         append_embed_arg(&mut args);

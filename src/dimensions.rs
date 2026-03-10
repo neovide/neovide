@@ -21,16 +21,15 @@ impl FromStr for Dimensions {
 
         s.split('x')
             .map(|dimension| {
-                dimension
-                    .parse::<u64>()
-                    .map_err(|_| invalid_parse_err.as_str())
-                    .and_then(|dimension| {
+                dimension.parse::<u64>().map_err(|_| invalid_parse_err.as_str()).and_then(
+                    |dimension| {
                         if dimension > 0 {
                             Ok(dimension)
                         } else {
                             Err("Invalid Dimensions: Window dimensions should be greater than 0.")
                         }
-                    })
+                    },
+                )
             })
             .collect::<Result<Vec<_>, &str>>()
             .and_then(|dimensions| {
@@ -54,10 +53,7 @@ macro_rules! impl_from_tuple_to_dimensions {
     ($type:ty) => {
         impl From<($type, $type)> for Dimensions {
             fn from((width, height): ($type, $type)) -> Self {
-                Dimensions {
-                    width: width as u64,
-                    height: height as u64,
-                }
+                Dimensions { width: width as u64, height: height as u64 }
             }
         }
     };
@@ -82,19 +78,13 @@ impl_from_dimensions_to_tuple!(i32);
 
 impl From<PhysicalSize<u32>> for Dimensions {
     fn from(PhysicalSize { width, height }: PhysicalSize<u32>) -> Self {
-        Dimensions {
-            width: width as u64,
-            height: height as u64,
-        }
+        Dimensions { width: width as u64, height: height as u64 }
     }
 }
 
 impl From<Dimensions> for PhysicalSize<u32> {
     fn from(Dimensions { width, height }: Dimensions) -> Self {
-        PhysicalSize {
-            width: width as u32,
-            height: height as u32,
-        }
+        PhysicalSize { width: width as u32, height: height as u32 }
     }
 }
 

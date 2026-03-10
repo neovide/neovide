@@ -12,10 +12,7 @@ pub fn get_clipboard_contents(
     let clipboard_raw = clipboard.get_contents(register)?.replace('\r', "");
     let is_line_paste = clipboard_raw.ends_with('\n');
 
-    let lines = clipboard_raw
-        .split('\n')
-        .map(Value::from)
-        .collect::<Vec<Value>>();
+    let lines = clipboard_raw.split('\n').map(Value::from).collect::<Vec<Value>>();
 
     let lines = Value::from(lines);
     // v paste is normal paste (everything in lines is pasted)

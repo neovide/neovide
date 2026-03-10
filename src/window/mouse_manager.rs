@@ -14,12 +14,12 @@ use winit::{
 use glamour::{Contains, Point2};
 
 use crate::{
-    bridge::{send_ui, NeovimHandler, SerialCommand},
+    bridge::{NeovimHandler, SerialCommand, send_ui},
     editor::WindowType,
     renderer::{MessageSelection, Renderer, WindowDrawDetails},
     settings::Settings,
     units::{GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
-    window::{keyboard_manager::KeyboardManager, WindowSettings},
+    window::{WindowSettings, keyboard_manager::KeyboardManager},
 };
 
 fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
@@ -178,19 +178,12 @@ impl MouseManager {
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
         let position = self.window_position;
-        if self
-            .settings
-            .get::<WindowSettings>()
-            .has_mouse_grid_detection
-        {
+        if self.settings.get::<WindowSettings>().has_mouse_grid_detection {
             Some(&editor_state.full_region)
         } else {
             // the rendered window regions are sorted by draw order, so the earlier windows in the
             // list are drawn under the later ones
-            editor_state
-                .window_regions
-                .iter()
-                .rfind(|details| details.region.contains(&position))
+            editor_state.window_regions.iter().rfind(|details| details.region.contains(&position))
         }
     }
 
@@ -199,10 +192,7 @@ impl MouseManager {
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
         let position = self.window_position;
-        editor_state
-            .window_regions
-            .iter()
-            .rfind(|details| details.region.contains(&position))
+        editor_state.window_regions.iter().rfind(|details| details.region.contains(&position))
     }
 
     fn get_relative_position_at(
@@ -241,9 +231,7 @@ impl MouseManager {
     }
 
     fn message_area_drag_selection_enabled(&self) -> bool {
-        self.settings
-            .get::<WindowSettings>()
-            .message_area_drag_selection
+        self.settings.get::<WindowSettings>().message_area_drag_selection
     }
 
     fn handle_pointer_motion(
@@ -282,11 +270,7 @@ impl MouseManager {
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
         let window_details = if let Some(drag_details) = &self.drag_details {
-            if self
-                .settings
-                .get::<WindowSettings>()
-                .has_mouse_grid_detection
-            {
+            if self.settings.get::<WindowSettings>().has_mouse_grid_detection {
                 Some(&editor_state.full_region)
             } else {
                 editor_state
@@ -352,9 +336,7 @@ impl MouseManager {
         editor_state: &EditorState,
     ) -> Option<MessageSelectionEvent> {
         if !self.message_area_drag_selection_enabled() {
-            return self
-                .clear_message_selection()
-                .then_some(MessageSelectionEvent::Clear);
+            return self.clear_message_selection().then_some(MessageSelectionEvent::Clear);
         }
 
         // MouseInput only reports press/release. we start message selection on left press,
@@ -422,11 +404,7 @@ impl MouseManager {
 
         if let Some(button_text) = mouse_button_to_button_text(mouse_button) {
             if let &Some(details) = &self.get_window_details_under_mouse(editor_state) {
-                let action = if down {
-                    "press".to_owned()
-                } else {
-                    "release".to_owned()
-                };
+                let action = if down { "press".to_owned() } else { "release".to_owned() };
 
                 let position = if !down && self.has_moved {
                     self.grid_position
@@ -448,10 +426,8 @@ impl MouseManager {
                 );
 
                 if down {
-                    self.drag_details = Some(DragDetails {
-                        button: mouse_button,
-                        draw_details: details.clone(),
-                    });
+                    self.drag_details =
+                        Some(DragDetails { button: mouse_button, draw_details: details.clone() });
                 } else {
                     self.drag_details = None;
                 }
@@ -501,9 +477,8 @@ impl MouseManager {
         }
 
         let draw_details = self.get_window_details_under_mouse(editor_state);
-        let grid_id = draw_details
-            .map(|details| details.event_grid_id(&self.settings))
-            .unwrap_or(0);
+        let grid_id =
+            draw_details.map(|details| details.event_grid_id(&self.settings)).unwrap_or(0);
 
         let previous: GridPos<i32> = self.scroll_position.floor().try_cast().unwrap();
         self.scroll_position += amount;
@@ -520,9 +495,7 @@ impl MouseManager {
                 direction: input_type.to_string(),
                 grid_id,
                 position: self.grid_position.to_tuple(),
-                modifier_string: editor_state
-                    .keyboard_manager
-                    .format_modifier_string("", true),
+                modifier_string: editor_state.keyboard_manager.format_modifier_string("", true),
             };
             for _ in 0..(new.y - previous.y).abs() {
                 send_ui(scroll_command.clone(), neovim_handler);
@@ -540,9 +513,7 @@ impl MouseManager {
                 direction: input_type.to_string(),
                 grid_id,
                 position: self.grid_position.to_tuple(),
-                modifier_string: editor_state
-                    .keyboard_manager
-                    .format_modifier_string("", true),
+                modifier_string: editor_state.keyboard_manager.format_modifier_string("", true),
             };
             for _ in 0..(new.x - previous.x).abs() {
                 send_ui(scroll_command.clone(), neovim_handler);
@@ -685,14 +656,8 @@ impl MouseManager {
     ) -> MouseEventResult {
         let full_region = WindowDrawDetails {
             id: 0,
-            region: renderer
-                .window_regions
-                .first()
-                .map_or(PixelRect::ZERO, |v| v.region),
-            grid_size: renderer
-                .window_regions
-                .first()
-                .map_or(GridSize::ZERO, |v| v.grid_size),
+            region: renderer.window_regions.first().map_or(PixelRect::ZERO, |v| v.region),
+            grid_size: renderer.window_regions.first().map_or(GridSize::ZERO, |v| v.grid_size),
             window_type: crate::editor::WindowType::Editor,
         };
         let editor_state = EditorState {
@@ -728,25 +693,16 @@ impl MouseManager {
                     self.force_cursor_visible(window);
                 }
             }
-            WindowEvent::MouseWheel {
-                delta: MouseScrollDelta::LineDelta(x, y),
-                ..
-            } => self.handle_line_scroll((*x, *y).into(), &editor_state, neovim_handler),
-            WindowEvent::MouseWheel {
-                delta: MouseScrollDelta::PixelDelta(delta),
-                ..
-            } => self.handle_pixel_scroll(
-                (delta.x as f32, delta.y as f32).into(),
-                &editor_state,
-                neovim_handler,
-            ),
-            WindowEvent::Touch(Touch {
-                device_id,
-                id,
-                location,
-                phase,
-                ..
-            }) => self.handle_touch(
+            WindowEvent::MouseWheel { delta: MouseScrollDelta::LineDelta(x, y), .. } => {
+                self.handle_line_scroll((*x, *y).into(), &editor_state, neovim_handler)
+            }
+            WindowEvent::MouseWheel { delta: MouseScrollDelta::PixelDelta(delta), .. } => self
+                .handle_pixel_scroll(
+                    (delta.x as f32, delta.y as f32).into(),
+                    &editor_state,
+                    neovim_handler,
+                ),
+            WindowEvent::Touch(Touch { device_id, id, location, phase, .. }) => self.handle_touch(
                 (*device_id, *id),
                 PixelPos::new(location.x as f32, location.y as f32),
                 phase,
@@ -764,12 +720,11 @@ impl MouseManager {
                     .overlay_event;
             }
 
-            WindowEvent::KeyboardInput {
-                event: key_event, ..
-            } if hide_mouse_when_typing
-                && key_event.state == ElementState::Pressed
-                && !self.mouse_hidden
-                && window.has_focus() =>
+            WindowEvent::KeyboardInput { event: key_event, .. }
+                if hide_mouse_when_typing
+                    && key_event.state == ElementState::Pressed
+                    && !self.mouse_hidden
+                    && window.has_focus() =>
             {
                 self.hide_cursor(window);
             }

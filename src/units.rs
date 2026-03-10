@@ -39,12 +39,7 @@ pub fn to_skia_point(pos: PixelPos<f32>) -> skia_safe::Point {
 }
 
 pub fn to_skia_rect(rect: &PixelRect<f32>) -> skia_safe::Rect {
-    skia_safe::Rect {
-        left: rect.min.x,
-        top: rect.min.y,
-        right: rect.max.x,
-        bottom: rect.max.y,
-    }
+    skia_safe::Rect { left: rect.min.x, top: rect.min.y, right: rect.max.x, bottom: rect.max.y }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -54,9 +49,7 @@ pub struct GridScale {
 
 impl GridScale {
     pub fn new(scale: PixelSize<f32>) -> Self {
-        Self {
-            transform: Transform2::from_scale(scale.as_vector().cast()),
-        }
+        Self { transform: Transform2::from_scale(scale.as_vector().cast()) }
     }
 
     pub fn height(&self) -> f32 {

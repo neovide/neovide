@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    bridge::{send_ui, NeovimHandler, SerialCommand},
+    bridge::{NeovimHandler, SerialCommand, send_ui},
     settings::Settings,
 };
 
@@ -13,7 +13,7 @@ use winit::{
 };
 #[cfg(target_os = "macos")]
 use {
-    crate::{window::settings::OptionAsMeta, window::WindowSettings},
+    crate::{window::WindowSettings, window::settings::OptionAsMeta},
     winit::keyboard::ModifiersKeyState,
 };
 
@@ -48,11 +48,9 @@ impl KeyboardManager {
 
     pub fn handle_event(&mut self, event: &WindowEvent, neovim_handler: &NeovimHandler) {
         match event {
-            WindowEvent::KeyboardInput {
-                event: key_event,
-                is_synthetic: false,
-                ..
-            } if self.ime_preedit.0.is_empty() => {
+            WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. }
+                if self.ime_preedit.0.is_empty() =>
+            {
                 log::trace!("{key_event:#?}");
                 if key_event.state == ElementState::Pressed {
                     if let Some(text) = self.format_key(key_event) {
@@ -211,17 +209,10 @@ impl KeyboardManager {
         let modifiers = self.format_modifier_string(&text, is_special);
         // < needs to be formatted as a special character, but note that it's not treated as a
         // special key for the modifier formatting, so S- and -M are still potentially stripped
-        let (text, is_special) = if text == "<" {
-            ("lt".to_string(), true)
-        } else {
-            (text, is_special)
-        };
+        let (text, is_special) =
+            if text == "<" { ("lt".to_string(), true) } else { (text, is_special) };
         if modifiers.is_empty() {
-            if is_special {
-                format!("<{text}>")
-            } else {
-                text
-            }
+            if is_special { format!("<{text}>") } else { text }
         } else {
             format!("<{modifiers}{text}>")
         }

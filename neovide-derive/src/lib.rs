@@ -8,15 +8,13 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta,
+    Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta, parse_macro_input,
 };
 
 #[proc_macro_derive(SettingGroup, attributes(setting_prefix, option, alias))]
 pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    let prefix = setting_prefix(input.attrs.as_ref())
-        .map(|p| format!("{p}_"))
-        .unwrap_or_default();
+    let prefix = setting_prefix(input.attrs.as_ref()).map(|p| format!("{p}_")).unwrap_or_default();
     stream(input, prefix)
 }
 
@@ -24,12 +22,10 @@ fn stream(input: DeriveInput, prefix: String) -> TokenStream {
     const ERR_MSG: &str = "Derive macro expects a struct";
     match input.data {
         Data::Struct(ref data) => struct_stream(input.ident, prefix, data),
-        Data::Enum(data) => Error::new_spanned(data.enum_token, ERR_MSG)
-            .to_compile_error()
-            .into(),
-        Data::Union(data) => Error::new_spanned(data.union_token, ERR_MSG)
-            .to_compile_error()
-            .into(),
+        Data::Enum(data) => Error::new_spanned(data.enum_token, ERR_MSG).to_compile_error().into(),
+        Data::Union(data) => {
+            Error::new_spanned(data.union_token, ERR_MSG).to_compile_error().into()
+        }
     }
 }
 
@@ -184,10 +180,7 @@ fn get_attribute_value(field: &Field, ident: &str) -> Result<Option<String>, Err
                 }
             }
         }
-        return Err(Error::new_spanned(
-            attr,
-            "Expected a string literal for option attribute",
-        ));
+        return Err(Error::new_spanned(attr, "Expected a string literal for option attribute"));
     }
 
     Ok(None)

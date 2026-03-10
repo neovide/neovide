@@ -18,7 +18,7 @@ mod metal;
 
 use std::{
     cmp::Ordering,
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     rc::Rc,
     sync::Arc,
 };
@@ -34,18 +34,18 @@ use winit::{
 };
 
 use crate::{
+    WindowSettings,
     bridge::EditorMode,
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style, WindowType},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::{
         fonts::font_options::PixelGeometry,
-        rendered_layer::{group_windows, FloatingLayer},
+        rendered_layer::{FloatingLayer, group_windows},
     },
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect},
+    units::{GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, to_skia_rect},
     window::{EventPayload, ShouldRender},
-    WindowSettings,
 };
 
 #[cfg(feature = "profiling")]
@@ -84,14 +84,8 @@ fn plot_skia_cache() {
     tracy_plot!("font_cache_used", font_cache_used() as f64);
     tracy_plot!("font_cache_count_used", font_cache_count_used() as f64);
     tracy_plot!("font_cache_count_limit", font_cache_count_limit() as f64);
-    tracy_plot!(
-        "resource_cache_total_bytes_used",
-        resource_cache_total_bytes_used() as f64
-    );
-    tracy_plot!(
-        "resource_cache_total_bytes_limit",
-        resource_cache_total_bytes_limit() as f64
-    );
+    tracy_plot!("resource_cache_total_bytes_used", resource_cache_total_bytes_used() as f64);
+    tracy_plot!("resource_cache_total_bytes_limit", resource_cache_total_bytes_limit() as f64);
     tracy_plot!(
         "resource_cache_single_allocation_byte_limit",
         resource_cache_single_allocation_byte_limit().unwrap_or_default() as f64
@@ -158,10 +152,7 @@ pub enum DrawCommand {
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
     UIReady,
-    Window {
-        grid_id: u64,
-        command: WindowDrawCommand,
-    },
+    Window { grid_id: u64, command: WindowDrawCommand },
 }
 
 pub struct Renderer {
@@ -257,10 +248,7 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background(opacity);
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let layer_grouping = self
-            .settings
-            .get::<RendererSettings>()
-            .experimental_layer_grouping;
+        let layer_grouping = self.settings.get::<RendererSettings>().experimental_layer_grouping;
         root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -372,13 +360,10 @@ impl Renderer {
             })
             .collect_vec();
 
-        self.window_regions = root_window_regions
-            .into_iter()
-            .chain(floating_window_regions)
-            .collect();
+        self.window_regions =
+            root_window_regions.into_iter().chain(floating_window_regions).collect();
         self.draw_message_selection(root_canvas, grid_scale);
-        self.cursor_renderer
-            .draw(&mut self.grid_renderer, root_canvas);
+        self.cursor_renderer.draw(&mut self.grid_renderer, root_canvas);
 
         self.profiler.draw(root_canvas, dt);
 
@@ -387,12 +372,7 @@ impl Renderer {
         root_canvas.restore();
 
         let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
-        self.progress_bar.draw(
-            &progress_bar_settings,
-            root_canvas,
-            &self.grid_renderer,
-            grid_size,
-        );
+        self.progress_bar.draw(&progress_bar_settings, root_canvas, &self.grid_renderer, grid_size);
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();
@@ -423,19 +403,13 @@ impl Renderer {
         let max_col = width - 1;
         let start_row = selection.start.y.min(max_row);
         let end_row = selection.end.y.min(max_row);
-        let (row_start, row_end) = if start_row <= end_row {
-            (start_row, end_row)
-        } else {
-            (end_row, start_row)
-        };
+        let (row_start, row_end) =
+            if start_row <= end_row { (start_row, end_row) } else { (end_row, start_row) };
 
         let start_col = selection.start.x.min(max_col);
         let end_col = selection.end.x.min(max_col);
-        let (col_start, col_end) = if start_col <= end_col {
-            (start_col, end_col)
-        } else {
-            (end_col, start_col)
-        };
+        let (col_start, col_end) =
+            if start_col <= end_col { (start_col, end_col) } else { (end_col, start_col) };
 
         let pixel_region = window.pixel_region(grid_scale);
         root_canvas.save();
@@ -486,18 +460,14 @@ impl Renderer {
         let settings = self.settings.get::<RendererSettings>();
         // Clippy recommends short-circuiting with any which is not what we want
         #[allow(clippy::unnecessary_fold)]
-        let mut animating = windows.fold(false, |acc, window| {
-            acc | window.animate(&settings, grid_rect, dt)
-        });
+        let mut animating =
+            windows.fold(false, |acc, window| acc | window.animate(&settings, grid_rect, dt));
 
         let windows = &self.rendered_windows;
         let grid_scale = self.grid_renderer.grid_scale;
-        self.cursor_renderer
-            .update_cursor_destination(grid_scale, windows);
+        self.cursor_renderer.update_cursor_destination(grid_scale, windows);
 
-        animating |= self
-            .cursor_renderer
-            .animate(&self.current_mode, &self.grid_renderer, dt);
+        animating |= self.cursor_renderer.animate(&self.current_mode, &self.grid_renderer, dt);
 
         let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
         self.progress_bar.animate(&progress_bar_settings, dt);
@@ -517,23 +487,19 @@ impl Renderer {
                         self.grid_renderer.update_font_options(font.into());
                     }
                     None => {
-                        self.grid_renderer
-                            .update_font_options(FontOptions::default());
+                        self.grid_renderer.update_font_options(FontOptions::default());
                     }
                 }
             }
-            HotReloadConfigs::BoxDrawing(settings) => self
-                .grid_renderer
-                .handle_box_drawing_update(settings.unwrap_or_default()),
+            HotReloadConfigs::BoxDrawing(settings) => {
+                self.grid_renderer.handle_box_drawing_update(settings.unwrap_or_default())
+            }
         }
     }
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
         let settings = self.settings.get::<RendererSettings>();
-        let mut result = DrawCommandResult {
-            font_changed: false,
-            should_show: false,
-        };
+        let mut result = DrawCommandResult { font_changed: false, should_show: false };
 
         for draw_command in batch {
             self.handle_draw_command(draw_command, &mut result);
@@ -559,10 +525,7 @@ impl Renderer {
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
         match draw_command {
-            DrawCommand::Window {
-                grid_id,
-                command: WindowDrawCommand::Close,
-            } => {
+            DrawCommand::Window { grid_id, command: WindowDrawCommand::Close } => {
                 self.rendered_windows.remove(&grid_id);
             }
             DrawCommand::Window { grid_id, command } => {
@@ -614,9 +577,7 @@ impl Renderer {
     }
 
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
-        self.rendered_windows
-            .iter_mut()
-            .for_each(|(_, w)| w.flush(renderer_settings));
+        self.rendered_windows.iter_mut().for_each(|(_, w)| w.flush(renderer_settings));
     }
 
     pub fn clear(&mut self) {
@@ -686,10 +647,7 @@ pub fn build_window_config(
     } else {
         let window = event_loop.create_window(window_attributes).unwrap();
         let config = WindowConfigType::Metal;
-        WindowConfig {
-            window: window.into(),
-            config,
-        }
+        WindowConfig { window: window.into(), config }
     }
 }
 
@@ -705,10 +663,7 @@ pub fn build_window_config(
     } else {
         let window = event_loop.create_window(window_attributes).unwrap();
         let config = WindowConfigType::Direct3D;
-        WindowConfig {
-            window: window.into(),
-            config,
-        }
+        WindowConfig { window: window.into(), config }
     }
 }
 
@@ -739,17 +694,13 @@ pub fn create_skia_renderer(
     settings: Arc<Settings>,
 ) -> Box<dyn SkiaRenderer> {
     let renderer: Box<dyn SkiaRenderer> = match &window.config {
-        WindowConfigType::OpenGL(..) => Box::new(opengl::OpenGLSkiaRenderer::new(
-            window.clone(),
-            srgb,
-            vsync,
-            settings.clone(),
-        )),
+        WindowConfigType::OpenGL(..) => {
+            Box::new(opengl::OpenGLSkiaRenderer::new(window.clone(), srgb, vsync, settings.clone()))
+        }
         #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(
-            window.window.clone(),
-            settings.clone(),
-        )),
+        WindowConfigType::Direct3D => {
+            Box::new(d3d::D3DSkiaRenderer::new(window.window.clone(), settings.clone()))
+        }
         #[cfg(target_os = "macos")]
         WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
             window.window.clone(),

@@ -4,16 +4,16 @@ use itertools::Itertools;
 use log::{debug, error, info, trace, warn};
 use lru::LruCache;
 use skia_safe::{
-    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
     TextBlob, TextBlobBuilder,
+    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
 };
 use swash::{
+    Metrics,
     shape::ShapeContext,
     text::{
-        cluster::{CharCluster, Parser, Status, Token},
         Script,
+        cluster::{CharCluster, Parser, Status, Token},
     },
-    Metrics,
 };
 
 use crate::{
@@ -116,10 +116,8 @@ impl CachingShaper {
             return;
         }
 
-        let failed_fonts = keys
-            .iter()
-            .filter(|key| self.font_loader.get_or_load(key).is_none())
-            .collect_vec();
+        let failed_fonts =
+            keys.iter().filter(|key| self.font_loader.get_or_load(key).is_none()).collect_vec();
 
         if failed_fonts.len() == keys.len() {
             error_msg!(
@@ -186,19 +184,13 @@ impl CachingShaper {
 
         let font_pair = self.current_font_pair();
         let size = self.current_size();
-        let mut shaper = self
-            .shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(size)
-            .build();
+        let mut shaper =
+            self.shape_context.builder(font_pair.swash_font.as_ref()).size(size).build();
         shaper.add_str("M");
         let metrics = shaper.metrics();
         let mut advance = metrics.average_width;
         shaper.shape_with(|cluster| {
-            advance = cluster
-                .glyphs
-                .first()
-                .map_or(metrics.average_width, |g| g.advance);
+            advance = cluster.glyphs.first().map_or(metrics.average_width, |g| g.advance);
         });
         self.font_info = Some((metrics, advance));
         (metrics, advance)
@@ -258,15 +250,13 @@ impl CachingShaper {
         let mut parser = Parser::new(
             Script::Latin,
             word.grapheme_clusters().flat_map(|(cell_index, cluster)| {
-                cluster
-                    .char_indices()
-                    .map(move |(offset, character)| Token {
-                        ch: character,
-                        offset: offset as u32,
-                        len: character.len_utf8() as u8,
-                        info: character.into(),
-                        data: cell_index as u32,
-                    })
+                cluster.char_indices().map(move |(offset, character)| Token {
+                    ch: character,
+                    offset: offset as u32,
+                    len: character.len_utf8() as u8,
+                    info: character.into(),
+                    data: cell_index as u32,
+                })
             }),
         );
 
@@ -332,9 +322,8 @@ impl CachingShaper {
                 results.push((cluster.to_owned(), best.clone()));
             } else {
                 let fallback_character = cluster.chars()[0].ch;
-                if let Some(fallback_font) = self
-                    .font_loader
-                    .load_font_for_character(style, fallback_character)
+                if let Some(fallback_font) =
+                    self.font_loader.load_font_for_character(style, fallback_character)
                 {
                     results.push((cluster.to_owned(), fallback_font));
                 } else {
@@ -398,12 +387,7 @@ impl CachingShaper {
 
         for (cluster_group, font_pair) in self.build_clusters(word, style) {
             let features = self.get_font_features(
-                font_pair
-                    .as_ref()
-                    .key
-                    .font_desc
-                    .as_ref()
-                    .map(|desc| desc.family.as_str()),
+                font_pair.as_ref().key.font_desc.as_ref().map(|desc| desc.family.as_str()),
             );
 
             let mut shaper = self

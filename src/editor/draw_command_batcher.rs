@@ -13,11 +13,7 @@ pub struct DrawCommandBatcher {
 
 impl DrawCommandBatcher {
     pub fn new() -> DrawCommandBatcher {
-        Self {
-            batch: Vec::new(),
-            enabled: true,
-            queued: Vec::new(),
-        }
+        Self { batch: Vec::new(), enabled: true, queued: Vec::new() }
     }
 
     pub fn queue(&mut self, draw_command: DrawCommand) {
@@ -33,9 +29,7 @@ impl DrawCommandBatcher {
         log::info!("Set redraw {enabled}");
         if enabled && !self.enabled {
             for queued in self.queued.drain(..) {
-                proxy
-                    .send_event(EventPayload::for_route(queued.into(), route_id))
-                    .ok();
+                proxy.send_event(EventPayload::for_route(queued.into(), route_id)).ok();
             }
         }
         self.enabled = enabled;
@@ -44,10 +38,7 @@ impl DrawCommandBatcher {
     pub fn send_batch(&mut self, route_id: RouteId, proxy: &EventLoopProxy<EventPayload>) {
         if self.enabled {
             proxy
-                .send_event(EventPayload::for_route(
-                    self.batch.split_off(0).into(),
-                    route_id,
-                ))
+                .send_event(EventPayload::for_route(self.batch.split_off(0).into(), route_id))
                 .ok();
         } else {
             self.queued.push(self.batch.split_off(0));

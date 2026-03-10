@@ -44,32 +44,22 @@ pub struct Style {
 impl Style {
     pub fn foreground(&self, default_colors: &Colors) -> Color4f {
         if self.reverse {
-            self.colors
-                .background
-                .unwrap_or_else(|| default_colors.background.unwrap())
+            self.colors.background.unwrap_or_else(|| default_colors.background.unwrap())
         } else {
-            self.colors
-                .foreground
-                .unwrap_or_else(|| default_colors.foreground.unwrap())
+            self.colors.foreground.unwrap_or_else(|| default_colors.foreground.unwrap())
         }
     }
 
     pub fn background(&self, default_colors: &Colors) -> Color4f {
         if self.reverse {
-            self.colors
-                .foreground
-                .unwrap_or_else(|| default_colors.foreground.unwrap())
+            self.colors.foreground.unwrap_or_else(|| default_colors.foreground.unwrap())
         } else {
-            self.colors
-                .background
-                .unwrap_or_else(|| default_colors.background.unwrap())
+            self.colors.background.unwrap_or_else(|| default_colors.background.unwrap())
         }
     }
 
     pub fn special(&self, default_colors: &Colors) -> Color4f {
-        self.colors
-            .special
-            .unwrap_or_else(|| self.foreground(default_colors))
+        self.colors.special.unwrap_or_else(|| self.foreground(default_colors))
     }
 }
 
@@ -93,15 +83,9 @@ mod tests {
     fn test_foreground() {
         let mut style = Style::new(COLORS);
 
-        assert_eq!(
-            style.foreground(&DEFAULT_COLORS),
-            COLORS.foreground.unwrap()
-        );
+        assert_eq!(style.foreground(&DEFAULT_COLORS), COLORS.foreground.unwrap());
         style.colors.foreground = None;
-        assert_eq!(
-            style.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.unwrap()
-        );
+        assert_eq!(style.foreground(&DEFAULT_COLORS), DEFAULT_COLORS.foreground.unwrap());
     }
 
     #[test]
@@ -109,30 +93,18 @@ mod tests {
         let mut style = Style::new(COLORS);
         style.reverse = true;
 
-        assert_eq!(
-            style.foreground(&DEFAULT_COLORS),
-            COLORS.background.unwrap()
-        );
+        assert_eq!(style.foreground(&DEFAULT_COLORS), COLORS.background.unwrap());
         style.colors.background = None;
-        assert_eq!(
-            style.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.unwrap()
-        );
+        assert_eq!(style.foreground(&DEFAULT_COLORS), DEFAULT_COLORS.background.unwrap());
     }
 
     #[test]
     fn test_background() {
         let mut style = Style::new(COLORS);
 
-        assert_eq!(
-            style.background(&DEFAULT_COLORS),
-            COLORS.background.unwrap()
-        );
+        assert_eq!(style.background(&DEFAULT_COLORS), COLORS.background.unwrap());
         style.colors.background = None;
-        assert_eq!(
-            style.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.unwrap()
-        );
+        assert_eq!(style.background(&DEFAULT_COLORS), DEFAULT_COLORS.background.unwrap());
     }
 
     #[test]
@@ -140,15 +112,9 @@ mod tests {
         let mut style = Style::new(COLORS);
         style.reverse = true;
 
-        assert_eq!(
-            style.background(&DEFAULT_COLORS),
-            COLORS.foreground.unwrap()
-        );
+        assert_eq!(style.background(&DEFAULT_COLORS), COLORS.foreground.unwrap());
         style.colors.foreground = None;
-        assert_eq!(
-            style.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.unwrap()
-        );
+        assert_eq!(style.background(&DEFAULT_COLORS), DEFAULT_COLORS.foreground.unwrap());
     }
 
     #[test]
@@ -157,9 +123,6 @@ mod tests {
 
         assert_eq!(style.special(&DEFAULT_COLORS), COLORS.special.unwrap());
         style.colors.special = None;
-        assert_eq!(
-            style.special(&DEFAULT_COLORS),
-            style.foreground(&DEFAULT_COLORS),
-        );
+        assert_eq!(style.special(&DEFAULT_COLORS), style.foreground(&DEFAULT_COLORS),);
     }
 }

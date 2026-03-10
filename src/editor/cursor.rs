@@ -94,14 +94,8 @@ impl Cursor {
     }
 
     pub fn change_mode(&mut self, cursor_mode: &CursorMode, styles: &HashMap<u64, Arc<Style>>) {
-        let CursorMode {
-            shape,
-            style_id,
-            cell_percentage,
-            blinkwait,
-            blinkon,
-            blinkoff,
-        } = cursor_mode;
+        let CursorMode { shape, style_id, cell_percentage, blinkwait, blinkon, blinkoff } =
+            cursor_mode;
 
         if let Some(shape) = shape {
             self.shape = shape.clone();
@@ -134,26 +128,13 @@ mod tests {
         special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
     };
 
-    const NONE_COLORS: Colors = Colors {
-        foreground: None,
-        background: None,
-        special: None,
-    };
+    const NONE_COLORS: Colors = Colors { foreground: None, background: None, special: None };
 
     #[test]
     fn test_from_type_name() {
-        assert_eq!(
-            CursorShape::from_type_name("block"),
-            Some(CursorShape::Block)
-        );
-        assert_eq!(
-            CursorShape::from_type_name("horizontal"),
-            Some(CursorShape::Horizontal)
-        );
-        assert_eq!(
-            CursorShape::from_type_name("vertical"),
-            Some(CursorShape::Vertical)
-        );
+        assert_eq!(CursorShape::from_type_name("block"), Some(CursorShape::Block));
+        assert_eq!(CursorShape::from_type_name("horizontal"), Some(CursorShape::Horizontal));
+        assert_eq!(CursorShape::from_type_name("vertical"), Some(CursorShape::Vertical));
     }
 
     #[test]
@@ -161,21 +142,12 @@ mod tests {
         let mut cursor = Cursor::new();
         let style = Some(Arc::new(Style::new(COLORS)));
 
-        assert_eq!(
-            cursor.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.unwrap()
-        );
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS), DEFAULT_COLORS.background.unwrap());
         cursor.style = style;
-        assert_eq!(
-            cursor.foreground(&DEFAULT_COLORS),
-            COLORS.foreground.unwrap()
-        );
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS), COLORS.foreground.unwrap());
 
         cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
-        assert_eq!(
-            cursor.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.unwrap()
-        );
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS), DEFAULT_COLORS.background.unwrap());
     }
 
     #[test]
@@ -183,21 +155,12 @@ mod tests {
         let mut cursor = Cursor::new();
         let style = Some(Arc::new(Style::new(COLORS)));
 
-        assert_eq!(
-            cursor.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.unwrap()
-        );
+        assert_eq!(cursor.background(&DEFAULT_COLORS), DEFAULT_COLORS.foreground.unwrap());
         cursor.style = style;
-        assert_eq!(
-            cursor.background(&DEFAULT_COLORS),
-            COLORS.background.unwrap()
-        );
+        assert_eq!(cursor.background(&DEFAULT_COLORS), COLORS.background.unwrap());
 
         cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
-        assert_eq!(
-            cursor.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.unwrap()
-        );
+        assert_eq!(cursor.background(&DEFAULT_COLORS), DEFAULT_COLORS.foreground.unwrap());
     }
 
     #[test]

@@ -34,7 +34,7 @@ use winit::platform::windows::WindowAttributesExtWindows;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 
-use image::{load_from_memory, GenericImageView, Pixel};
+use image::{GenericImageView, Pixel, load_from_memory};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use std::fs::File;
@@ -45,10 +45,10 @@ use crate::{
     bridge::RestartDetails,
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
-    renderer::{build_window_config, DrawCommand, WindowConfig},
+    renderer::{DrawCommand, WindowConfig, build_window_config},
     settings::{
-        clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
-        PersistentWindowSettings, Settings, SettingsChanged,
+        HotReloadConfigs, PersistentWindowSettings, Settings, SettingsChanged, clamped_grid_size,
+        load_last_window_settings, save_window_size,
     },
     units::{Grid, GridSize},
     utils::expand_tilde,
@@ -62,18 +62,9 @@ pub use window_wrapper::WinitWindowWrapper;
 
 static DEFAULT_ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
-const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
-    width: 500,
-    height: 500,
-};
-const MIN_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
-    width: 300,
-    height: 150,
-};
-const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
-    width: 8192,
-    height: 8192,
-};
+const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize { width: 500, height: 500 };
+const MIN_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize { width: 300, height: 150 };
+const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize { width: 8192, height: 8192 };
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
@@ -185,24 +176,15 @@ pub struct EventPayload {
 impl EventPayload {
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn for_window(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
-        Self {
-            payload,
-            target: EventTarget::Window(window_id),
-        }
+        Self { payload, target: EventTarget::Window(window_id) }
     }
 
     pub fn for_route(payload: UserEvent, route_id: RouteId) -> Self {
-        Self {
-            payload,
-            target: EventTarget::Route(route_id),
-        }
+        Self { payload, target: EventTarget::Route(route_id) }
     }
 
     pub fn all(payload: UserEvent) -> Self {
-        Self {
-            payload,
-            target: EventTarget::All,
-        }
+        Self { payload, target: EventTarget::All }
     }
 }
 
@@ -279,9 +261,8 @@ pub fn create_window(
     let window_attributes = window_attributes.with_window_icon(Some(icon));
 
     #[cfg(target_os = "windows")]
-    let window_attributes = window_attributes
-        .with_window_icon(Some(icon.clone()))
-        .with_taskbar_icon(Some(icon));
+    let window_attributes =
+        window_attributes.with_window_icon(Some(icon.clone())).with_taskbar_icon(Some(icon));
 
     #[cfg(target_os = "windows")]
     let window_attributes = if !cmd_line_settings.opengl {
@@ -367,29 +348,18 @@ pub fn determine_window_size(
     let cmd_line = settings.get::<CmdLineSettings>();
 
     match cmd_line.geometry {
-        GeometryArgs {
-            grid: Some(Some(dimensions)),
-            ..
-        } => WindowSize::Grid(clamped_grid_size(&GridSize::new(
-            dimensions.width.try_into().unwrap(),
-            dimensions.height.try_into().unwrap(),
-        ))),
-        GeometryArgs {
-            grid: Some(None), ..
-        } => WindowSize::NeovimGrid,
-        GeometryArgs {
-            size: Some(dimensions),
-            ..
-        } => WindowSize::Size(dimensions.into()),
-        GeometryArgs {
-            maximized: true, ..
-        } => WindowSize::Maximized,
+        GeometryArgs { grid: Some(Some(dimensions)), .. } => {
+            WindowSize::Grid(clamped_grid_size(&GridSize::new(
+                dimensions.width.try_into().unwrap(),
+                dimensions.height.try_into().unwrap(),
+            )))
+        }
+        GeometryArgs { grid: Some(None), .. } => WindowSize::NeovimGrid,
+        GeometryArgs { size: Some(dimensions), .. } => WindowSize::Size(dimensions.into()),
+        GeometryArgs { maximized: true, .. } => WindowSize::Maximized,
         _ => match window_settings {
             Some(PersistentWindowSettings::Maximized { .. }) => WindowSize::Maximized,
-            Some(PersistentWindowSettings::Windowed {
-                pixel_size: Some(pixel_size),
-                ..
-            }) => {
+            Some(PersistentWindowSettings::Windowed { pixel_size: Some(pixel_size), .. }) => {
                 let size = Size::new(*pixel_size);
                 let scale = 1.0;
                 WindowSize::Size(

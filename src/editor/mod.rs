@@ -202,8 +202,7 @@ impl Editor {
                 } else {
                     self.current_mode_index = None
                 }
-                self.draw_command_batcher
-                    .queue(DrawCommand::ModeChanged(mode));
+                self.draw_command_batcher.queue(DrawCommand::ModeChanged(mode));
             }
             RedrawEvent::MouseOn => {
                 tracy_zone!("EditorMouseOn");
@@ -231,8 +230,7 @@ impl Editor {
 
                 {
                     trace!("send_batch");
-                    self.draw_command_batcher
-                        .send_batch(self.route_id, &self.event_loop_proxy);
+                    self.draw_command_batcher.send_batch(self.route_id, &self.event_loop_proxy);
                 }
 
                 #[cfg(target_os = "macos")]
@@ -252,8 +250,7 @@ impl Editor {
                 self.draw_command_batcher
                     .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
                 self.redraw_screen();
-                self.draw_command_batcher
-                    .send_batch(self.route_id, &self.event_loop_proxy);
+                self.draw_command_batcher.send_batch(self.route_id, &self.event_loop_proxy);
             }
             RedrawEvent::HighlightAttributesDefine { id, style, name } => {
                 tracy_zone!("EditorHighlightAttributesDefine");
@@ -275,40 +272,21 @@ impl Editor {
                 #[cfg(not(target_os = "macos"))]
                 let _ = (name, id);
             }
-            RedrawEvent::CursorGoto {
-                grid,
-                column: left,
-                row: top,
-            } => {
+            RedrawEvent::CursorGoto { grid, column: left, row: top } => {
                 tracy_zone!("EditorCursorGoto");
                 self.set_cursor_position(grid, left, top);
             }
-            RedrawEvent::Resize {
-                grid,
-                width,
-                height,
-            } => {
+            RedrawEvent::Resize { grid, width, height } => {
                 tracy_zone!("EditorResize");
                 self.resize_window(grid, width, height);
             }
-            RedrawEvent::GridLine {
-                grid,
-                row,
-                column_start,
-                cells,
-            } => {
+            RedrawEvent::GridLine { grid, row, column_start, cells } => {
                 tracy_zone!("EditorGridLine");
                 self.set_ui_ready();
                 self.draw_grid_line(grid, row, column_start, &cells);
                 self.handle_intro_banner_for_line(grid, row, &cells);
             }
-            RedrawEvent::GridHighlight {
-                grid,
-                row,
-                column_start,
-                column_end,
-                highlight_id,
-            } => {
+            RedrawEvent::GridHighlight { grid, row, column_start, column_end, highlight_id } => {
                 tracy_zone!("EditorGridHighlight");
                 #[cfg(target_os = "macos")]
                 self.handle_match_paren_grid_highlight(
@@ -347,15 +325,7 @@ impl Editor {
                 }
                 self.close_window(grid)
             }
-            RedrawEvent::Scroll {
-                grid,
-                top,
-                bottom,
-                left,
-                right,
-                rows,
-                columns,
-            } => {
+            RedrawEvent::Scroll { grid, top, bottom, left, right, rows, columns } => {
                 tracy_zone!("EditorScroll");
                 #[cfg(target_os = "macos")]
                 {
@@ -372,13 +342,7 @@ impl Editor {
                     );
                 }
             }
-            RedrawEvent::WindowPosition {
-                grid,
-                start_row,
-                start_column,
-                width,
-                height,
-            } => {
+            RedrawEvent::WindowPosition { grid, start_row, start_column, width, height } => {
                 tracy_zone!("EditorWindowPosition");
                 self.set_window_position(grid, start_column, start_row, width, height)
             }
@@ -427,12 +391,7 @@ impl Editor {
                 self.close_window(grid)
             }
             RedrawEvent::MessageSetPosition {
-                grid,
-                row,
-                scrolled,
-                z_index,
-                comp_index,
-                ..
+                grid, row, scrolled, z_index, comp_index, ..
             } => {
                 tracy_zone!("EditorMessageSetPosition");
                 self.set_message_position(grid, row, scrolled, z_index, comp_index)
@@ -450,22 +409,11 @@ impl Editor {
                     command: WindowDrawCommand::Viewport { scroll_delta },
                 });
             }
-            RedrawEvent::WindowViewportMargins {
-                grid,
-                top,
-                bottom,
-                left,
-                right,
-            } => {
+            RedrawEvent::WindowViewportMargins { grid, top, bottom, left, right } => {
                 tracy_zone!("EditorWindowViewportMargins");
                 self.draw_command_batcher.queue(DrawCommand::Window {
                     grid_id: grid,
-                    command: WindowDrawCommand::ViewportMargins {
-                        top,
-                        bottom,
-                        left,
-                        right,
-                    },
+                    command: WindowDrawCommand::ViewportMargins { top, bottom, left, right },
                 });
             }
             // Interpreting suspend as a window minimize request
@@ -473,8 +421,7 @@ impl Editor {
                 self.send_window_command(WindowCommand::Minimize);
             }
             RedrawEvent::NeovideSetRedraw(enable) => {
-                self.draw_command_batcher
-                    .set_enabled(enable, self.route_id, &self.event_loop_proxy)
+                self.draw_command_batcher.set_enabled(enable, self.route_id, &self.event_loop_proxy)
             }
             RedrawEvent::NeovideIntroBannerAllowed(allowed) => {
                 self.intro_message_extender.set_sponsor_allowed(
@@ -564,11 +511,7 @@ impl Editor {
                 if neovim_composed {
                     // NOTE: screen_col is None when the window is just resized
                     if let (Some(screen_col), Some(screen_row)) = (screen_col, screen_row) {
-                        (
-                            screen_col as f64,
-                            screen_row as f64,
-                            anchor.sort_order.clone(),
-                        )
+                        (screen_col as f64, screen_row as f64, anchor.sort_order.clone())
                     } else {
                         let (left, top) = window.get_grid_position();
                         (left, top, anchor.sort_order.clone())
@@ -626,11 +569,7 @@ impl Editor {
             return;
         }
         let z_index = z_index.unwrap_or(MSG_ZINDEX); // From the Neovim source code
-        let parent_width = self
-            .windows
-            .get(&1)
-            .map(|parent| parent.get_width())
-            .unwrap_or(1);
+        let parent_width = self.windows.get(&1).map(|parent| parent.get_width()).unwrap_or(1);
 
         let anchor_info = AnchorInfo {
             anchor_grid_id: 1, // Base Grid
@@ -670,10 +609,9 @@ impl Editor {
         let window_anchor_info = &window.anchor_info;
 
         match window_anchor_info {
-            Some(AnchorInfo {
-                anchor_type: WindowAnchor::Absolute,
-                ..
-            }) => Some(window.get_grid_position()),
+            Some(AnchorInfo { anchor_type: WindowAnchor::Absolute, .. }) => {
+                Some(window.get_grid_position())
+            }
             Some(anchor_info) => {
                 let (parent_anchor_left, parent_anchor_top) =
                     self.get_window_top_left(anchor_info.anchor_grid_id)?;
@@ -710,11 +648,7 @@ impl Editor {
         }
 
         if self.settings.get::<WindowSettings>().cursor_hack {
-            if let Some(Window {
-                window_type: WindowType::Message { .. },
-                ..
-            }) = window
-            {
+            if let Some(Window { window_type: WindowType::Message { .. }, .. }) = window {
                 // When the user presses ":" to type a command, the cursor is sent to the gutter
                 // in position 1 (right after the ":"). In all other cases, we want to skip
                 // positioning to avoid confusing movements.
@@ -723,10 +657,8 @@ impl Editor {
                 let already_there = self.cursor.parent_window_id == grid;
                 // This ^ check alone is a bit buggy though, since it fails when the cursor is
                 // technically still in the edit window but "temporarily" at the cmdline. (#1207)
-                let using_cmdline = self
-                    .current_mode_index
-                    .map(|current| current == MODE_CMDLINE)
-                    .unwrap_or(false);
+                let using_cmdline =
+                    self.current_mode_index.map(|current| current == MODE_CMDLINE).unwrap_or(false);
 
                 if !intentional && !already_there && !using_cmdline {
                     trace!(
@@ -971,20 +903,13 @@ impl Editor {
         cache
             .iter()
             .map(|(&(row, column), text)| {
-                let text = text
-                    .clone()
-                    .or_else(|| self.grid_cell_text(grid, row, column));
+                let text = text.clone().or_else(|| self.grid_cell_text(grid, row, column));
 
                 let is_cursor = row == cursor_row
                     && column >= cursor_column
                     && column < cursor_column.saturating_add(cursor_span);
 
-                MatchParenCandidate {
-                    row,
-                    column,
-                    text,
-                    is_cursor,
-                }
+                MatchParenCandidate { row, column, text, is_cursor }
             })
             .collect()
     }
@@ -1007,10 +932,7 @@ impl Editor {
         let cursor_column = self.cursor.grid_position.0;
         let cursor_row = self.cursor.grid_position.1;
         let distance = |candidate: &MatchParenCandidate| {
-            (
-                candidate.row.abs_diff(cursor_row),
-                candidate.column.abs_diff(cursor_column),
-            )
+            (candidate.row.abs_diff(cursor_row), candidate.column.abs_diff(cursor_column))
         };
 
         let expected = self.match_paren_expected_char().or_else(|| {
@@ -1027,10 +949,8 @@ impl Editor {
                 .flatten()
         });
 
-        let mut non_cursor: Vec<MatchParenCandidate> = candidates
-            .into_iter()
-            .filter(|candidate| !candidate.is_cursor)
-            .collect();
+        let mut non_cursor: Vec<MatchParenCandidate> =
+            candidates.into_iter().filter(|candidate| !candidate.is_cursor).collect();
 
         if non_cursor.is_empty() {
             return None;
@@ -1099,11 +1019,7 @@ impl Editor {
                 saw_match_paren = true;
             }
 
-            let text = if cell.text.is_empty() {
-                None
-            } else {
-                Some(cell.text.as_str())
-            };
+            let text = if cell.text.is_empty() { None } else { Some(cell.text.as_str()) };
 
             self.update_match_paren_cache_range_with_text(
                 grid,
@@ -1162,11 +1078,7 @@ impl Editor {
             return;
         }
 
-        if !self
-            .settings
-            .get::<WindowSettings>()
-            .highlight_matching_pair
-        {
+        if !self.settings.get::<WindowSettings>().highlight_matching_pair {
             return;
         }
 
@@ -1201,9 +1113,8 @@ impl Editor {
         }
 
         let line_text = grid_line_cells_to_text(cells);
-        let sponsor_banner_row = self
-            .intro_message_extender
-            .banner_injection_row(grid, row, &line_text);
+        let sponsor_banner_row =
+            self.intro_message_extender.banner_injection_row(grid, row, &line_text);
 
         self.maybe_inject_intro_banner(grid, sponsor_banner_row);
         if sponsor_banner_row.is_none() {
@@ -1239,8 +1150,7 @@ impl Editor {
             self.cursor.double_width = false;
             self.cursor.grid_cell = (" ".to_string(), None);
         }
-        self.draw_command_batcher
-            .queue(DrawCommand::UpdateCursor(self.cursor.clone()));
+        self.draw_command_batcher.queue(DrawCommand::UpdateCursor(self.cursor.clone()));
     }
 
     fn set_option(&mut self, gui_option: GuiOption) {
@@ -1251,15 +1161,13 @@ impl Editor {
                 if guifont == *"*" {
                     self.send_window_command(WindowCommand::ListAvailableFonts);
                 } else {
-                    self.draw_command_batcher
-                        .queue(DrawCommand::FontChanged(guifont));
+                    self.draw_command_batcher.queue(DrawCommand::FontChanged(guifont));
 
                     self.redraw_screen();
                 }
             }
             GuiOption::LineSpace(linespace) => {
-                self.draw_command_batcher
-                    .queue(DrawCommand::LineSpaceChanged(linespace as f32));
+                self.draw_command_batcher.queue(DrawCommand::LineSpaceChanged(linespace as f32));
 
                 self.redraw_screen();
             }

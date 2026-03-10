@@ -15,12 +15,7 @@ pub struct ProgressBarSettings {
 
 impl Default for ProgressBarSettings {
     fn default() -> Self {
-        Self {
-            enabled: true,
-            height: 3.0,
-            animation_speed: 100.0,
-            hide_delay: 0.5,
-        }
+        Self { enabled: true, height: 3.0, animation_speed: 100.0, hide_delay: 0.5 }
     }
 }
 
@@ -38,11 +33,7 @@ pub struct ProgressBar {
 
 impl ProgressBar {
     pub fn new() -> Self {
-        Self {
-            current_percent: 0.0,
-            target_percent: 0.0,
-            state: ProgressBarState::Idle,
-        }
+        Self { current_percent: 0.0, target_percent: 0.0, state: ProgressBarState::Idle }
     }
 
     pub fn is_animating(&self) -> bool {
@@ -67,9 +58,7 @@ impl ProgressBar {
                     self.current_percent = self.current_percent.min(self.target_percent);
                 }
                 if self.current_percent >= 100.0 {
-                    self.state = ProgressBarState::Completing {
-                        completion_time: Instant::now(),
-                    };
+                    self.state = ProgressBarState::Completing { completion_time: Instant::now() };
                 }
             }
             ProgressBarState::Completing { completion_time } => {
@@ -98,12 +87,7 @@ impl ProgressBar {
         let height = settings.height;
         let x = 0.0;
         let y = 0.0;
-        let foreground_color = grid_renderer
-            .default_style
-            .colors
-            .foreground
-            .unwrap()
-            .to_color();
+        let foreground_color = grid_renderer.default_style.colors.foreground.unwrap().to_color();
 
         let mut paint = Paint::new(Color4f::from(foreground_color), None);
         paint.set_anti_alias(true);

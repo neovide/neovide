@@ -121,7 +121,9 @@ impl ParseFromValue for ThemeSettings {
                 "light" => ThemeSettings::Light,
                 "bg_color" => ThemeSettings::BgColor,
                 value => {
-                    error_msg!("Setting Theme expected one of `auto`, `dark`, `light`, `bg_color`, but received {value:?}");
+                    error_msg!(
+                        "Setting Theme expected one of `auto`, `dark`, `light`, `bg_color`, but received {value:?}"
+                    );
                     return;
                 }
             };
