@@ -1,8 +1,7 @@
-use std::{iter, mem, process::ExitStatus};
+use std::{iter, process::ExitStatus};
 
 use crate::{
     bridge::create_blocking_nvim_command, dimensions::Dimensions, frame::Frame, settings::*,
-    utils::handle_wslpaths,
 };
 
 use anyhow::{Context, Result};
@@ -242,14 +241,6 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
         cmdline.vsync = false;
     }
 
-    cmdline.neovim_args = cmdline
-        .tabs
-        .then(|| "-p".to_string())
-        .into_iter()
-        .chain(handle_wslpaths(mem::take(&mut cmdline.files_to_open), cmdline.wsl))
-        .chain(cmdline.neovim_args)
-        .collect();
-
     settings.set::<CmdLineSettings>(&cmdline);
     Ok(())
 }
@@ -319,7 +310,8 @@ mod tests {
             .collect();
 
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
-        assert_eq!(settings.get::<CmdLineSettings>().neovim_args, vec!["./foo.txt", "./bar.md"]);
+        assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt", "./bar.md"]);
+        assert!(settings.get::<CmdLineSettings>().neovim_args.is_empty());
     }
 
     #[test]
@@ -340,13 +332,14 @@ mod tests {
 
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
         assert_eq!(
-            settings.get::<CmdLineSettings>().neovim_args,
+            settings.get::<CmdLineSettings>().files_to_open,
             vec![
-                "/mnt/c/Users/MyUser/foo.txt",
-                "/mnt/c/bar.md",
-                "/mnt/c/Program Files (x86)/Some Application/Settings.ini"
+                "C:\\Users\\MyUser\\foo.txt",
+                "C:\\bar.md",
+                "C:\\Program Files (x86)\\Some Application\\Settings.ini"
             ]
         );
+        assert!(settings.get::<CmdLineSettings>().neovim_args.is_empty());
     }
 
     #[test]
@@ -358,10 +351,8 @@ mod tests {
             .collect();
 
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
-        assert_eq!(
-            settings.get::<CmdLineSettings>().neovim_args,
-            vec!["./foo.txt", "./bar.md", "--clean"]
-        );
+        assert_eq!(settings.get::<CmdLineSettings>().neovim_args, vec!["--clean"]);
+        assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt", "./bar.md"]);
     }
 
     #[test]
@@ -373,10 +364,8 @@ mod tests {
             .collect();
 
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
-        assert_eq!(
-            settings.get::<CmdLineSettings>().neovim_args,
-            vec!["-p", "./foo.txt", "./bar.md"]
-        );
+        assert!(settings.get::<CmdLineSettings>().neovim_args.is_empty());
+        assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt", "./bar.md"]);
 
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.grid,
