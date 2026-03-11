@@ -1147,6 +1147,25 @@ If enabled, the cursor will smoothly animate the transition between the cursor's
 The built in `guicursor` neovim option needs to be configured to enable blinking by having a value
 set for both `blinkoff`, `blinkon` and `blinkwait` for this setting to apply.
 
+#### Use covered cell colors for cursor fallback
+
+VimScript:
+
+```vim
+let g:neovide_cursor_cell_color_fallback = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_cell_color_fallback = false
+```
+
+If enabled, Neovide will use the resolved colors of the grid cell under the cursor when the
+`guicursor` highlight does not explicitly define cursor foreground or background colors. This makes
+the block cursor adapt to the text highlighting beneath it. Explicit cursor colors still take
+precedence.
+
 ### Cursor Particles
 
 There are a number of vfx modes you can enable which produce particles behind the cursor. These are

@@ -56,6 +56,7 @@ pub struct CursorSettings {
     trail_size: f32,
     unfocused_outline_width: f32,
     smooth_blink: bool,
+    cell_color_fallback: bool,
 
     vfx_mode: cursor_vfx::VfxModeList,
     vfx_opacity: f32,
@@ -78,6 +79,7 @@ impl Default for CursorSettings {
             trail_size: 1.0,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
+            cell_color_fallback: false,
             vfx_mode: cursor_vfx::VfxModeList::default(),
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 0.5,
@@ -352,7 +354,7 @@ impl CursorRenderer {
         // Draw Background
         let background_color = self
             .cursor
-            .background(&grid_renderer.default_style.colors)
+            .background(&grid_renderer.default_style.colors, settings.cell_color_fallback)
             .to_color()
             .with_a((opacity * alpha) as u8);
         paint.set_color(background_color);
@@ -367,7 +369,7 @@ impl CursorRenderer {
         // Draw foreground
         let foreground_color = self
             .cursor
-            .foreground(&grid_renderer.default_style.colors)
+            .foreground(&grid_renderer.default_style.colors, settings.cell_color_fallback)
             .to_color()
             .with_a((opacity * alpha) as u8);
         paint.set_color(foreground_color);
@@ -498,10 +500,15 @@ impl CursorRenderer {
             }
 
             let mut vfx_animating = false;
+            let vfx_base_color = self
+                .cursor
+                .background(&grid_renderer.default_style.colors, settings.cell_color_fallback)
+                .to_color();
 
             for vfx in self.cursor_vfxs.iter_mut() {
                 let ret = vfx.update(
                     &settings,
+                    vfx_base_color,
                     center_destination,
                     cursor_dimensions,
                     immediate_movement,
