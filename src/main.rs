@@ -81,6 +81,8 @@ use crate::frame::Frame;
 const DEFAULT_BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const BACKTRACES_FILE_ENV_VAR: &str = "NEOVIDE_BACKTRACES";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
+#[cfg(not(target_os = "windows"))]
+const FORKED_FROM_TTY_ENV_VAR: &str = "NEOVIDE_FORKED_FROM_TTY";
 
 fn main() -> ExitCode {
     set_hook(Box::new(|panic_info| {
@@ -285,19 +287,18 @@ fn maybe_disown(settings: &Settings) {
         Ok(fork::Fork::Parent(_)) => process::exit(0),
         Ok(fork::Fork::Child) => {
             if let Ok(current_exe) = env::current_exe() {
-                assert!(
-                    process::Command::new(current_exe)
-                        .stdin(process::Stdio::null())
-                        .stdout(process::Stdio::null())
-                        .stderr(process::Stdio::null())
-                        .args(env::args().skip(1))
-                        .spawn()
-                        .is_ok()
-                );
+                let mut command = process::Command::new(current_exe);
+                command
+                    .stdin(process::Stdio::null())
+                    .stdout(process::Stdio::null())
+                    .stderr(process::Stdio::null())
+                    .args(env::args().skip(1));
+                command.env(FORKED_FROM_TTY_ENV_VAR, "1");
+                assert!(command.spawn().is_ok());
                 process::exit(0);
             } else {
                 eprintln!(
-                    "error in disowning process, cannot obtain the path for the current executable, exiting..."
+                    "error in disowning process, cannot obtain the respawn context, exiting..."
                 );
                 process::exit(1);
             }
