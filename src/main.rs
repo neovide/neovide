@@ -250,7 +250,7 @@ fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result
     #[cfg(not(test))]
     init_logger(&settings);
 
-    trace!("Neovide version: {}", crate_version!());
+    trace!("Neovide version: {}", env!("NEOVIDE_BUILD_VERSION"));
 
     Ok(config)
 }

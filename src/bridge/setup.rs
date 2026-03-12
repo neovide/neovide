@@ -76,7 +76,7 @@ pub async fn setup_neovide_specific_state(
         INIT_LUA,
         call_args![nvim_dict! {
             "neovide_channel_id" => api_information.channel,
-            "neovide_version" => crate_version!(),
+            "neovide_version" => env!("NEOVIDE_BUILD_VERSION"),
             "config_path" => config_path().to_string_lossy().into_owned(),
             "register_clipboard" => register_clipboard,
             "register_right_click" => register_right_click,
