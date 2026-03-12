@@ -27,7 +27,7 @@ fn get_styles() -> Styles {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[command(version, about, long_about = None, styles = get_styles())]
+#[command(version = env!("NEOVIDE_BUILD_VERSION"), about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
     /// Files to open (usually plainly appended to NeoVim args, except when --wsl is used)
     #[arg(
