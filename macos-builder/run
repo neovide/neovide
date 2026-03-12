@@ -47,6 +47,7 @@ DMG_NAME="Neovide${TARGET_ARCHITECTURE:+-${TARGET_ARCHITECTURE}}.dmg"
 DMG_VOLNAME="Neovide"
 DMG_FILESYSTEM="HFS+"
 DMG_FORMAT="UDZO"
+DMG_HDIUTIL_RETRIES=${DMG_HDIUTIL_RETRIES:-20}
 DMG_ICNS="${APP_EXTRAS_DIR}/Neovide.icns"
 DMG_BACKGROUND="${ASSETS_DIR}/neovide-dmg-background.tiff"
 
@@ -85,6 +86,7 @@ if [ "$GENERATE_DMG" == "true" ]; then
   create-dmg \
     --filesystem "${DMG_FILESYSTEM}" \
     --format "${DMG_FORMAT}" \
+    --hdiutil-retries "${DMG_HDIUTIL_RETRIES}" \
     --volname "${DMG_VOLNAME}" \
     --volicon "${DMG_ICNS}" \
     --background "${DMG_BACKGROUND}" \

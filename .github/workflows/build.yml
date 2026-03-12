@@ -175,9 +175,9 @@ jobs:
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
+          curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.3.tar.gz
           tar -xzf create-dmg.tar.gz
-          cd create-dmg-1.2.2
+          cd create-dmg-1.2.3
           sudo make install
           cd ..
           rustup target add x86_64-apple-darwin
@@ -205,7 +205,7 @@ jobs:
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static" 
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
         run: |
           cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
