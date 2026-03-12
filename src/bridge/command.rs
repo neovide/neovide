@@ -7,6 +7,9 @@ use crate::{
     bridge::RestartDetails, cmd_line::CmdLineSettings, settings::*, utils::handle_wslpaths,
 };
 
+#[cfg(target_os = "macos")]
+const FORKED_FROM_TTY_ENV_VAR: &str = "NEOVIDE_FORKED_FROM_TTY";
+
 #[derive(Clone)]
 struct CommandSpec {
     program: String,
@@ -169,6 +172,10 @@ fn std_command_from_spec(spec: CommandSpec) -> StdCommand {
 
 #[cfg(target_os = "macos")]
 fn launched_from_desktop() -> bool {
+    if std::env::var_os(FORKED_FROM_TTY_ENV_VAR).is_some() {
+        return false;
+    }
+
     // On macOS, apps launched from Finder or `open` are spawned by launchd = PPID 1.
     // This is more reliable than $TERM for detecting GUI vs terminal launches,
     // so we use this as a heuristic instead of relying on $TERM.
@@ -194,9 +201,6 @@ fn create_command_spec(
         // normal GUI launch. See https://github.com/neovide/neovide/issues/2584
         let user = uzers::get_user_by_uid(uzers::get_current_uid()).unwrap();
         let shell = user.shell();
-        // -f: Bypasses authentication for the already-logged-in user.
-        // -p: Preserves the environment.
-        // -q: Forces quiet logins, as if a .hushlogin is present.
 
         // Convert to a single string and add quotes
         let args =
@@ -204,6 +208,9 @@ fn create_command_spec(
         CommandSpec::new(
             "/usr/bin/login",
             vec![
+                // -f: Bypasses authentication for the already-logged-in user.
+                // -p: Preserves the environment.
+                // -q: Forces quiet logins, as if a .hushlogin is present.
                 "-fpq".to_string(),
                 user.name().to_str().unwrap().to_string(),
                 shell.to_str().unwrap().to_string(),
