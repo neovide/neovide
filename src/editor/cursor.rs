@@ -72,18 +72,78 @@ impl Cursor {
         }
     }
 
-    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
-        self.style
-            .as_ref()
-            .and_then(|s| s.colors.foreground)
-            .unwrap_or_else(|| default_colors.background.unwrap())
+    fn default_cell_colors(&self, default_colors: &Colors) -> (Color4f, Color4f) {
+        let foreground = default_colors
+            .foreground
+            .expect("cursor rendering requires a default foreground color");
+        let background = default_colors
+            .background
+            .expect("cursor rendering requires a default background color");
+
+        (foreground, background)
     }
 
-    pub fn background(&self, default_colors: &Colors) -> Color4f {
-        self.style
+    fn cell_colors(&self, default_colors: &Colors) -> (Color4f, Color4f) {
+        self.grid_cell
+            .1
             .as_ref()
-            .and_then(|s| s.colors.background)
-            .unwrap_or_else(|| default_colors.foreground.unwrap())
+            .map(|style| (style.foreground(default_colors), style.background(default_colors)))
+            .unwrap_or_else(|| self.default_cell_colors(default_colors))
+    }
+
+    fn default_cursor_colors(&self, default_colors: &Colors) -> (Color4f, Color4f) {
+        self.reverse_colors(self.default_cell_colors(default_colors))
+    }
+
+    fn reverse_colors(&self, (foreground, background): (Color4f, Color4f)) -> (Color4f, Color4f) {
+        (background, foreground)
+    }
+
+    fn style_colors(
+        &self,
+        style: &Style,
+        fallback_colors: (Color4f, Color4f),
+        apply_reverse: bool,
+    ) -> (Color4f, Color4f) {
+        let (fallback_foreground, fallback_background) = fallback_colors;
+        let colors = (
+            style.colors.foreground.unwrap_or(fallback_foreground),
+            style.colors.background.unwrap_or(fallback_background),
+        );
+
+        match (apply_reverse, style.reverse) {
+            (true, true) => self.reverse_colors(colors),
+            _ => colors,
+        }
+    }
+
+    fn resolve_colors(
+        &self,
+        default_colors: &Colors,
+        cell_color_fallback: bool,
+    ) -> (Color4f, Color4f) {
+        let default_cursor_colors = self.default_cursor_colors(default_colors);
+        let cell_colors = self.cell_colors(default_colors);
+        let style_fallback_colors = match cell_color_fallback {
+            true => cell_colors,
+            false => default_cursor_colors,
+        };
+
+        self.style
+            .as_deref()
+            .map(|style| self.style_colors(style, style_fallback_colors, cell_color_fallback))
+            .unwrap_or_else(|| match cell_color_fallback {
+                true => self.reverse_colors(cell_colors),
+                false => default_cursor_colors,
+            })
+    }
+
+    pub fn foreground(&self, default_colors: &Colors, cell_color_fallback: bool) -> Color4f {
+        self.resolve_colors(default_colors, cell_color_fallback).0
+    }
+
+    pub fn background(&self, default_colors: &Colors, cell_color_fallback: bool) -> Color4f {
+        self.resolve_colors(default_colors, cell_color_fallback).1
     }
 
     pub fn alpha(&self) -> u8 {
@@ -129,6 +189,11 @@ mod tests {
     };
 
     const NONE_COLORS: Colors = Colors { foreground: None, background: None, special: None };
+    const CELL_COLORS: Colors = Colors {
+        foreground: Some(Color4f::new(0.4, 0.1, 0.1, 0.1)),
+        background: Some(Color4f::new(0.5, 0.1, 0.1, 0.1)),
+        special: Some(Color4f::new(0.6, 0.1, 0.1, 0.1)),
+    };
 
     #[test]
     fn test_from_type_name() {
@@ -142,12 +207,35 @@ mod tests {
         let mut cursor = Cursor::new();
         let style = Some(Arc::new(Style::new(COLORS)));
 
-        assert_eq!(cursor.foreground(&DEFAULT_COLORS), DEFAULT_COLORS.background.unwrap());
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS, false), DEFAULT_COLORS.background.unwrap());
         cursor.style = style;
-        assert_eq!(cursor.foreground(&DEFAULT_COLORS), COLORS.foreground.unwrap());
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS, false), COLORS.foreground.unwrap());
 
         cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
-        assert_eq!(cursor.foreground(&DEFAULT_COLORS), DEFAULT_COLORS.background.unwrap());
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS, false), DEFAULT_COLORS.background.unwrap());
+    }
+
+    #[test]
+    fn test_foreground_falls_back_to_cell_background() {
+        let mut cursor = Cursor::new();
+        cursor.grid_cell = ("x".to_string(), Some(Arc::new(Style::new(CELL_COLORS))));
+
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS, true), CELL_COLORS.background.unwrap());
+
+        cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS, true), CELL_COLORS.foreground.unwrap());
+    }
+
+    #[test]
+    fn test_foreground_reverse_swaps_cell_fallback_colors() {
+        let mut cursor = Cursor::new();
+        cursor.grid_cell = ("x".to_string(), Some(Arc::new(Style::new(CELL_COLORS))));
+
+        let mut reverse_cursor_style = Style::new(NONE_COLORS);
+        reverse_cursor_style.reverse = true;
+        cursor.style = Some(Arc::new(reverse_cursor_style));
+
+        assert_eq!(cursor.foreground(&DEFAULT_COLORS, true), CELL_COLORS.background.unwrap());
     }
 
     #[test]
@@ -155,12 +243,35 @@ mod tests {
         let mut cursor = Cursor::new();
         let style = Some(Arc::new(Style::new(COLORS)));
 
-        assert_eq!(cursor.background(&DEFAULT_COLORS), DEFAULT_COLORS.foreground.unwrap());
+        assert_eq!(cursor.background(&DEFAULT_COLORS, false), DEFAULT_COLORS.foreground.unwrap());
         cursor.style = style;
-        assert_eq!(cursor.background(&DEFAULT_COLORS), COLORS.background.unwrap());
+        assert_eq!(cursor.background(&DEFAULT_COLORS, false), COLORS.background.unwrap());
 
         cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
-        assert_eq!(cursor.background(&DEFAULT_COLORS), DEFAULT_COLORS.foreground.unwrap());
+        assert_eq!(cursor.background(&DEFAULT_COLORS, false), DEFAULT_COLORS.foreground.unwrap());
+    }
+
+    #[test]
+    fn test_background_falls_back_to_cell_foreground() {
+        let mut cursor = Cursor::new();
+        cursor.grid_cell = ("x".to_string(), Some(Arc::new(Style::new(CELL_COLORS))));
+
+        assert_eq!(cursor.background(&DEFAULT_COLORS, true), CELL_COLORS.foreground.unwrap());
+
+        cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
+        assert_eq!(cursor.background(&DEFAULT_COLORS, true), CELL_COLORS.background.unwrap());
+    }
+
+    #[test]
+    fn test_background_reverse_swaps_cell_fallback_colors() {
+        let mut cursor = Cursor::new();
+        cursor.grid_cell = ("x".to_string(), Some(Arc::new(Style::new(CELL_COLORS))));
+
+        let mut reverse_cursor_style = Style::new(NONE_COLORS);
+        reverse_cursor_style.reverse = true;
+        cursor.style = Some(Arc::new(reverse_cursor_style));
+
+        assert_eq!(cursor.background(&DEFAULT_COLORS, true), CELL_COLORS.foreground.unwrap());
     }
 
     #[test]
