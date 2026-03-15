@@ -22,6 +22,20 @@ vim.g.neovide_version = args.neovide_version
 vim.o.lazyredraw = false
 vim.o.termguicolors = true
 
+local function set_default_window_title()
+    local title_info = vim.api.nvim_get_option_info2("title", {})
+    local titlestring_info = vim.api.nvim_get_option_info2("titlestring", {})
+
+    if title_info.was_set or titlestring_info.was_set then
+        return
+    end
+
+    vim.o.title = true
+    vim.o.titlestring = "%F"
+end
+
+set_default_window_title()
+
 local function rpcnotify(method, ...)
     vim.rpcnotify(vim.g.neovide_channel_id, method, ...)
 end
