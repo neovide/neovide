@@ -372,7 +372,6 @@ impl MacosWindowFeature {
         if cmd_line_settings.title_hidden {
             ns_window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
             ns_window.setTitlebarAppearsTransparent(true);
-            ns_window.setTitle(ns_string!(""));
         }
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
