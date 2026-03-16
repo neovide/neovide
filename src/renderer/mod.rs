@@ -476,9 +476,10 @@ impl Renderer {
         animating
     }
 
-    pub fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+    pub fn handle_config_changed(&mut self, config: RendererHotReloadConfigs) {
         match config {
-            HotReloadConfigs::Font(font) => {
+            RendererHotReloadConfigs::Font(font) => {
+                let font = *font;
                 let mut font_config_state = self.settings.get::<FontConfigState>();
                 font_config_state.has_font = font.is_some();
                 self.settings.set(&font_config_state);
@@ -491,7 +492,7 @@ impl Renderer {
                     }
                 }
             }
-            HotReloadConfigs::BoxDrawing(settings) => {
+            RendererHotReloadConfigs::BoxDrawing(settings) => {
                 self.grid_renderer.handle_box_drawing_update(settings.unwrap_or_default())
             }
         }

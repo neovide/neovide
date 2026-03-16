@@ -44,8 +44,9 @@ use crate::{
     },
     running_tracker::RunningTracker,
     settings::{
-        Config, DEFAULT_GRID_SIZE, HotReloadConfigs, MIN_GRID_SIZE, Settings, SettingsChanged,
-        clamped_grid_size, font::FontSettings, load_last_window_settings,
+        Config, DEFAULT_GRID_SIZE, HotReloadConfigs, MIN_GRID_SIZE, RendererHotReloadConfigs,
+        Settings, SettingsChanged, WindowHotReloadConfigs, clamped_grid_size, font::FontSettings,
+        load_last_window_settings,
     },
     units::{GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelSize},
     window::{
@@ -1888,12 +1889,53 @@ impl WinitWindowWrapper {
 
     fn handle_config_changed(&mut self, config: HotReloadConfigs) {
         tracy_zone!("handle_config_changed");
+        match config {
+            HotReloadConfigs::Window(config) => {
+                self.handle_window_config_changed(config);
+            }
+            HotReloadConfigs::Renderer(config) => {
+                self.handle_renderer_config_changed(config);
+            }
+        }
+    }
+
+    fn handle_window_config_changed(&mut self, config: WindowHotReloadConfigs) {
+        match config {
+            WindowHotReloadConfigs::TitleHidden(title_hidden) => {
+                self.handle_config_title_hidden_changed(title_hidden);
+            }
+        }
+    }
+
+    fn handle_renderer_config_changed(&mut self, config: RendererHotReloadConfigs) {
         let Some(route) = self.focused_route_mut() else {
             return;
         };
+
         let mut renderer = route.window.renderer.borrow_mut();
         renderer.handle_config_changed(config);
         route.state.font_changed_last_frame = true;
+    }
+
+    fn handle_config_title_hidden_changed(&mut self, title_hidden: Option<bool>) {
+        let title_hidden = title_hidden.unwrap_or(false);
+        let mut cmd_line_settings = self.settings.get::<CmdLineSettings>();
+        if cmd_line_settings.title_hidden == title_hidden {
+            return;
+        }
+
+        cmd_line_settings.title_hidden = title_hidden;
+        self.settings.set(&cmd_line_settings);
+
+        #[cfg(target_os = "macos")]
+        {
+            let window_ids: Vec<WindowId> = self.routes.keys().copied().collect();
+            for window_id in window_ids {
+                if let Some(macos_feature) = self.macos_feature_for_window(window_id) {
+                    macos_feature.borrow_mut().set_title_hidden(title_hidden);
+                }
+            }
+        }
     }
 
     fn handle_progress_bar(&mut self, target: EventTarget, percent: f32) {
