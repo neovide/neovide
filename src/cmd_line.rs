@@ -6,7 +6,7 @@ use crate::{
 
 use anyhow::{Context, Result};
 use clap::{
-    ArgAction, Parser,
+    ArgAction, Parser, ValueEnum,
     builder::{FalseyValueParser, Styles, styling},
 };
 use winit::window::CursorIcon;
@@ -196,13 +196,17 @@ pub struct GeometryArgs {
     pub maximized: bool,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
 pub enum MouseCursorIcon {
     Arrow,
     IBeam,
 }
 
 impl MouseCursorIcon {
+    pub fn from_config(value: Option<&str>) -> Result<Self, String> {
+        value.map_or(Ok(Self::Arrow), |value| <Self as ValueEnum>::from_str(value, false))
+    }
+
     pub fn parse(&self) -> CursorIcon {
         match self {
             MouseCursorIcon::Arrow => CursorIcon::Default,

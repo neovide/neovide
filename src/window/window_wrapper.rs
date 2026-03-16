@@ -7,7 +7,7 @@ use winit::{
     dpi,
     event::{Ime, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Fullscreen, Theme, Window, WindowId},
+    window::{Cursor, Fullscreen, Theme, Window, WindowId},
 };
 
 use super::{
@@ -37,6 +37,7 @@ use crate::{
         set_active_route_handler, unregister_route_handler,
     },
     clipboard::ClipboardHandle,
+    cmd_line::MouseCursorIcon,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         DrawCommand, MessageSelection, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
@@ -1904,6 +1905,9 @@ impl WinitWindowWrapper {
             WindowHotReloadConfigs::TitleHidden(title_hidden) => {
                 self.handle_config_title_hidden_changed(title_hidden);
             }
+            WindowHotReloadConfigs::MouseCursorIcon(mouse_cursor_icon) => {
+                self.handle_config_mouse_cursor_icon_changed(mouse_cursor_icon);
+            }
         }
     }
 
@@ -1935,6 +1939,21 @@ impl WinitWindowWrapper {
                     macos_feature.borrow_mut().set_title_hidden(title_hidden);
                 }
             }
+        }
+    }
+
+    fn handle_config_mouse_cursor_icon_changed(&mut self, mouse_cursor_icon: MouseCursorIcon) {
+        let mut cmd_line_settings = self.settings.get::<CmdLineSettings>();
+        if cmd_line_settings.mouse_cursor_icon == mouse_cursor_icon {
+            return;
+        }
+
+        cmd_line_settings.mouse_cursor_icon = mouse_cursor_icon.clone();
+        self.settings.set(&cmd_line_settings);
+
+        let cursor = Cursor::Icon(mouse_cursor_icon.parse());
+        for route in self.routes.values() {
+            route.window.winit_window.set_cursor(cursor.clone());
         }
     }
 
