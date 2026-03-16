@@ -81,8 +81,19 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::large_enum_variant)]
 pub enum HotReloadConfigs {
-    Font(Option<FontSettings>),
+    Renderer(RendererHotReloadConfigs),
+    Window(WindowHotReloadConfigs),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RendererHotReloadConfigs {
+    Font(Box<Option<FontSettings>>),
     BoxDrawing(Option<BoxDrawingSettings>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum WindowHotReloadConfigs {
+    TitleHidden(Option<bool>),
 }
 
 impl Config {
@@ -244,14 +255,27 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
         if config.font != previous_config.font {
             event_loop_proxy
                 .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
-                    HotReloadConfigs::Font(config.font.clone()),
+                    HotReloadConfigs::Renderer(RendererHotReloadConfigs::Font(Box::new(
+                        config.font.clone(),
+                    ))),
                 ))))
                 .unwrap();
         }
         if config.box_drawing != previous_config.box_drawing {
             event_loop_proxy
                 .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
-                    HotReloadConfigs::BoxDrawing(config.box_drawing.clone()),
+                    HotReloadConfigs::Renderer(RendererHotReloadConfigs::BoxDrawing(
+                        config.box_drawing.clone(),
+                    )),
+                ))))
+                .unwrap();
+        }
+        if config.title_hidden != previous_config.title_hidden {
+            event_loop_proxy
+                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                    HotReloadConfigs::Window(WindowHotReloadConfigs::TitleHidden(
+                        config.title_hidden,
+                    )),
                 ))))
                 .unwrap();
         }

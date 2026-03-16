@@ -23,7 +23,7 @@ pub use window_size::{
 };
 
 pub mod config;
-pub use config::{Config, HotReloadConfigs};
+pub use config::{Config, HotReloadConfigs, RendererHotReloadConfigs, WindowHotReloadConfigs};
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
