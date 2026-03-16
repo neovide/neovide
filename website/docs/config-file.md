@@ -77,6 +77,15 @@ Settings that are mutually exclusive on the command line (for example `size`, `g
 
 ### Runtime settings
 
+#### Window Geometry
+
+**Nightly.**
+
+`size`, `grid` and `maximized` can be hot reloaded from `config.toml`.
+
+They are still mutually exclusive. `size` applies a new pixel size to all live windows, `grid`
+applies a new Neovim grid size, and `maximized` updates the live maximized state.
+
 #### `Font`
 
 **Available since 0.12.1.**

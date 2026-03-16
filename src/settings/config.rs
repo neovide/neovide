@@ -7,7 +7,7 @@ use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::MouseCursorIcon,
+    cmd_line::{GeometryArgs, MouseCursorIcon},
     error_msg,
     frame::Frame,
     renderer::box_drawing::BoxDrawingSettings,
@@ -96,6 +96,7 @@ pub enum RendererHotReloadConfigs {
 pub enum WindowHotReloadConfigs {
     TitleHidden(Option<bool>),
     MouseCursorIcon(MouseCursorIcon),
+    Geometry(GeometryArgs),
 }
 
 impl Config {
@@ -294,6 +295,27 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                 }
                 Err(err) => {
                     error_msg!("While reloading config file: invalid mouse-cursor-icon: {err}");
+                }
+            }
+        }
+        if config.size != previous_config.size
+            || config.grid != previous_config.grid
+            || config.maximized != previous_config.maximized
+        {
+            match GeometryArgs::from_config(
+                config.size.as_deref(),
+                config.grid.as_deref(),
+                config.maximized,
+            ) {
+                Ok(geometry) => {
+                    event_loop_proxy
+                        .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                            HotReloadConfigs::Window(WindowHotReloadConfigs::Geometry(geometry)),
+                        ))))
+                        .unwrap();
+                }
+                Err(err) => {
+                    error_msg!("While reloading config file: invalid geometry: {err}");
                 }
             }
         }
