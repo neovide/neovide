@@ -7,6 +7,7 @@ use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
+    cmd_line::MouseCursorIcon,
     error_msg,
     frame::Frame,
     renderer::box_drawing::BoxDrawingSettings,
@@ -94,6 +95,7 @@ pub enum RendererHotReloadConfigs {
 #[derive(Debug, Clone, PartialEq)]
 pub enum WindowHotReloadConfigs {
     TitleHidden(Option<bool>),
+    MouseCursorIcon(MouseCursorIcon),
 }
 
 impl Config {
@@ -278,6 +280,22 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                     )),
                 ))))
                 .unwrap();
+        }
+        if config.mouse_cursor_icon != previous_config.mouse_cursor_icon {
+            match MouseCursorIcon::from_config(config.mouse_cursor_icon.as_deref()) {
+                Ok(mouse_cursor_icon) => {
+                    event_loop_proxy
+                        .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                            HotReloadConfigs::Window(WindowHotReloadConfigs::MouseCursorIcon(
+                                mouse_cursor_icon,
+                            )),
+                        ))))
+                        .unwrap();
+                }
+                Err(err) => {
+                    error_msg!("While reloading config file: invalid mouse-cursor-icon: {err}");
+                }
+            }
         }
         previous_config = config;
     }
