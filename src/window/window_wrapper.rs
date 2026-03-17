@@ -37,7 +37,7 @@ use crate::{
         set_active_route_handler, unregister_route_handler,
     },
     clipboard::ClipboardHandle,
-    cmd_line::MouseCursorIcon,
+    cmd_line::{GeometryArgs, MouseCursorIcon},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         DrawCommand, MessageSelection, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
@@ -85,6 +85,13 @@ enum UIState {
     WaitingForWindowCreate,
     FirstFrame,
     Showing, // No pending resizes
+}
+
+enum GeometryTarget {
+    Maximized,
+    Size(PhysicalSize<u32>),
+    Grid(GridSize<u32>),
+    None,
 }
 
 pub struct RouteWindow {
@@ -1908,6 +1915,9 @@ impl WinitWindowWrapper {
             WindowHotReloadConfigs::MouseCursorIcon(mouse_cursor_icon) => {
                 self.handle_config_mouse_cursor_icon_changed(mouse_cursor_icon);
             }
+            WindowHotReloadConfigs::Geometry(geometry) => {
+                self.handle_config_geometry_changed(geometry);
+            }
         }
     }
 
@@ -1954,6 +1964,92 @@ impl WinitWindowWrapper {
         let cursor = Cursor::Icon(mouse_cursor_icon.parse());
         for route in self.routes.values() {
             route.window.winit_window.set_cursor(cursor.clone());
+        }
+    }
+
+    fn handle_config_geometry_changed(&mut self, geometry: GeometryArgs) {
+        let Some(previous_geometry) = self.update_shared_geometry(&geometry) else {
+            return;
+        };
+
+        let window_ids: Vec<WindowId> = self.routes.keys().copied().collect();
+        if Self::should_exit_maximized_state(&previous_geometry, &geometry) {
+            self.set_windows_maximized(&window_ids, false);
+        }
+
+        match Self::geometry_target(geometry) {
+            GeometryTarget::Maximized => self.set_windows_maximized(&window_ids, true),
+            GeometryTarget::Size(size) => self.request_window_size_for(&window_ids, size),
+            GeometryTarget::Grid(grid_size) => self.request_grid_size_for(&window_ids, grid_size),
+            GeometryTarget::None => {}
+        }
+    }
+
+    fn update_shared_geometry(&self, geometry: &GeometryArgs) -> Option<GeometryArgs> {
+        let mut cmd_line_settings = self.settings.get::<CmdLineSettings>();
+        if cmd_line_settings.geometry == *geometry {
+            return None;
+        }
+
+        let previous_geometry = cmd_line_settings.geometry.clone();
+        cmd_line_settings.geometry = geometry.clone();
+        self.settings.set(&cmd_line_settings);
+
+        Some(previous_geometry)
+    }
+
+    fn should_exit_maximized_state(
+        previous_geometry: &GeometryArgs,
+        geometry: &GeometryArgs,
+    ) -> bool {
+        !geometry.maximized
+            && (previous_geometry.maximized
+                || geometry.size.is_some()
+                || matches!(geometry.grid, Some(Some(_))))
+    }
+
+    fn geometry_target(geometry: GeometryArgs) -> GeometryTarget {
+        if geometry.maximized {
+            return GeometryTarget::Maximized;
+        }
+
+        if let Some(size) = geometry.size {
+            return GeometryTarget::Size(PhysicalSize::from(size));
+        }
+
+        let Some(Some(dimensions)) = geometry.grid else {
+            return GeometryTarget::None;
+        };
+
+        GeometryTarget::Grid(clamped_grid_size(&GridSize::new(
+            dimensions.width.try_into().unwrap(),
+            dimensions.height.try_into().unwrap(),
+        )))
+    }
+
+    fn set_windows_maximized(&self, window_ids: &[WindowId], maximized: bool) {
+        for window_id in window_ids {
+            if let Some(route) = self.routes.get(window_id) {
+                route.window.winit_window.set_maximized(maximized);
+            }
+        }
+    }
+
+    fn request_window_size_for(&self, window_ids: &[WindowId], size: PhysicalSize<u32>) {
+        for window_id in window_ids {
+            if let Some(route) = self.routes.get(window_id) {
+                let _ = route.window.winit_window.request_inner_size(size);
+            }
+        }
+    }
+
+    fn request_grid_size_for(&mut self, window_ids: &[WindowId], grid_size: GridSize<u32>) {
+        for &window_id in window_ids {
+            if let Some(route) = self.routes.get_mut(&window_id) {
+                route.state.requested_columns = Some(grid_size.width);
+                route.state.requested_lines = Some(grid_size.height);
+            }
+            self.update_window_size_from_grid(window_id);
         }
     }
 

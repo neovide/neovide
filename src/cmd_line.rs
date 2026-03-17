@@ -215,6 +215,28 @@ impl MouseCursorIcon {
     }
 }
 
+impl GeometryArgs {
+    pub fn from_config(
+        size: Option<&str>,
+        grid: Option<&str>,
+        maximized: Option<bool>,
+    ) -> Result<Self, String> {
+        let maximized = maximized.unwrap_or(false);
+        let has_size = size.is_some();
+        let has_grid = grid.is_some();
+        let conflicting = (has_size && has_grid) || (maximized && (has_size || has_grid));
+        if conflicting {
+            return Err("size, grid and maximized are mutually exclusive".to_owned());
+        }
+
+        Ok(Self {
+            grid: grid.map(|grid| grid.parse::<Dimensions>().map(Some)).transpose()?,
+            size: size.map(str::parse::<Dimensions>).transpose()?,
+            maximized,
+        })
+    }
+}
+
 impl Default for CmdLineSettings {
     fn default() -> Self {
         Self::parse_from(iter::empty::<String>())
@@ -426,6 +448,38 @@ mod tests {
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.size,
             Some(Dimensions { width: 420, height: 240 }),
+        );
+    }
+
+    #[test]
+    fn test_geometry_args_from_config_size() {
+        assert_eq!(
+            GeometryArgs::from_config(Some("420x240"), None, None).unwrap(),
+            GeometryArgs {
+                size: Some(Dimensions { width: 420, height: 240 }),
+                grid: None,
+                maximized: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_geometry_args_from_config_grid() {
+        assert_eq!(
+            GeometryArgs::from_config(None, Some("80x24"), None).unwrap(),
+            GeometryArgs {
+                size: None,
+                grid: Some(Some(Dimensions { width: 80, height: 24 })),
+                maximized: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_geometry_args_from_config_rejects_conflicts() {
+        assert_eq!(
+            GeometryArgs::from_config(Some("420x240"), Some("80x24"), None).unwrap_err(),
+            "size, grid and maximized are mutually exclusive"
         );
     }
 
