@@ -1611,6 +1611,11 @@ listed above.
 Settings that are mutually exclusive on the command line (for example <code>size</code>, <code>grid</code> and
 <code>maximized</code>) are also mutually exclusive in the config file.</p>
 <h3 id="runtime-settings"><a class="header" href="#runtime-settings">Runtime settings</a></h3>
+<h4 id="window-geometry"><a class="header" href="#window-geometry">Window Geometry</a></h4>
+<p><strong>Nightly.</strong></p>
+<p><code>size</code>, <code>grid</code> and <code>maximized</code> can be hot reloaded from <code>config.toml</code>.</p>
+<p>They are still mutually exclusive. <code>size</code> applies a new pixel size to all live windows, <code>grid</code>
+applies a new Neovim grid size, and <code>maximized</code> updates the live maximized state.</p>
 <h4 id="font-1"><a class="header" href="#font-1"><code>Font</code></a></h4>
 <p><strong>Available since 0.12.1.</strong></p>
 <p><code>[font]</code> table in configuration file contains:</p>
