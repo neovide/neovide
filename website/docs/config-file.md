@@ -86,6 +86,12 @@ Settings that are mutually exclusive on the command line (for example `size`, `g
 They are still mutually exclusive. `size` applies a new pixel size to all live windows, `grid`
 applies a new Neovim grid size, and `maximized` updates the live maximized state.
 
+#### Idle
+
+**Nightly.**
+
+`idle` can be hot reloaded from `config.toml`.
+
 #### `Font`
 
 **Available since 0.12.1.**

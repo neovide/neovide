@@ -82,8 +82,14 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::large_enum_variant)]
 pub enum HotReloadConfigs {
+    App(AppHotReloadConfigs),
     Renderer(RendererHotReloadConfigs),
     Window(WindowHotReloadConfigs),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AppHotReloadConfigs {
+    Idle(bool),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -270,6 +276,13 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                     HotReloadConfigs::Renderer(RendererHotReloadConfigs::BoxDrawing(
                         config.box_drawing.clone(),
                     )),
+                ))))
+                .unwrap();
+        }
+        if config.idle != previous_config.idle {
+            event_loop_proxy
+                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                    HotReloadConfigs::App(AppHotReloadConfigs::Idle(config.idle.unwrap_or(true))),
                 ))))
                 .unwrap();
         }

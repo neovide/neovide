@@ -22,7 +22,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     running_tracker::RunningTracker,
-    settings::{Settings, font::FontSettings},
+    settings::{AppHotReloadConfigs, HotReloadConfigs, Settings, font::FontSettings},
     units::Grid,
     window::UserEvent,
 };
@@ -230,6 +230,38 @@ impl Application {
         for window_id in window_ids {
             if let Some(state) = self.render_states.get_mut(&window_id) {
                 state.should_render = ShouldRender::Immediately;
+            }
+        }
+    }
+
+    fn handle_app_config_changed(&mut self, config: AppHotReloadConfigs) {
+        match config {
+            AppHotReloadConfigs::Idle(idle) => {
+                let mut cmd_line_settings = self.settings.get::<CmdLineSettings>();
+                if cmd_line_settings.idle == idle && self.idle == idle {
+                    return;
+                }
+
+                cmd_line_settings.idle = idle;
+                self.settings.set(&cmd_line_settings);
+                self.idle = idle;
+                self.mark_should_render_all();
+            }
+        }
+    }
+
+    fn handle_config_changed(&mut self, _target: EventTarget, config: HotReloadConfigs) {
+        match config {
+            HotReloadConfigs::App(config) => {
+                self.handle_app_config_changed(config);
+            }
+            HotReloadConfigs::Window(config) => {
+                self.window_wrapper.handle_window_config_changed(config);
+                self.mark_should_render_all()
+            }
+            HotReloadConfigs::Renderer(config) => {
+                self.window_wrapper.handle_renderer_config_changed(config);
+                self.mark_should_render_all()
             }
         }
     }
@@ -598,6 +630,7 @@ impl ApplicationHandler<EventPayload> for Application {
         tracy_zone!("user_event");
         let EventPayload { payload, target } = event;
         match payload {
+            UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             UserEvent::NeovimExited => {
                 let route_id = self.route_id_for_target(target);
                 let Some(route_id) = route_id else {

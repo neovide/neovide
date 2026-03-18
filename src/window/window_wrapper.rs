@@ -45,8 +45,8 @@ use crate::{
     },
     running_tracker::RunningTracker,
     settings::{
-        Config, DEFAULT_GRID_SIZE, HotReloadConfigs, MIN_GRID_SIZE, RendererHotReloadConfigs,
-        Settings, SettingsChanged, WindowHotReloadConfigs, clamped_grid_size, font::FontSettings,
+        Config, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, RendererHotReloadConfigs, Settings,
+        SettingsChanged, WindowHotReloadConfigs, clamped_grid_size, font::FontSettings,
         load_last_window_settings,
     },
     units::{GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelSize},
@@ -1086,8 +1086,7 @@ impl WinitWindowWrapper {
 
     pub fn handle_user_event(&mut self, event: EventPayload) {
         let EventPayload { payload, target } = event;
-        let needs_window =
-            matches!(payload, UserEvent::SettingsChanged(_) | UserEvent::ConfigsChanged(_));
+        let needs_window = matches!(payload, UserEvent::SettingsChanged(_));
 
         if needs_window && !self.has_routes_for_target(target) {
             return;
@@ -1109,9 +1108,6 @@ impl WinitWindowWrapper {
             }
             UserEvent::SettingsChanged(SettingsChanged::Renderer(e)) => {
                 self.handle_render_settings_changed(target, e);
-            }
-            UserEvent::ConfigsChanged(config) => {
-                self.handle_config_changed(*config);
             }
             #[cfg(target_os = "macos")]
             UserEvent::MacShortcut(command) => {
@@ -1895,19 +1891,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    fn handle_config_changed(&mut self, config: HotReloadConfigs) {
-        tracy_zone!("handle_config_changed");
-        match config {
-            HotReloadConfigs::Window(config) => {
-                self.handle_window_config_changed(config);
-            }
-            HotReloadConfigs::Renderer(config) => {
-                self.handle_renderer_config_changed(config);
-            }
-        }
-    }
-
-    fn handle_window_config_changed(&mut self, config: WindowHotReloadConfigs) {
+    pub fn handle_window_config_changed(&mut self, config: WindowHotReloadConfigs) {
         match config {
             WindowHotReloadConfigs::TitleHidden(title_hidden) => {
                 self.handle_config_title_hidden_changed(title_hidden);
@@ -1921,7 +1905,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    fn handle_renderer_config_changed(&mut self, config: RendererHotReloadConfigs) {
+    pub fn handle_renderer_config_changed(&mut self, config: RendererHotReloadConfigs) {
         let Some(route) = self.focused_route_mut() else {
             return;
         };
