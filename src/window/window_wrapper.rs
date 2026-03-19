@@ -10,6 +10,8 @@ use winit::{
     window::{Cursor, Fullscreen, Theme, Window, WindowId},
 };
 
+#[cfg(target_os = "windows")]
+use super::settings::CornerPreference;
 use super::{
     EventPayload, EventTarget, KeyboardManager, MessageSelectionEvent, MouseManager, OverlayEvent,
     RouteId, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
@@ -316,6 +318,16 @@ impl WinitWindowWrapper {
         } else {
             window.set_fullscreen(None);
         }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn set_corner_preference(&self, window_id: WindowId, option: CornerPreference) {
+        let Some(route) = self.routes.get(&window_id) else {
+            return;
+        };
+
+        let skia_renderer = route.window.skia_renderer.borrow();
+        skia_renderer.window().set_corner_preference(option.into());
     }
 
     #[cfg(target_os = "macos")]
@@ -626,7 +638,12 @@ impl WinitWindowWrapper {
                     self.handle_title_text_color(*window_id, &color);
                 }
             }
-
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::CornerPreference(option) => {
+                for window_id in window_ids.iter() {
+                    self.set_corner_preference(*window_id, option);
+                }
+            }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 for window_id in window_ids.iter() {
@@ -1430,6 +1447,8 @@ impl WinitWindowWrapper {
             macos_simple_fullscreen,
 
             #[cfg(target_os = "windows")]
+            corner_preference,
+            #[cfg(target_os = "windows")]
             title_background_color,
             #[cfg(target_os = "windows")]
             title_text_color,
@@ -1563,6 +1582,7 @@ impl WinitWindowWrapper {
 
         #[cfg(target_os = "windows")]
         {
+            window.set_corner_preference(corner_preference.into());
             if let Some(winit_color) = Self::parse_winit_color(&title_background_color) {
                 window.set_title_background_color(Some(winit_color));
             }

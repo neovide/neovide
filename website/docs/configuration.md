@@ -256,6 +256,32 @@ vim.g.neovide_title_background_color = string.format(
 vim.g.neovide_title_text_color = "pink"
 ```
 
+#### Corner Preference (Currently Windows only)
+
+**Nightly.**
+
+VimScript:
+
+```vim
+let g:neovide_corner_preference = "round"
+```
+
+Lua:
+
+```lua
+vim.g.neovide_corner_preference = "round"
+```
+
+Setting `g:neovide_corner_preference` controls the preferred window corner style when supported by
+Windows.
+
+Accepted values:
+
+- `default`
+- `round`
+- `round_small`
+- `do_not_round`
+
 #### Window Blur (Currently macOS only)
 
 VimScript:
