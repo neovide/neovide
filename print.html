@@ -641,6 +641,23 @@ let g:neovide_title_text_color = &quot;pink&quot;
 
 vim.g.neovide_title_text_color = &quot;pink&quot;
 </code></pre>
+<h4 id="corner-preference-currently-windows-only"><a class="header" href="#corner-preference-currently-windows-only">Corner Preference (Currently Windows only)</a></h4>
+<p><strong>Nightly.</strong></p>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_corner_preference = &quot;round&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_corner_preference = &quot;round&quot;
+</code></pre>
+<p>Setting <code>g:neovide_corner_preference</code> controls the preferred window corner style when supported by
+Windows.</p>
+<p>Accepted values:</p>
+<ul>
+<li><code>default</code></li>
+<li><code>round</code></li>
+<li><code>round_small</code></li>
+<li><code>do_not_round</code></li>
+</ul>
 <h4 id="window-blur-currently-macos-only"><a class="header" href="#window-blur-currently-macos-only">Window Blur (Currently macOS only)</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_window_blurred = v:true
