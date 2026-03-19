@@ -150,9 +150,9 @@ impl From<ThemeSettings> for Value {
 #[cfg(target_os = "windows")]
 pub enum CornerPreference {
     Default,
-    DoNotRound,
     Round,
     RoundSmall,
+    DoNotRound,
 }
 
 #[cfg(target_os = "windows")]
@@ -161,9 +161,9 @@ impl ParseFromValue for CornerPreference {
         if value.is_str() {
             *self = match value.as_str().unwrap() {
                 "default" => CornerPreference::Default,
-                "do_not_round" => CornerPreference::DoNotRound,
                 "round" => CornerPreference::Round,
                 "round_small" => CornerPreference::RoundSmall,
+                "do_not_round" => CornerPreference::DoNotRound,
                 value => {
                     error_msg!(
                         "Setting CornerPreference expected one of `default`, `do_not_round`, `round`, `round_small`, but received {value:?}"
@@ -182,9 +182,9 @@ impl From<CornerPreference> for Value {
     fn from(value: CornerPreference) -> Self {
         match value {
             CornerPreference::Default => Value::from("default"),
-            CornerPreference::DoNotRound => Value::from("do_not_round"),
             CornerPreference::Round => Value::from("round"),
             CornerPreference::RoundSmall => Value::from("round_small"),
+            CornerPreference::DoNotRound => Value::from("do_not_round"),
         }
     }
 }
@@ -196,9 +196,9 @@ impl From<CornerPreference> for winit::platform::windows::CornerPreference {
 
         match value {
             CornerPreference::Default => WinitCornerPreference::Default,
-            CornerPreference::DoNotRound => WinitCornerPreference::DoNotRound,
             CornerPreference::Round => WinitCornerPreference::Round,
             CornerPreference::RoundSmall => WinitCornerPreference::RoundSmall,
+            CornerPreference::DoNotRound => WinitCornerPreference::DoNotRound,
         }
     }
 }

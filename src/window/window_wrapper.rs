@@ -10,12 +10,12 @@ use winit::{
     window::{Cursor, Fullscreen, Theme, Window, WindowId},
 };
 
+#[cfg(target_os = "windows")]
+use super::settings::CornerPreference;
 use super::{
     EventPayload, EventTarget, KeyboardManager, MessageSelectionEvent, MouseManager, OverlayEvent,
     RouteId, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
 };
-#[cfg(target_os = "windows")]
-use super::settings::CornerPreference;
 
 #[cfg(target_os = "macos")]
 use {
@@ -1447,6 +1447,8 @@ impl WinitWindowWrapper {
             macos_simple_fullscreen,
 
             #[cfg(target_os = "windows")]
+            corner_preference,
+            #[cfg(target_os = "windows")]
             title_background_color,
             #[cfg(target_os = "windows")]
             title_text_color,
@@ -1580,6 +1582,7 @@ impl WinitWindowWrapper {
 
         #[cfg(target_os = "windows")]
         {
+            window.set_corner_preference(corner_preference.into());
             if let Some(winit_color) = Self::parse_winit_color(&title_background_color) {
                 window.set_title_background_color(Some(winit_color));
             }
