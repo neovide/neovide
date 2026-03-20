@@ -2,6 +2,7 @@ use std::{iter, process::ExitStatus};
 
 use crate::{
     bridge::create_blocking_nvim_command, dimensions::Dimensions, frame::Frame, settings::*,
+    version::BUILD_VERSION,
 };
 
 use anyhow::{Context, Result};
@@ -27,7 +28,7 @@ fn get_styles() -> Styles {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[command(version = env!("NEOVIDE_BUILD_VERSION"), about, long_about = None, styles = get_styles())]
+#[command(version = BUILD_VERSION, about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
     /// Files to open (usually plainly appended to NeoVim args, except when --wsl is used)
     #[arg(
