@@ -132,6 +132,8 @@ pub enum MacShortcutCommand {
 #[derive(Clone, Debug, PartialEq)]
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
+    #[cfg(target_os = "macos")]
+    OpenFiles(Vec<String>),
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
     ConfigsChanged(Box<HotReloadConfigs>),

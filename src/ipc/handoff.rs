@@ -17,7 +17,7 @@ use winit::event_loop::EventLoopProxy;
 use crate::{
     settings::neovide_std_datapath,
     version::{BUILD_VERSION, release_channel},
-    window::EventPayload,
+    window::{EventPayload, EventTarget, UserEvent},
 };
 
 const CLIENT_IO_TIMEOUT: Duration = Duration::from_secs(2);
@@ -27,12 +27,13 @@ const LISTENER_POLL_INTERVAL: Duration = Duration::from_millis(100);
 #[serde(deny_unknown_fields)]
 pub struct HandoffRequest {
     pub version: String,
+    pub files_to_open: Vec<String>,
 }
 
 impl HandoffRequest {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { version: BUILD_VERSION.to_owned() }
+        Self { version: BUILD_VERSION.to_owned(), files_to_open: Vec::new() }
     }
 }
 
@@ -116,7 +117,7 @@ pub fn try_handoff(request: &HandoffRequest) -> HandoffResult {
     }
 }
 
-pub fn start_listener(_proxy: EventLoopProxy<EventPayload>) -> Result<ListenerGuard> {
+pub fn start_listener(proxy: EventLoopProxy<EventPayload>) -> Result<ListenerGuard> {
     let endpoint = endpoint_path();
     fs::create_dir_all(neovide_std_datapath()).with_context(|| {
         format!("failed to create instance IPC data directory {}", neovide_std_datapath().display())
@@ -157,6 +158,7 @@ pub fn start_listener(_proxy: EventLoopProxy<EventPayload>) -> Result<ListenerGu
         .context("failed to configure instance IPC listener as nonblocking")?;
 
     let shutdown = Arc::new(AtomicBool::new(false));
+    let listener_proxy = proxy.clone();
     let listener_shutdown = shutdown.clone();
     let join_handle = thread::Builder::new()
         .name("instance-ipc-listener".to_owned())
@@ -164,7 +166,7 @@ pub fn start_listener(_proxy: EventLoopProxy<EventPayload>) -> Result<ListenerGu
             while !listener_shutdown.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((stream, _)) => {
-                        if let Err(error) = handle_connection(stream) {
+                        if let Err(error) = handle_connection(stream, &listener_proxy) {
                             log::warn!("instance IPC connection failed: {error:#}");
                         }
                     }
@@ -183,7 +185,10 @@ pub fn start_listener(_proxy: EventLoopProxy<EventPayload>) -> Result<ListenerGu
     Ok(ListenerGuard { shutdown, join_handle: Some(join_handle), endpoint })
 }
 
-fn handle_connection(stream: std::os::unix::net::UnixStream) -> Result<()> {
+fn handle_connection(
+    stream: std::os::unix::net::UnixStream,
+    proxy: &EventLoopProxy<EventPayload>,
+) -> Result<()> {
     let _ = stream.set_read_timeout(Some(CLIENT_IO_TIMEOUT));
     let _ = stream.set_write_timeout(Some(CLIENT_IO_TIMEOUT));
 
@@ -191,12 +196,31 @@ fn handle_connection(stream: std::os::unix::net::UnixStream) -> Result<()> {
     let request: HandoffRequest =
         read_message(&mut reader).context("failed to decode instance IPC request")?;
 
-    let response = handle_request(request);
+    let response = handle_request(request, proxy);
     let mut writer = BufWriter::new(stream);
     write_message(&mut writer, &response).context("failed to encode instance IPC response")
 }
 
-fn handle_request(_request: HandoffRequest) -> HandoffResponse {
+fn handle_request(
+    request: HandoffRequest,
+    proxy: &EventLoopProxy<EventPayload>,
+) -> HandoffResponse {
+    if !request.files_to_open.is_empty() {
+        let payload = EventPayload {
+            payload: UserEvent::OpenFiles(request.files_to_open),
+            target: EventTarget::Focused,
+        };
+
+        if let Err(error) = proxy.send_event(payload) {
+            return HandoffResponse {
+                accepted: false,
+                error: Some(format!(
+                    "failed to forward handoff request to app event loop: {error}"
+                )),
+            };
+        }
+    }
+
     HandoffResponse { accepted: true, error: None }
 }
 
@@ -244,6 +268,7 @@ mod tests {
     fn handoff_request_new_sets_build_version() {
         let request = HandoffRequest::new();
         assert_eq!(request.version, BUILD_VERSION);
+        assert!(request.files_to_open.is_empty());
     }
 
     #[test]
