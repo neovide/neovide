@@ -639,6 +639,8 @@ impl ApplicationHandler<EventPayload> for Application {
                     if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
                         set_active_route_handler(route_id);
                     }
+
+                    self.window_wrapper.activate_and_focus_window(window_id);
                 }
 
                 for path in files {
