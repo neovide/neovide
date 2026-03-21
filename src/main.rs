@@ -255,6 +255,12 @@ fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result
             std::process::exit(cmd_line::exit_status_code(status));
         }
     }
+    #[cfg(target_os = "macos")]
+    match maybe_handoff(settings.as_ref()) {
+        HandoffOutcome::Continue => {}
+        HandoffOutcome::Exit => std::process::exit(0),
+        HandoffOutcome::Error(error) => return Err(anyhow::anyhow!(error)),
+    }
     #[cfg(not(target_os = "windows"))]
     maybe_disown(&settings);
 
@@ -266,6 +272,41 @@ fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result
     trace!("Neovide version: {}", BUILD_VERSION);
 
     Ok(config)
+}
+
+#[cfg(target_os = "macos")]
+enum HandoffOutcome {
+    Continue,
+    Exit,
+    Error(String),
+}
+
+#[cfg(target_os = "macos")]
+fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
+    let cmdline_settings = settings.get::<CmdLineSettings>();
+    if !cmdline_settings.reuse_instance
+        || cmdline_settings.server.is_some()
+        || cmdline_settings.files_to_open.is_empty()
+    {
+        return HandoffOutcome::Continue;
+    }
+
+    let request = ipc::handoff::HandoffRequest {
+        version: BUILD_VERSION.to_owned(),
+        files_to_open: cmdline_settings.files_to_open.clone(),
+        tabs: cmdline_settings.tabs,
+    };
+
+    match ipc::handoff::try_handoff(&request) {
+        ipc::handoff::HandoffResult::Accepted => HandoffOutcome::Exit,
+        ipc::handoff::HandoffResult::NoListener => HandoffOutcome::Continue,
+        ipc::handoff::HandoffResult::Rejected(error) => {
+            HandoffOutcome::Error(format!("reuse-instance request was rejected: {error}"))
+        }
+        ipc::handoff::HandoffResult::Failed(error) => {
+            HandoffOutcome::Error(format!("reuse-instance request failed: {error}"))
+        }
+    }
 }
 
 #[cfg(not(test))]

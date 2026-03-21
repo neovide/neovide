@@ -900,7 +900,10 @@ impl WinitWindowWrapper {
                             return false;
                         }
                     };
-                    send_ui(ParallelCommand::FileDrop(file_path), neovim_handler);
+                    send_ui(
+                        ParallelCommand::FileDrop { path: file_path, tabs: None },
+                        neovim_handler,
+                    );
                 }
                 WindowEvent::Focused(focus) => {
                     tracy_zone!("Focused");

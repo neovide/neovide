@@ -1747,7 +1747,7 @@ pub fn is_tab_overview_active() -> bool {
 pub fn register_file_handler() {
     fn dispatch_file_drops(filenames: &NSArray<NSString>) {
         for filename in filenames.iter() {
-            send_or_queue_file_drop(filename.to_string());
+            send_or_queue_file_drop(filename.to_string(), None);
         }
     }
 

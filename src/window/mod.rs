@@ -133,7 +133,10 @@ pub enum MacShortcutCommand {
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     #[cfg(target_os = "macos")]
-    OpenFiles(Vec<String>),
+    OpenFiles {
+        files: Vec<String>,
+        tabs: bool,
+    },
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
     ConfigsChanged(Box<HotReloadConfigs>),

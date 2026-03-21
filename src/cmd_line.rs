@@ -54,6 +54,11 @@ pub struct CmdLineSettings {
     #[arg(long, alias = "remote-tcp", env = "NEOVIDE_SERVER", value_name = "ADDRESS")]
     pub server: Option<String>,
 
+    /// Open files in an existing Neovide app instance if one is already running
+    #[cfg(target_os = "macos")]
+    #[arg(long = "reuse-instance", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
+    pub reuse_instance: bool,
+
     /// Run NeoVim in WSL rather than on the host
     #[arg(long, env = "NEOVIDE_WSL")]
     pub wsl: bool,
@@ -398,6 +403,18 @@ mod tests {
             settings.get::<CmdLineSettings>().geometry.grid,
             Some(Some(Dimensions { width: 420, height: 240 })),
         );
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_reuse_instance_flag() {
+        let settings = Settings::new();
+        let args: Vec<String> =
+            ["neovide", "--reuse-instance", "./foo.txt"].iter().map(|s| s.to_string()).collect();
+
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert!(settings.get::<CmdLineSettings>().reuse_instance);
+        assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt"]);
     }
 
     #[test]
