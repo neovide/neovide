@@ -634,7 +634,7 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles(files) => {
+            UserEvent::OpenFiles { files, tabs } => {
                 if let Some(window_id) = self.window_wrapper.get_focused_route() {
                     if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
                         set_active_route_handler(route_id);
@@ -642,7 +642,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 }
 
                 for path in files {
-                    send_or_queue_file_drop(path);
+                    send_or_queue_file_drop(path, Some(tabs));
                 }
             }
             UserEvent::NeovimExited => {
