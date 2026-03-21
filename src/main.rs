@@ -22,6 +22,8 @@ mod dimensions;
 mod editor;
 mod error_handling;
 mod frame;
+#[cfg(target_os = "macos")]
+mod ipc;
 mod platform;
 mod profiling;
 mod renderer;
@@ -29,6 +31,7 @@ mod running_tracker;
 mod settings;
 mod units;
 mod utils;
+mod version;
 mod window;
 
 #[cfg(target_os = "windows")]
@@ -62,6 +65,7 @@ use error_handling::handle_startup_errors;
 use renderer::{
     RendererSettings, cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings,
 };
+use version::BUILD_VERSION;
 use window::{
     Application, EventPayload, WindowSettings, create_event_loop, determine_grid_size,
     determine_window_size,
@@ -135,6 +139,15 @@ fn main() -> ExitCode {
         clipboard,
         clipboard_handle,
     );
+
+    #[cfg(target_os = "macos")]
+    let _handoff_listener = match ipc::handoff::start_listener(event_loop.create_proxy()) {
+        Ok(listener) => Some(listener),
+        Err(error) => {
+            log::warn!("failed to start handoff listener: {error:#}");
+            None
+        }
+    };
 
     let result = application.run(event_loop);
     match result {
@@ -250,7 +263,7 @@ fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result
     #[cfg(not(test))]
     init_logger(&settings);
 
-    trace!("Neovide version: {}", env!("NEOVIDE_BUILD_VERSION"));
+    trace!("Neovide version: {}", BUILD_VERSION);
 
     Ok(config)
 }
