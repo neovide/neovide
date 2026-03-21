@@ -17,6 +17,8 @@ use super::{
     CmdLineSettings, EventPayload, EventTarget, RouteId, WindowSettings, WindowSize,
     WinitWindowWrapper, save_window_size,
 };
+#[cfg(target_os = "macos")]
+use crate::bridge::{send_or_queue_file_drop, set_active_route_handler};
 use crate::{
     clipboard::{Clipboard, ClipboardHandle},
     profiling::{tracy_plot, tracy_zone},
@@ -631,6 +633,18 @@ impl ApplicationHandler<EventPayload> for Application {
         let EventPayload { payload, target } = event;
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
+            #[cfg(target_os = "macos")]
+            UserEvent::OpenFiles(files) => {
+                if let Some(window_id) = self.window_wrapper.get_focused_route() {
+                    if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
+                        set_active_route_handler(route_id);
+                    }
+                }
+
+                for path in files {
+                    send_or_queue_file_drop(path);
+                }
+            }
             UserEvent::NeovimExited => {
                 let route_id = self.route_id_for_target(target);
                 let Some(route_id) = route_id else {
