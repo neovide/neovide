@@ -2165,6 +2165,16 @@ impl WinitWindowWrapper {
         self.routes.keys().next().copied()
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn activate_and_focus_window(&self, window_id: WindowId) -> bool {
+        let Some(feature) = self.macos_feature_for_window(window_id) else {
+            return false;
+        };
+
+        feature.borrow().activate_and_focus();
+        true
+    }
+
     pub fn window_id_for_route(&self, route_id: RouteId) -> Option<WindowId> {
         self.routes
             .iter()
