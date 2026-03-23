@@ -71,6 +71,7 @@ pub fn resolved_cwd(chdir: Option<&str>) -> Option<String> {
     let current_dir = std::env::current_dir().ok();
 
     let cwd = match chdir {
+        Some(dir) if dir.starts_with('~') => PathBuf::from(expand_tilde(dir)),
         Some(dir) if Path::new(dir).is_absolute() => PathBuf::from(dir),
         Some(dir) => current_dir?.join(dir),
         None => current_dir?,
@@ -81,6 +82,10 @@ pub fn resolved_cwd(chdir: Option<&str>) -> Option<String> {
 
 #[cfg(target_os = "macos")]
 pub fn resolve_relative_path(path: &str, cwd: Option<&Path>) -> String {
+    if path.starts_with('~') {
+        return expand_tilde(path);
+    }
+
     if Path::new(path).is_absolute() {
         return path.to_owned();
     }
@@ -145,5 +150,64 @@ mod tilde_tests {
             None => "~//icons".into(),
         };
         assert_eq!(expanded, expected);
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod resolves_path_tests {
+    use std::path::Path;
+
+    use super::{resolve_relative_path, resolved_cwd};
+
+    #[test]
+    fn expands_tilde_chdir_to_home_directory() {
+        let resolved = resolved_cwd(Some("~/project")).unwrap();
+        let expected = match dirs::home_dir() {
+            Some(mut home) => {
+                home.push("project");
+                home.to_string_lossy().into_owned()
+            }
+            None => "~/project".into(),
+        };
+
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn resolves_relative_chdir_against_current_directory() {
+        let resolved = resolved_cwd(Some("project")).unwrap();
+        let expected = std::env::current_dir().unwrap().join("project");
+
+        assert_eq!(resolved, expected.to_string_lossy());
+    }
+
+    #[test]
+    fn expands_tilde_path_to_home_directory() {
+        let resolved = resolve_relative_path("~/project", Some(Path::new("/path/to/user")));
+        let expected = match dirs::home_dir() {
+            Some(mut home) => {
+                home.push("project");
+                home.to_string_lossy().into_owned()
+            }
+            None => "~/project".into(),
+        };
+
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn preserves_named_user_home_paths() {
+        assert_eq!(
+            resolve_relative_path("~user/project", Some(Path::new("/path/to/user"))),
+            "~user/project"
+        );
+    }
+
+    #[test]
+    fn resolves_plain_relative_path_against_cwd() {
+        assert_eq!(
+            resolve_relative_path("project", Some(Path::new("/path/to/user"))),
+            "/path/to/user/project"
+        );
     }
 }
