@@ -28,13 +28,14 @@ const LISTENER_POLL_INTERVAL: Duration = Duration::from_millis(100);
 pub struct HandoffRequest {
     pub version: String,
     pub files_to_open: Vec<String>,
+    pub cwd: Option<String>,
     pub tabs: bool,
 }
 
 impl HandoffRequest {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { version: BUILD_VERSION.to_owned(), files_to_open: Vec::new(), tabs: true }
+        Self { version: BUILD_VERSION.to_owned(), files_to_open: Vec::new(), cwd: None, tabs: true }
     }
 }
 
@@ -206,7 +207,11 @@ fn handle_request(
 ) -> HandoffResponse {
     if !request.files_to_open.is_empty() {
         let payload = EventPayload {
-            payload: UserEvent::OpenFiles { files: request.files_to_open, tabs: request.tabs },
+            payload: UserEvent::OpenFiles {
+                files: request.files_to_open,
+                cwd: request.cwd,
+                tabs: request.tabs,
+            },
             target: EventTarget::Focused,
         };
 
@@ -268,6 +273,7 @@ mod tests {
         let request = HandoffRequest::new();
         assert_eq!(request.version, BUILD_VERSION);
         assert!(request.files_to_open.is_empty());
+        assert!(request.cwd.is_none());
         assert!(request.tabs);
     }
 
