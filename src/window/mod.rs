@@ -137,6 +137,7 @@ pub enum UserEvent {
         files: Vec<String>,
         cwd: Option<String>,
         tabs: bool,
+        new_window: bool,
     },
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),

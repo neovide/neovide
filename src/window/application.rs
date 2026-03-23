@@ -241,6 +241,29 @@ impl Application {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    fn activate_focused_route(&self) {
+        let Some(window_id) = self.window_wrapper.get_focused_route() else {
+            return;
+        };
+
+        if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
+            set_active_route_handler(route_id);
+        }
+
+        self.window_wrapper.activate_and_focus_window(window_id);
+    }
+
+    #[cfg(target_os = "macos")]
+    fn prepare_open_files(&mut self, event_loop: &ActiveEventLoop, new_window: bool) {
+        if new_window {
+            self.window_wrapper.try_create_window(event_loop, &self.proxy);
+            self.mark_should_render_all();
+        }
+
+        self.activate_focused_route();
+    }
+
     fn handle_app_config_changed(&mut self, config: AppHotReloadConfigs) {
         match config {
             AppHotReloadConfigs::Idle(idle) => {
@@ -639,14 +662,8 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles { files, cwd, tabs } => {
-                if let Some(window_id) = self.window_wrapper.get_focused_route() {
-                    if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
-                        set_active_route_handler(route_id);
-                    }
-
-                    self.window_wrapper.activate_and_focus_window(window_id);
-                }
+            UserEvent::OpenFiles { files, cwd, tabs, new_window } => {
+                self.prepare_open_files(event_loop, new_window);
 
                 let cwd = cwd.as_deref().map(PathBuf::from);
                 for path in files {
