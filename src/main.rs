@@ -77,6 +77,9 @@ pub use windows_utils::*;
 
 use crate::settings::{Config, Settings, load_last_window_settings};
 
+#[cfg(target_os = "macos")]
+use crate::utils::resolved_cwd;
+
 pub use profiling::startup_profiler;
 
 #[cfg(target_os = "macos")]
@@ -294,7 +297,7 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
     let request = ipc::handoff::HandoffRequest {
         version: BUILD_VERSION.to_owned(),
         files_to_open: cmdline_settings.files_to_open.clone(),
-        cwd: std::env::current_dir().ok().map(|dir| dir.to_string_lossy().into_owned()),
+        cwd: resolved_cwd(cmd_line::argv_chdir().as_deref()),
         tabs: cmdline_settings.tabs,
     };
 

@@ -3,7 +3,7 @@ mod ring_buffer;
 mod test;
 
 #[cfg(target_os = "macos")]
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "windows")]
 use wslpath_rs::windows_to_wsl;
@@ -64,6 +64,19 @@ pub fn expand_tilde(path: &str) -> String {
     }
 
     home.to_string_lossy().into()
+}
+
+#[cfg(target_os = "macos")]
+pub fn resolved_cwd(chdir: Option<&str>) -> Option<String> {
+    let current_dir = std::env::current_dir().ok();
+
+    let cwd = match chdir {
+        Some(dir) if Path::new(dir).is_absolute() => PathBuf::from(dir),
+        Some(dir) => current_dir?.join(dir),
+        None => current_dir?,
+    };
+
+    Some(cwd.to_string_lossy().into_owned())
 }
 
 #[cfg(target_os = "macos")]

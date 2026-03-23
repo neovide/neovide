@@ -10,6 +10,8 @@ use clap::{
     ArgAction, Parser, ValueEnum,
     builder::{FalseyValueParser, Styles, styling},
 };
+#[cfg(target_os = "macos")]
+use clap::{CommandFactory, parser::ValueSource};
 use winit::window::CursorIcon;
 
 #[cfg(target_os = "windows")]
@@ -275,6 +277,15 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
 
     settings.set::<CmdLineSettings>(&cmdline);
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub fn argv_chdir() -> Option<String> {
+    let matches = CmdLineSettings::command().try_get_matches_from(std::env::args_os()).ok()?;
+
+    (matches.value_source("chdir") == Some(ValueSource::CommandLine))
+        .then(|| matches.get_one::<String>("chdir").cloned())
+        .flatten()
 }
 
 pub fn maybe_passthrough_to_neovim(
