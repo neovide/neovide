@@ -29,12 +29,19 @@ pub struct HandoffRequest {
     pub files_to_open: Vec<String>,
     pub cwd: Option<String>,
     pub tabs: bool,
+    pub new_window: bool,
 }
 
 impl HandoffRequest {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { version: BUILD_VERSION.to_owned(), files_to_open: Vec::new(), cwd: None, tabs: true }
+        Self {
+            version: BUILD_VERSION.to_owned(),
+            files_to_open: Vec::new(),
+            cwd: None,
+            tabs: true,
+            new_window: false,
+        }
     }
 }
 
@@ -204,12 +211,13 @@ fn handle_request(
     request: HandoffRequest,
     proxy: &EventLoopProxy<EventPayload>,
 ) -> HandoffResponse {
-    if !request.files_to_open.is_empty() {
+    if request.new_window || !request.files_to_open.is_empty() {
         let payload = EventPayload {
             payload: UserEvent::OpenFiles {
                 files: request.files_to_open,
                 cwd: request.cwd,
                 tabs: request.tabs,
+                new_window: request.new_window,
             },
             target: EventTarget::Focused,
         };
@@ -274,11 +282,18 @@ mod tests {
         assert!(request.files_to_open.is_empty());
         assert!(request.cwd.is_none());
         assert!(request.tabs);
+        assert!(!request.new_window);
     }
 
     #[test]
     fn json_line_roundtrip_preserves_request() {
-        let request = HandoffRequest::new();
+        let request = HandoffRequest {
+            files_to_open: vec!["~/project".into()],
+            cwd: Some("/path/to/user".into()),
+            tabs: false,
+            new_window: true,
+            ..HandoffRequest::new()
+        };
 
         let mut encoded = Vec::new();
         write_message(&mut encoded, &request).unwrap();

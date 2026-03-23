@@ -289,7 +289,7 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
     let cmdline_settings = settings.get::<CmdLineSettings>();
     if !cmdline_settings.reuse_instance
         || cmdline_settings.server.is_some()
-        || cmdline_settings.files_to_open.is_empty()
+        || (cmdline_settings.files_to_open.is_empty() && !cmdline_settings.new_window)
     {
         return HandoffOutcome::Continue;
     }
@@ -299,6 +299,7 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
         files_to_open: cmdline_settings.files_to_open.clone(),
         cwd: resolved_cwd(cmd_line::argv_chdir().as_deref()),
         tabs: cmdline_settings.tabs,
+        new_window: cmdline_settings.new_window,
     };
 
     match ipc::handoff::try_handoff(&request) {

@@ -61,6 +61,11 @@ pub struct CmdLineSettings {
     #[arg(long = "reuse-instance", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
     pub reuse_instance: bool,
 
+    /// Open files in a new window when reusing an existing Neovide instance
+    #[cfg(target_os = "macos")]
+    #[arg(long = "new-window", requires = "reuse_instance", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
+    pub new_window: bool,
+
     /// Run NeoVim in WSL rather than on the host
     #[arg(long, env = "NEOVIDE_WSL")]
     pub wsl: bool,
@@ -426,6 +431,31 @@ mod tests {
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().reuse_instance);
         assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt"]);
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_new_window_flag() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide", "--reuse-instance", "--new-window", "./foo.txt"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert!(settings.get::<CmdLineSettings>().reuse_instance);
+        assert!(settings.get::<CmdLineSettings>().new_window);
+        assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt"]);
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_new_window_requires_reuse_instance() {
+        let settings = Settings::new();
+        let args: Vec<String> =
+            ["neovide", "--new-window", "./foo.txt"].iter().map(|s| s.to_string()).collect();
+
+        assert!(handle_command_line_arguments(args, &settings).is_err());
     }
 
     #[test]
