@@ -294,6 +294,7 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
     let request = ipc::handoff::HandoffRequest {
         version: BUILD_VERSION.to_owned(),
         files_to_open: cmdline_settings.files_to_open.clone(),
+        cwd: std::env::current_dir().ok().map(|dir| dir.to_string_lossy().into_owned()),
         tabs: cmdline_settings.tabs,
     };
 

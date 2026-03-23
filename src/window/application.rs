@@ -3,6 +3,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(target_os = "macos")]
+use {
+    crate::bridge::{send_or_queue_file_drop, set_active_route_handler},
+    crate::utils::resolve_relative_path,
+    std::path::PathBuf,
+};
+
 use glamour::Size2;
 use rustc_hash::FxHashMap;
 use winit::{
@@ -17,8 +24,6 @@ use super::{
     CmdLineSettings, EventPayload, EventTarget, RouteId, WindowSettings, WindowSize,
     WinitWindowWrapper, save_window_size,
 };
-#[cfg(target_os = "macos")]
-use crate::bridge::{send_or_queue_file_drop, set_active_route_handler};
 use crate::{
     clipboard::{Clipboard, ClipboardHandle},
     profiling::{tracy_plot, tracy_zone},
@@ -634,7 +639,7 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles { files, tabs } => {
+            UserEvent::OpenFiles { files, cwd, tabs } => {
                 if let Some(window_id) = self.window_wrapper.get_focused_route() {
                     if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
                         set_active_route_handler(route_id);
@@ -643,7 +648,9 @@ impl ApplicationHandler<EventPayload> for Application {
                     self.window_wrapper.activate_and_focus_window(window_id);
                 }
 
+                let cwd = cwd.as_deref().map(PathBuf::from);
                 for path in files {
+                    let path = resolve_relative_path(&path, cwd.as_deref());
                     send_or_queue_file_drop(path, Some(tabs));
                 }
             }

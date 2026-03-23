@@ -135,6 +135,7 @@ pub enum UserEvent {
     #[cfg(target_os = "macos")]
     OpenFiles {
         files: Vec<String>,
+        cwd: Option<String>,
         tabs: bool,
     },
     WindowCommand(WindowCommand),
