@@ -24,7 +24,6 @@ const CLIENT_IO_TIMEOUT: Duration = Duration::from_secs(2);
 const LISTENER_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct HandoffRequest {
     pub version: String,
     pub files_to_open: Vec<String>,
