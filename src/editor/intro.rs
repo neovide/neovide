@@ -177,7 +177,7 @@ fn is_intro_header(text: &str) -> bool {
 }
 
 fn is_neovim_intro_final_line_text(text: &str) -> bool {
-    text.trim() == INTRO_FINAL_LINE
+    text.split_whitespace().eq(INTRO_FINAL_LINE.split_whitespace())
 }
 
 fn classify_intro_line_start(cells: &[GridLineCell]) -> IntroLineKind {
