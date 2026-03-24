@@ -1,4 +1,10 @@
-use std::{cell::RefCell, fmt, rc::Rc, sync::Arc};
+use std::{
+    cell::RefCell,
+    fmt,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::Arc,
+};
 
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -122,6 +128,7 @@ impl fmt::Debug for RouteWindow {
 pub struct Route {
     pub route_id: RouteId,
     pub window: RouteWindow,
+    cwd: Option<PathBuf>,
     pub pending_initial_window_size: Option<WindowSize>,
     state: RouteState,
 }
@@ -168,6 +175,7 @@ struct RouteCore {
     route_id: RouteId,
     renderer: Rc<RefCell<Box<Renderer>>>,
     neovim_handler: NeovimHandler,
+    cwd: Option<PathBuf>,
     title: String,
     mouse_enabled: bool,
     pending_initial_window_size: Option<WindowSize>,
@@ -273,6 +281,7 @@ impl WinitWindowWrapper {
                 self.runtime_tracker.clone(),
                 self.settings.clone(),
                 &config,
+                None,
             )
             .expect("Failed to launch neovim runtime");
 
@@ -282,6 +291,7 @@ impl WinitWindowWrapper {
                 route_id,
                 renderer,
                 neovim_handler,
+                cwd: None,
                 title: String::from("Neovide"),
                 mouse_enabled: true,
                 pending_initial_window_size,
@@ -1379,6 +1389,7 @@ impl WinitWindowWrapper {
         &mut self,
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<EventPayload>,
+        cwd: Option<&Path>,
     ) {
         let creating_initial_window = self.routes.is_empty();
         let route_id = if creating_initial_window {
@@ -1458,7 +1469,7 @@ impl WinitWindowWrapper {
             ..
         } = self.settings.get::<WindowSettings>();
 
-        let (renderer, neovim_handler, route_pending_initial_window_size) =
+        let (renderer, neovim_handler, route_pending_initial_window_size, route_cwd) =
             if creating_initial_window {
                 let Some(route_core) = self.route_cores.remove(&route_id) else {
                     log::warn!("Missing pending route core for initial route {route_id:?}");
@@ -1475,6 +1486,7 @@ impl WinitWindowWrapper {
                     route_core.renderer,
                     route_core.neovim_handler,
                     route_core.pending_initial_window_size,
+                    route_core.cwd,
                 )
             } else {
                 let config = Config::init();
@@ -1494,10 +1506,11 @@ impl WinitWindowWrapper {
                         self.runtime_tracker.clone(),
                         self.settings.clone(),
                         &config,
+                        cwd,
                     )
                     .expect("Failed to launch neovim runtime");
 
-                (renderer, neovim_handler, None)
+                (renderer, neovim_handler, None, cwd.map(Path::to_path_buf))
             };
 
         window.set_ime_allowed(input_ime);
@@ -1677,6 +1690,7 @@ impl WinitWindowWrapper {
                 last_applied_window_size: saved_inner_size,
                 last_synced_grid_size: route_last_synced_grid_size,
             },
+            cwd: route_cwd,
             pending_initial_window_size,
             state,
         };
@@ -1836,6 +1850,7 @@ impl WinitWindowWrapper {
         proxy: &EventLoopProxy<EventPayload>,
     ) -> Result<(), ()> {
         let handler = self.neovim_handler_for_route(route_id).ok_or(())?;
+        let cwd = self.route_cwd(route_id);
         let runtime = self.runtime.as_mut().ok_or(())?;
 
         runtime
@@ -1846,10 +1861,19 @@ impl WinitWindowWrapper {
                 restart.grid_size,
                 self.settings.clone(),
                 restart.details,
+                cwd.as_deref(),
             )
             .map_err(|error| {
                 log::error!("Failed to restart Neovim: {error:?}");
             })
+    }
+
+    fn route_cwd(&self, route_id: RouteId) -> Option<PathBuf> {
+        if let Some(window_id) = self.window_id_for_route(route_id) {
+            return self.routes.get(&window_id).and_then(|route| route.cwd.clone());
+        }
+
+        self.route_cores.get(&route_id).and_then(|route_core| route_core.cwd.clone())
     }
 
     pub fn handle_neovim_exit(

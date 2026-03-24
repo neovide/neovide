@@ -7,7 +7,7 @@ use std::{
 use {
     crate::bridge::{send_or_queue_file_drop, set_active_route_handler},
     crate::utils::resolve_relative_path,
-    std::path::PathBuf,
+    std::path::Path,
 };
 
 use glamour::Size2;
@@ -255,10 +255,16 @@ impl Application {
     }
 
     #[cfg(target_os = "macos")]
-    fn prepare_open_files(&mut self, event_loop: &ActiveEventLoop, new_window: bool) {
+    fn prepare_open_files(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        new_window: bool,
+        cwd: Option<&Path>,
+    ) {
         if new_window {
-            self.window_wrapper.try_create_window(event_loop, &self.proxy);
+            self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd);
             self.mark_should_render_all();
+            return;
         }
 
         self.activate_focused_route();
@@ -354,7 +360,7 @@ impl Application {
         #[cfg(feature = "profiling")]
         self.aggregate_should_render().plot_tracy();
         if self.create_window_allowed && self.window_wrapper.has_pending_window_creation() {
-            self.window_wrapper.try_create_window(event_loop, &self.proxy);
+            self.window_wrapper.try_create_window(event_loop, &self.proxy, None);
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
@@ -662,12 +668,13 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles { files, cwd, tabs, new_window } => {
-                self.prepare_open_files(event_loop, new_window);
+            UserEvent::OpenFiles { files, cwd, caller_cwd, tabs, new_window } => {
+                let cwd = cwd.as_deref().map(Path::new);
+                let caller_cwd = caller_cwd.as_deref().map(Path::new);
+                self.prepare_open_files(event_loop, new_window, cwd);
 
-                let cwd = cwd.as_deref().map(PathBuf::from);
                 for path in files {
-                    let path = resolve_relative_path(&path, cwd.as_deref());
+                    let path = resolve_relative_path(&path, caller_cwd);
                     send_or_queue_file_drop(path, Some(tabs));
                 }
             }
@@ -760,7 +767,7 @@ impl ApplicationHandler<EventPayload> for Application {
             }
             #[cfg(target_os = "macos")]
             UserEvent::CreateWindow => {
-                self.window_wrapper.try_create_window(event_loop, &self.proxy);
+                self.window_wrapper.try_create_window(event_loop, &self.proxy, None);
                 self.sync_render_states();
                 self.mark_should_render_all();
             }

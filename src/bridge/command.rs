@@ -1,5 +1,7 @@
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use tokio::process::Command as TokioCommand;
 
@@ -35,17 +37,19 @@ impl CommandSpec {
     }
 }
 
-pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
+pub fn create_restart_nvim_command(
+    settings: &Settings,
+    details: &RestartDetails,
+    cwd: Option<&Path>,
+) -> TokioCommand {
     let cmdline_settings = settings.get::<CmdLineSettings>();
-    create_tokio_nvim_command(&cmdline_settings, true)
-}
-
-pub fn create_restart_nvim_command(settings: &Settings, details: &RestartDetails) -> TokioCommand {
-    let settings = settings.get::<CmdLineSettings>();
-    let spec = create_restart_command_spec(details, &settings);
+    let spec = create_restart_command_spec(details, &cmdline_settings);
 
     #[allow(unused_mut)]
     let mut cmd = tokio_command_from_spec(spec);
+    if let Some(dir) = command_cwd(&cmdline_settings, cwd) {
+        cmd.current_dir(dir);
+    }
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
@@ -57,20 +61,28 @@ pub fn create_blocking_nvim_command(cmdline_settings: &CmdLineSettings, embed: b
     let (bin, args) = build_nvim_command_parts(cmdline_settings, embed);
     let spec = create_command_spec(&bin, &args, cmdline_settings);
     let mut cmd = std_command_from_spec(spec);
-    if let Some(dir) = &cmdline_settings.chdir {
+    if let Some(dir) = command_cwd(cmdline_settings, None) {
         cmd.current_dir(dir);
     }
     cmd
 }
 
-fn create_tokio_nvim_command(cmdline_settings: &CmdLineSettings, embed: bool) -> TokioCommand {
+pub fn create_tokio_nvim_command(
+    cmdline_settings: &CmdLineSettings,
+    embed: bool,
+    cwd: Option<&Path>,
+) -> TokioCommand {
     let (bin, args) = build_nvim_command_parts(cmdline_settings, embed);
     let spec = create_command_spec(&bin, &args, cmdline_settings);
     let mut cmd = tokio_command_from_spec(spec);
-    if let Some(dir) = &cmdline_settings.chdir {
+    if let Some(dir) = command_cwd(cmdline_settings, cwd) {
         cmd.current_dir(dir);
     }
     cmd
+}
+
+fn command_cwd(settings: &CmdLineSettings, cwd: Option<&Path>) -> Option<PathBuf> {
+    cwd.map(Path::to_path_buf).or_else(|| settings.chdir.as_deref().map(PathBuf::from))
 }
 
 fn build_nvim_command_parts(
@@ -260,6 +272,8 @@ fn create_command_spec(
 
 #[cfg(test)]
 mod tests {
+    use std::path::{Path, PathBuf};
+
     use crate::cmd_line::handle_command_line_arguments;
 
     use super::*;
@@ -269,6 +283,13 @@ mod tests {
         let args = args.iter().map(|arg| arg.to_string()).collect();
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
         settings.get::<CmdLineSettings>()
+    }
+
+    fn parse_settings(args: &[&str]) -> Settings {
+        let settings = Settings::new();
+        let args = args.iter().map(|arg| arg.to_string()).collect();
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        settings
     }
 
     #[test]
@@ -347,5 +368,49 @@ mod tests {
 
         assert_eq!(program, "nvim");
         assert_eq!(args, vec!["--embed", "-p", "foo.txt"]);
+    }
+
+    #[test]
+    fn command_cwd_prefers_override() {
+        let cmdline_settings = parse_cmdline_settings(&["neovide", "--chdir", "/random/path"]);
+
+        assert_eq!(
+            command_cwd(&cmdline_settings, Some(Path::new("/route/cwd"))),
+            Some(PathBuf::from("/route/cwd"))
+        );
+    }
+
+    #[test]
+    fn command_cwd_falls_back_to_cmdline_setting() {
+        let cmdline_settings = parse_cmdline_settings(&["neovide", "--chdir", "/random/path"]);
+
+        assert_eq!(command_cwd(&cmdline_settings, None), Some(PathBuf::from("/random/path")));
+    }
+
+    #[test]
+    fn create_restart_nvim_command_prefers_route_cwd() {
+        let settings = parse_settings(&["neovide", "--chdir", "/cmdline/cwd"]);
+        let restart_details = RestartDetails {
+            progpath: "nvim".to_string(),
+            argv: vec!["nvim".to_string(), "--clean".to_string()],
+        };
+
+        let command =
+            create_restart_nvim_command(&settings, &restart_details, Some(Path::new("/route/cwd")));
+
+        assert_eq!(command.as_std().get_current_dir(), Some(Path::new("/route/cwd")));
+    }
+
+    #[test]
+    fn create_restart_nvim_command_falls_back_to_cmdline_cwd() {
+        let settings = parse_settings(&["neovide", "--chdir", "/cmdline/cwd"]);
+        let restart_details = RestartDetails {
+            progpath: "nvim".to_string(),
+            argv: vec!["nvim".to_string(), "--clean".to_string()],
+        };
+
+        let command = create_restart_nvim_command(&settings, &restart_details, None);
+
+        assert_eq!(command.as_std().get_current_dir(), Some(Path::new("/cmdline/cwd")));
     }
 }

@@ -298,6 +298,7 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
         version: BUILD_VERSION.to_owned(),
         files_to_open: cmdline_settings.files_to_open.clone(),
         cwd: resolved_cwd(cmd_line::argv_chdir().as_deref()),
+        caller_cwd: resolved_cwd(None),
         tabs: cmdline_settings.tabs,
         new_window: cmdline_settings.new_window,
     };
