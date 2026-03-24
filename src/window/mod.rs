@@ -136,6 +136,7 @@ pub enum UserEvent {
     OpenFiles {
         files: Vec<String>,
         cwd: Option<String>,
+        caller_cwd: Option<String>,
         tabs: bool,
         new_window: bool,
     },
