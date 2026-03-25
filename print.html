@@ -1505,6 +1505,20 @@ for more details.</p>
 tabs to avoid confusing new users. <code>--no-tabs</code> disables this behavior.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
+<h3 id="reuse-existing-instance-macos-only"><a class="header" href="#reuse-existing-instance-macos-only">Reuse Existing Instance (macOS Only)</a></h3>
+<pre><code class="language-sh">--reuse-instance
+</code></pre>
+<p><strong>Nightly.</strong></p>
+<p>If another Neovide instance is already running, it forwards the file-open request to that
+instance instead of starting a second app process.</p>
+<p>If no handoff listener is running, it falls back to normal startup and opens a fresh instance.</p>
+<p>This handoff path is skipped when <code>--server</code> is set, so <code>--reuse-instance --server &lt;address&gt;</code>
+connects using the normal server flow instead of reusing an existing neovide instance.</p>
+<p>When the request is forwarded, <code>--tabs</code> and <code>--no-tabs</code> still apply to the files being opened in
+the reused instance.</p>
+<p>If <code>--chdir &lt;path&gt;</code> is also set, the reused instance receives that path as the target working
+directory for the request. Relative file paths are still resolved from the caller's current working
+directory before they are forwarded.</p>
 <h3 id="macos-native-tabs"><a class="header" href="#macos-native-tabs">macOS Native Tabs</a></h3>
 <pre><code class="language-sh">--no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
 </code></pre>
