@@ -234,6 +234,25 @@ If `--chdir <path>` is also set, the reused instance receives that path as the t
 directory for the request. Relative file paths are still resolved from the caller's current working
 directory before they are forwarded.
 
+### New Window (macOS Only)
+
+```sh
+--new-window
+```
+
+**Nightly.**
+
+Requires `--reuse-instance`
+
+When used together with `--reuse-instance`, Neovide asks the running instance to create a new OS
+window before opening the requested files.
+
+If no handoff listener is running, Neovide falls back to normal startup. In that case,
+`--new-window` has no separate effect beyond the normal launch.
+
+`--tabs`, `--no-tabs` and `--chdir <path>` still apply to the forwarded request in the same way
+as with `--reuse-instance` works.
+
 ### macOS Native Tabs
 
 ```sh
