@@ -288,6 +288,17 @@ the reused instance.</p>
 <p>If <code>--chdir &lt;path&gt;</code> is also set, the reused instance receives that path as the target working
 directory for the request. Relative file paths are still resolved from the caller's current working
 directory before they are forwarded.</p>
+<h3 id="new-window-macos-only"><a class="header" href="#new-window-macos-only">New Window (macOS Only)</a></h3>
+<pre><code class="language-sh">--new-window
+</code></pre>
+<p><strong>Nightly.</strong></p>
+<p>Requires <code>--reuse-instance</code></p>
+<p>When used together with <code>--reuse-instance</code>, Neovide asks the running instance to create a new OS
+window before opening the requested files.</p>
+<p>If no handoff listener is running, Neovide falls back to normal startup. In that case,
+<code>--new-window</code> has no separate effect beyond the normal launch.</p>
+<p><code>--tabs</code>, <code>--no-tabs</code> and <code>--chdir &lt;path&gt;</code> still apply to the forwarded request in the same way
+as with <code>--reuse-instance</code> works.</p>
 <h3 id="macos-native-tabs"><a class="header" href="#macos-native-tabs">macOS Native Tabs</a></h3>
 <pre><code class="language-sh">--no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
 </code></pre>
