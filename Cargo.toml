@@ -87,7 +87,7 @@ winit = { version = "=0.30.13", features = ["serde"] }
 regex = "1.11.1"
 strum = { version = "0.27.2", features = ["derive"] }
 swash = { version = "0.2.1", default-features = false, features = ["std"] }
-time = { version = "0.3.37", features = ["macros", "formatting"] }
+time = { version = "0.3.47", features = ["macros", "formatting"] }
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-util = { version = "0.7.18", features = ["compat"] }
 toml = "0.9.5"
