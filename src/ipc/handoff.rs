@@ -79,6 +79,7 @@ impl Drop for ListenerGuard {
 #[serde(deny_unknown_fields)]
 struct HandoffResponse {
     accepted: bool,
+    version: String,
     error: Option<String>,
 }
 
@@ -228,6 +229,7 @@ fn handle_request(
         if let Err(error) = proxy.send_event(payload) {
             return HandoffResponse {
                 accepted: false,
+                version: BUILD_VERSION.to_owned(),
                 error: Some(format!(
                     "failed to forward handoff request to app event loop: {error}"
                 )),
@@ -235,7 +237,7 @@ fn handle_request(
         }
     }
 
-    HandoffResponse { accepted: true, error: None }
+    HandoffResponse { accepted: true, version: BUILD_VERSION.to_owned(), error: None }
 }
 
 fn endpoint_path() -> std::path::PathBuf {
@@ -274,7 +276,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{HandoffRequest, read_message, write_message};
+    use super::{HandoffRequest, HandoffResponse, read_message, write_message};
     use crate::version::BUILD_VERSION;
     use std::io::Cursor;
 
@@ -307,5 +309,19 @@ mod tests {
         let decoded: HandoffRequest = read_message(&mut cursor).unwrap();
 
         assert_eq!(decoded, request);
+    }
+
+    #[test]
+    fn json_line_roundtrip_preserves_response() {
+        let response =
+            HandoffResponse { accepted: true, version: BUILD_VERSION.to_owned(), error: None };
+
+        let mut encoded = Vec::new();
+        write_message(&mut encoded, &response).unwrap();
+
+        let mut cursor = Cursor::new(encoded);
+        let decoded: HandoffResponse = read_message(&mut cursor).unwrap();
+
+        assert_eq!(decoded, response);
     }
 }
