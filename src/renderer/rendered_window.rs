@@ -153,7 +153,18 @@ impl RenderedWindow {
         // characters.
         let fract = (self.grid_destination * grid_scale).fract();
         let pos = (self.grid_current_position * grid_scale - fract).round() + fract.to_vector();
-        PixelRect::<f32>::from_origin_and_size(pos.into(), self.grid_size * grid_scale)
+        PixelRect::<f32>::from_origin_and_size(pos.into(), self.grid_size() * grid_scale)
+    }
+
+    fn grid_size(&self) -> GridSize<u32> {
+        let mut size = self.grid_size;
+        if matches!(self.window_type, WindowType::Message { .. }) {
+            // Neovim reports message grids with the full default-grid height even
+            // when they are anchored near the bottom. Only the rows from the
+            // message start row down to the bottom edge are actually visible.
+            size.height = size.height.saturating_sub(self.grid_destination.y.max(0.0) as u32);
+        }
+        size
     }
 
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
@@ -163,13 +174,7 @@ impl RenderedWindow {
             None => destination,
             Some(AnchorInfo { anchor_type: WindowAnchor::Absolute, .. }) => destination,
             _ => {
-                let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
-
-                if matches!(self.window_type, WindowType::Message { .. }) {
-                    // The message grid size is always the full window size, so use the relative position to
-                    // calculate the actual grid size
-                    grid_size.height -= self.grid_destination.y;
-                }
+                let grid_size: GridSize<f32> = self.grid_size().try_cast().unwrap();
                 // If a floating window is partially outside the grid, then move it in from the right, but
                 // ensure that the left edge is always visible.
                 let x = destination.x.min(grid_rect.max.x - grid_size.width).max(grid_rect.min.x);
