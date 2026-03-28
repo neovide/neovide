@@ -277,7 +277,19 @@ async fn create_neovim_session(
 async fn run(route_id: RouteId, session: NeovimSession, proxy: EventLoopProxy<EventPayload>) {
     let mut session = session;
 
-    if let Some(process) = session.neovim_process.as_mut() {
+    // On Windows, neovim_process is std::process::Child rather than tokio::process::Child,
+    // because tokio's build_child() is skipped to use NamedPipeServer instead.
+    // Need to wrap the std Child's blocking wait() for use with tokio select
+    #[cfg(target_os = "windows")]
+    let future = session
+        .neovim_process
+        .take()
+        .map(|mut child| tokio::task::spawn_blocking(move || child.wait()));
+
+    #[cfg(not(target_os = "windows"))]
+    let future = session.neovim_process.take().map(|mut child| async move { child.wait().await });
+
+    if let Some(future) = future {
         // We primarily wait for the stdio to finish, but due to bugs,
         // for example, this one in in Neovim 0.9.5
         // https://github.com/neovim/neovim/issues/26743
@@ -286,7 +298,7 @@ async fn run(route_id: RouteId, session: NeovimSession, proxy: EventLoopProxy<Ev
         // data.
         select! {
             _ = &mut session.io_handle => {}
-            _ = process.wait() => {
+            _ = future => {
                 // Wait a little bit more if we detect that Neovim exits before the stream, to
                 // allow us to finish reading from it.
                 log::info!("The Neovim process quit before the IO stream, waiting for a half second");
