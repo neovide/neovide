@@ -299,18 +299,18 @@ window before opening the requested files.</p>
 <code>--new-window</code> has no separate effect beyond the normal launch.</p>
 <p><code>--tabs</code>, <code>--no-tabs</code> and <code>--chdir &lt;path&gt;</code> still apply to the forwarded request in the same way
 as with <code>--reuse-instance</code> works.</p>
-<h3 id="macos-native-tabs"><a class="header" href="#macos-native-tabs">macOS Native Tabs</a></h3>
-<pre><code class="language-sh">--no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
+<h3 id="system-native-tabs"><a class="header" href="#system-native-tabs">System Native Tabs</a></h3>
+<pre><code class="language-sh">--no-system-native-tabs, --system-native-tabs or $NEOVIDE_SYSTEM_NATIVE_TABS=0|1
 </code></pre>
 <p>Neovide merges macOS windows into a single host window automatically and hides the native tab bar by
 default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
 shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
 and the Editors menu entry.</p>
-<h3 id="macos-tab-navigation"><a class="header" href="#macos-tab-navigation">macOS Tab Navigation</a></h3>
-<pre><code class="language-sh">--macos-tab-prev-hotkey &lt;combo&gt; or $NEOVIDE_MACOS_TAB_PREV_HOTKEY
---macos-tab-next-hotkey &lt;combo&gt; or $NEOVIDE_MACOS_TAB_NEXT_HOTKEY
+<h3 id="system-tab-navigation"><a class="header" href="#system-tab-navigation">System Tab Navigation</a></h3>
+<pre><code class="language-sh">--system-tab-prev-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_TAB_PREV_HOTKEY
+--system-tab-next-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY
 </code></pre>
-<p>When <code>macos-native-tabs</code> is enabled, these shortcuts let you remap the in-app tab cycling keys
+<p>When <code>system-native-tabs</code> is enabled, these shortcuts let you remap the in-app tab cycling keys
 (defaults: <code>cmd+shift+[</code> / <code>cmd+shift+]</code>). Set them to <code>false</code> or leave empty to
 pass the keypress through to Neovim instead.</p>
 <h3 id="opengl-renderer"><a class="header" href="#opengl-renderer">OpenGL Renderer</a></h3>
