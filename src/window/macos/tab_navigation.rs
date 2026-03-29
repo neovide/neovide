@@ -22,8 +22,8 @@ impl TabNavigationHotkeys {
     pub(crate) fn new(settings: &Settings) -> Self {
         let cmdline = settings.get::<CmdLineSettings>();
         Self {
-            next: KeyCombo::parse(&cmdline.macos_tab_next_hotkey),
-            prev: KeyCombo::parse(&cmdline.macos_tab_prev_hotkey),
+            next: KeyCombo::parse(&cmdline.system_tab_next_hotkey),
+            prev: KeyCombo::parse(&cmdline.system_tab_prev_hotkey),
         }
     }
 

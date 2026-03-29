@@ -1001,7 +1001,7 @@ impl WinitWindowWrapper {
 
     #[cfg(target_os = "macos")]
     fn sync_native_tabs_resize(&mut self, source_window_id: WindowId) {
-        if !native_tab_bar_enabled() || !self.settings.get::<CmdLineSettings>().macos_native_tabs {
+        if !native_tab_bar_enabled() || !self.settings.get::<CmdLineSettings>().system_native_tabs {
             return;
         }
 
@@ -1016,7 +1016,7 @@ impl WinitWindowWrapper {
         let shared_inner_size = source_route.window.winit_window.inner_size();
         let window_ids: Vec<WindowId> = self.routes.keys().copied().collect();
 
-        // macOS native tabs share one visual surface. Keep all routes in sync so
+        // System native tabs share one visual surface. Keep all routes in sync so
         // fullscreen transitions trigger immediate grid updates for every tab.
         for window_id in window_ids {
             if let Some(route) = self.routes.get_mut(&window_id) {
@@ -1249,7 +1249,7 @@ impl WinitWindowWrapper {
 
         if is_active {
             let uses_native_tabs = native_tab_bar_enabled()
-                && self.settings.get::<CmdLineSettings>().macos_native_tabs;
+                && self.settings.get::<CmdLineSettings>().system_native_tabs;
 
             if uses_native_tabs {
                 hide_application();

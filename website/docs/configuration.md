@@ -915,7 +915,7 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
 single host window.
 
-Set `macos-native-tabs = true` to merge windows into a tab group. The native tab bar stays hidden
+Set `system-native-tabs = true` to merge windows into a tab group. The native tab bar stays hidden
 until more than one tab exists to keep a clean single-window look.
 
 Use Window > New Window (cmd+n) or the Dock menu to open another Neovide window. If native tabs
@@ -933,14 +933,14 @@ Neovide registers system-wide shortcuts on macOS:
   to the front.
 - **Editors** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
   you can pick another Neovide window. This shortcut is only available when
-  `macos-native-tabs = true` and if only one window exists, it behaves the same as the pinned
+  `system-native-tabs = true` and if only one window exists, it behaves the same as the pinned
   shortcut.
 
 Customize them by setting the environment variables:
 
 ```bash
-launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY "ctrl+shift+z"
-launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY "ctrl+shift+n"
+launchctl setenv NEOVIDE_SYSTEM_PINNED_HOTKEY "ctrl+shift+z"
+launchctl setenv NEOVIDE_SYSTEM_SWITCHER_HOTKEY "ctrl+shift+n"
 ```
 
 Use `cmd`, `ctrl`, `alt`, and `shift` for modifiers and a single character for the key.
@@ -953,15 +953,15 @@ system. Check the Neovide log for warnings.
 You can also configure them inside `config.toml`:
 
 ```toml
-macos-pinned-hotkey = "ctrl+shift+z"
-macos-switcher-hotkey = "ctrl+shift+n"
+system-pinned-hotkey = "ctrl+shift+z"
+system-switcher-hotkey = "ctrl+shift+n"
 ```
 
-When `macos-native-tabs` is enabled, you can also customize the in-app tab navigation shortcuts:
+When `system-native-tabs` is enabled, you can also customize the in-app tab navigation shortcuts:
 
 ```toml
-macos-tab-prev-hotkey = "cmd+shift+["
-macos-tab-next-hotkey = "cmd+shift+]"
+system-tab-prev-hotkey = "cmd+shift+["
+system-tab-next-hotkey = "cmd+shift+]"
 ```
 
 These work only while Neovide is focused so the keypress never reaches Neovim, mirroring the native

@@ -354,7 +354,7 @@ impl MacosWindowFeature {
         let window_settings = settings.get::<WindowSettings>();
         let simple_fullscreen = window_settings.macos_simple_fullscreen;
         let enable_native_tabs = frame != Frame::None && !simple_fullscreen;
-        let show_native_tabs = cmd_line_settings.macos_native_tabs && enable_native_tabs;
+        let show_native_tabs = cmd_line_settings.system_native_tabs && enable_native_tabs;
         ENABLE_NATIVE_TAB_BAR.store(enable_native_tabs, Ordering::Relaxed);
         SHOW_NATIVE_TAB_BAR.store(show_native_tabs, Ordering::Relaxed);
 

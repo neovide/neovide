@@ -253,10 +253,10 @@ If no handoff listener is running, Neovide falls back to normal startup. In that
 `--tabs`, `--no-tabs` and `--chdir <path>` still apply to the forwarded request in the same way
 as with `--reuse-instance` works.
 
-### macOS Native Tabs
+### System Native Tabs
 
 ```sh
---no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
+--no-system-native-tabs, --system-native-tabs or $NEOVIDE_SYSTEM_NATIVE_TABS=0|1
 ```
 
 Neovide merges macOS windows into a single host window automatically and hides the native tab bar by
@@ -264,14 +264,14 @@ default to mimic a standalone window. Enable this option to keep the tab bar vis
 shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
 and the Editors menu entry.
 
-### macOS Tab Navigation
+### System Tab Navigation
 
 ```sh
---macos-tab-prev-hotkey <combo> or $NEOVIDE_MACOS_TAB_PREV_HOTKEY
---macos-tab-next-hotkey <combo> or $NEOVIDE_MACOS_TAB_NEXT_HOTKEY
+--system-tab-prev-hotkey <combo> or $NEOVIDE_SYSTEM_TAB_PREV_HOTKEY
+--system-tab-next-hotkey <combo> or $NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY
 ```
 
-When `macos-native-tabs` is enabled, these shortcuts let you remap the in-app tab cycling keys
+When `system-native-tabs` is enabled, these shortcuts let you remap the in-app tab cycling keys
 (defaults: `cmd+shift+[` / `cmd+shift+]`). Set them to `false` or leave empty to
 pass the keypress through to Neovim instead.
 
