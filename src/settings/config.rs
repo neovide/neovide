@@ -61,16 +61,16 @@ pub struct Config {
     pub no_multigrid: Option<bool>,
     pub srgb: Option<bool>,
     pub tabs: Option<bool>,
-    pub macos_native_tabs: Option<bool>,
+    pub system_native_tabs: Option<bool>,
     pub mouse_cursor_icon: Option<String>,
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
     pub backtraces_path: Option<PathBuf>,
-    pub macos_pinned_hotkey: Option<String>,
-    pub macos_switcher_hotkey: Option<String>,
-    pub macos_tab_prev_hotkey: Option<String>,
-    pub macos_tab_next_hotkey: Option<String>,
+    pub system_pinned_hotkey: Option<String>,
+    pub system_switcher_hotkey: Option<String>,
+    pub system_tab_prev_hotkey: Option<String>,
+    pub system_tab_next_hotkey: Option<String>,
     pub icon: Option<String>,
     pub chdir: Option<PathBuf>,
     pub opengl: Option<bool>,
@@ -170,20 +170,20 @@ impl Config {
         if let Some(tabs) = &self.tabs {
             env::set_var("NEOVIDE_TABS", tabs.to_string());
         }
-        if let Some(macos_native_tabs) = &self.macos_native_tabs {
-            env::set_var("NEOVIDE_MACOS_NATIVE_TABS", macos_native_tabs.to_string());
+        if let Some(system_native_tabs) = &self.system_native_tabs {
+            env::set_var("NEOVIDE_SYSTEM_NATIVE_TABS", system_native_tabs.to_string());
         }
-        if let Some(pinned_hotkey) = &self.macos_pinned_hotkey {
-            env::set_var("NEOVIDE_MACOS_PINNED_HOTKEY", pinned_hotkey);
+        if let Some(pinned_hotkey) = &self.system_pinned_hotkey {
+            env::set_var("NEOVIDE_SYSTEM_PINNED_HOTKEY", pinned_hotkey);
         }
-        if let Some(switcher_hotkey) = &self.macos_switcher_hotkey {
-            env::set_var("NEOVIDE_MACOS_SWITCHER_HOTKEY", switcher_hotkey);
+        if let Some(switcher_hotkey) = &self.system_switcher_hotkey {
+            env::set_var("NEOVIDE_SYSTEM_SWITCHER_HOTKEY", switcher_hotkey);
         }
-        if let Some(tab_prev_hotkey) = &self.macos_tab_prev_hotkey {
-            env::set_var("NEOVIDE_MACOS_TAB_PREV_HOTKEY", tab_prev_hotkey);
+        if let Some(tab_prev_hotkey) = &self.system_tab_prev_hotkey {
+            env::set_var("NEOVIDE_SYSTEM_TAB_PREV_HOTKEY", tab_prev_hotkey);
         }
-        if let Some(tab_next_hotkey) = &self.macos_tab_next_hotkey {
-            env::set_var("NEOVIDE_MACOS_TAB_NEXT_HOTKEY", tab_next_hotkey);
+        if let Some(tab_next_hotkey) = &self.system_tab_next_hotkey {
+            env::set_var("NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY", tab_next_hotkey);
         }
         if let Some(icon) = &self.icon {
             env::set_var("NEOVIDE_ICON", icon);
