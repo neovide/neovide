@@ -19,7 +19,7 @@ is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.
 
-## Force Click (macOS) (Nightly)
+## Force Click (macOS) (Available since 0.16.0)
 
 On macOS, `:NeovideForceClick` triggers native force-click behaviours for whatever is under the
 cursor. Plain text falls back to the usual "Look Up" popover; file paths and URLs both open in the
@@ -46,7 +46,7 @@ nnoremap <silent> <X1Mouse> :NeovideForceClick<CR>
 nnoremap <silent> <leader>k :NeovideForceClick<CR>
 ```
 
-## Open Config File (Nightly)
+## Open Config File (Available since 0.16.0)
 
 Running the `NeovideConfig` command will open your Neovide
 configuration file for editing. This provides a simple and

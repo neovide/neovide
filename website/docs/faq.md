@@ -69,7 +69,7 @@ Credits to [BHatGuy here](https://github.com/neovide/neovide/pull/1589).
 
 ## How can I Dynamically Change The Transparency At Runtime? (macOS)
 
-from Nightly release `g:neovide_background_color` has been removed. To adjust the window
+from `0.16.0`, `g:neovide_background_color` has been removed. To adjust the window
 transparency at runtime on macOS you only need to update `g:neovide_opacity` (and optionally
 `g:neovide_normal_opacity` for the editor background). Here is a simple example that binds the
 Command-`]`/Command-`[` keys to tweak the opacity:

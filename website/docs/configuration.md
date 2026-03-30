@@ -183,7 +183,7 @@ vim.g.neovide_pixel_geometry = "RGBH"
 vim.g.neovide_pixel_geometry = "RGBH"
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 Required for the guifont option `#e-subpixelantialias` to work. Defaults to "Unknown".
 
@@ -219,7 +219,7 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
-#### Background Color (Removed at Nightly, Previously macOS only)
+#### Background Color (Removed in 0.16.0, Previously macOS only)
 
 This legacy configuration has now been fully removed. Neovide controls the title bar color
 automatically, and setting `g:neovide_background_color` no longer has any effect.
@@ -258,7 +258,7 @@ vim.g.neovide_title_text_color = "pink"
 
 #### Corner Preference (Currently Windows only)
 
-**Nightly.**
+**Available since 0.16.0.**
 
 VimScript:
 
@@ -488,7 +488,7 @@ vim.g.neovide_progress_bar_animation_speed = 200.0
 vim.g.neovide_progress_bar_hide_delay = 0.2
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 - `g:neovide_progress_bar_enabled` sets whether the progress bar is enabled.
 - `g:neovide_progress_bar_height` sets the height of the progress bar in pixels.
@@ -528,7 +528,7 @@ Lua:
 vim.g.neovide_message_area_drag_selection = false
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 Set this to `v:false` to disable drag selection in Neovide message windows, for example
 `:messages` or shell command output. This is enabled by default.
@@ -576,7 +576,7 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
-**Nightly.**
+**Available since 0.16.0.**
 
 **NOTE:** The meaning of the setting has changed in 0.16.0. The default value of the Neovim
 [`background`](https://neovim.io/doc/user/options.html#'background') option is now always
@@ -826,7 +826,7 @@ Lua:
 vim.g.neovide_highlight_matching_pair = true
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 When enabled, Neovide highlights the matching pair using the system find indicator. The
 default is `false`.
@@ -910,7 +910,7 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 
 #### macOS Multi-window (Editors)
 
-**Available on Nightly.**
+**Available since 0.16.0.**
 
 Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
 single host window.
@@ -1451,7 +1451,7 @@ Lua:
 vim.g.neovide_has_mouse_grid_detection = true
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 **Requires Neovim 0.12.0.**
 
