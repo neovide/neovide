@@ -280,7 +280,7 @@ let g:neovide_pixel_geometry = &quot;RGBH&quot;
 <pre><code class="language-lua">vim.g.neovide_pixel_geometry = &quot;RGBH&quot;
 vim.g.neovide_pixel_geometry = &quot;RGBH&quot;
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Required for the guifont option <code>#e-subpixelantialias</code> to work. Defaults to &quot;Unknown&quot;.</p>
 <p>Represents the physical location of the red, green, and blue light-emitting elements of your
 monitor. Possible options are &quot;RGBH&quot; (red on the left, green in the middle, and blue on the right,
@@ -303,7 +303,7 @@ vim.g.neovide_padding_left = 0
 <p><strong>Available since 0.10.4.</strong></p>
 <p>Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.</p>
-<h4 id="background-color-removed-at-nightly-previously-macos-only"><a class="header" href="#background-color-removed-at-nightly-previously-macos-only">Background Color (Removed at Nightly, Previously macOS only)</a></h4>
+<h4 id="background-color-removed-in-0160-previously-macos-only"><a class="header" href="#background-color-removed-in-0160-previously-macos-only">Background Color (Removed in 0.16.0, Previously macOS only)</a></h4>
 <p>This legacy configuration has now been fully removed. Neovide controls the title bar color
 automatically, and setting <code>g:neovide_background_color</code> no longer has any effect.</p>
 <p>If you want a transparent title bar, simply configure <a href="#transparency"><code>g:neovide_opacity</code></a>
@@ -328,7 +328,7 @@ let g:neovide_title_text_color = &quot;pink&quot;
 vim.g.neovide_title_text_color = &quot;pink&quot;
 </code></pre>
 <h4 id="corner-preference-currently-windows-only"><a class="header" href="#corner-preference-currently-windows-only">Corner Preference (Currently Windows only)</a></h4>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_corner_preference = &quot;round&quot;
 </code></pre>
@@ -463,7 +463,7 @@ vim.g.neovide_progress_bar_height = 5.0
 vim.g.neovide_progress_bar_animation_speed = 200.0
 vim.g.neovide_progress_bar_hide_delay = 0.2
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <ul>
 <li><code>g:neovide_progress_bar_enabled</code> sets whether the progress bar is enabled.</li>
 <li><code>g:neovide_progress_bar_height</code> sets the height of the progress bar in pixels.</li>
@@ -488,7 +488,7 @@ mouse makes it visible again.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_message_area_drag_selection = false
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Set this to <code>v:false</code> to disable drag selection in Neovide message windows, for example
 <code>:messages</code> or shell command output. This is enabled by default.</p>
 <h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
@@ -515,7 +515,7 @@ clipped by the line of text below.</p>
 <p>Set the <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option when Neovide
 starts. Possible values: <em>light</em>, <em>dark</em>, <em>auto</em>. On systems that support it, <em>auto</em> will mirror the
 system theme, and will update <code>background</code> when the system theme changes.</p>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p><strong>NOTE:</strong> The meaning of the setting has changed in 0.16.0. The default value of the Neovim
 <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option is now always
 automatically set, and updates according to the system theme, as long as the user has not set it to
@@ -658,7 +658,7 @@ and the flickering does not bother as much.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_highlight_matching_pair = true
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>When enabled, Neovide highlights the matching pair using the system find indicator. The
 default is <code>false</code>.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
@@ -715,7 +715,7 @@ vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot;
 })
 </code></pre>
 <h4 id="macos-multi-window-editors"><a class="header" href="#macos-multi-window-editors">macOS Multi-window (Editors)</a></h4>
-<p><strong>Available on Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
 single host window.</p>
 <p>Set <code>system-native-tabs = true</code> to merge windows into a tab group. The native tab bar stays hidden
@@ -1019,7 +1019,7 @@ only here because the automatic detection of Neovim nightly versions does not al
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_has_mouse_grid_detection = true
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p><strong>Requires Neovim 0.12.0.</strong></p>
 <p>Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
 automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable

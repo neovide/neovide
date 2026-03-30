@@ -244,7 +244,7 @@ to its generalistic purpose.</p>
 <h3 id="application-icon"><a class="header" href="#application-icon">Application Icon</a></h3>
 <pre><code class="language-sh">--icon &lt;path&gt;
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>This sets a custom application icon. A default icon is bundled with Neovide.</p>
 <h3 id="srgb"><a class="header" href="#srgb">sRGB</a></h3>
 <pre><code class="language-sh">--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
@@ -277,7 +277,7 @@ or not.</p>
 <h3 id="reuse-existing-instance-macos-only"><a class="header" href="#reuse-existing-instance-macos-only">Reuse Existing Instance (macOS Only)</a></h3>
 <pre><code class="language-sh">--reuse-instance
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>If another Neovide instance is already running, it forwards the file-open request to that
 instance instead of starting a second app process.</p>
 <p>If no handoff listener is running, it falls back to normal startup and opens a fresh instance.</p>
@@ -291,7 +291,7 @@ directory before they are forwarded.</p>
 <h3 id="new-window-macos-only"><a class="header" href="#new-window-macos-only">New Window (macOS Only)</a></h3>
 <pre><code class="language-sh">--new-window
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Requires <code>--reuse-instance</code></p>
 <p>When used together with <code>--reuse-instance</code>, Neovide asks the running instance to create a new OS
 window before opening the requested files.</p>
@@ -350,7 +350,7 @@ Wayland, depending on what you are running on.</p>
 <h3 id="working-directory"><a class="header" href="#working-directory">Working Directory</a></h3>
 <pre><code class="language-sh">--chdir &lt;path&gt; or $NEOVIDE_CHDIR
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial
 working directory for all instances of neovim or terminal. This value can

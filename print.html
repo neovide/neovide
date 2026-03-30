@@ -594,7 +594,7 @@ let g:neovide_pixel_geometry = &quot;RGBH&quot;
 <pre><code class="language-lua">vim.g.neovide_pixel_geometry = &quot;RGBH&quot;
 vim.g.neovide_pixel_geometry = &quot;RGBH&quot;
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Required for the guifont option <code>#e-subpixelantialias</code> to work. Defaults to &quot;Unknown&quot;.</p>
 <p>Represents the physical location of the red, green, and blue light-emitting elements of your
 monitor. Possible options are &quot;RGBH&quot; (red on the left, green in the middle, and blue on the right,
@@ -617,7 +617,7 @@ vim.g.neovide_padding_left = 0
 <p><strong>Available since 0.10.4.</strong></p>
 <p>Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.</p>
-<h4 id="background-color-removed-at-nightly-previously-macos-only"><a class="header" href="#background-color-removed-at-nightly-previously-macos-only">Background Color (Removed at Nightly, Previously macOS only)</a></h4>
+<h4 id="background-color-removed-in-0160-previously-macos-only"><a class="header" href="#background-color-removed-in-0160-previously-macos-only">Background Color (Removed in 0.16.0, Previously macOS only)</a></h4>
 <p>This legacy configuration has now been fully removed. Neovide controls the title bar color
 automatically, and setting <code>g:neovide_background_color</code> no longer has any effect.</p>
 <p>If you want a transparent title bar, simply configure <a href="configuration.html#transparency"><code>g:neovide_opacity</code></a>
@@ -642,7 +642,7 @@ let g:neovide_title_text_color = &quot;pink&quot;
 vim.g.neovide_title_text_color = &quot;pink&quot;
 </code></pre>
 <h4 id="corner-preference-currently-windows-only"><a class="header" href="#corner-preference-currently-windows-only">Corner Preference (Currently Windows only)</a></h4>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_corner_preference = &quot;round&quot;
 </code></pre>
@@ -777,7 +777,7 @@ vim.g.neovide_progress_bar_height = 5.0
 vim.g.neovide_progress_bar_animation_speed = 200.0
 vim.g.neovide_progress_bar_hide_delay = 0.2
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <ul>
 <li><code>g:neovide_progress_bar_enabled</code> sets whether the progress bar is enabled.</li>
 <li><code>g:neovide_progress_bar_height</code> sets the height of the progress bar in pixels.</li>
@@ -802,7 +802,7 @@ mouse makes it visible again.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_message_area_drag_selection = false
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Set this to <code>v:false</code> to disable drag selection in Neovide message windows, for example
 <code>:messages</code> or shell command output. This is enabled by default.</p>
 <h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
@@ -829,7 +829,7 @@ clipped by the line of text below.</p>
 <p>Set the <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option when Neovide
 starts. Possible values: <em>light</em>, <em>dark</em>, <em>auto</em>. On systems that support it, <em>auto</em> will mirror the
 system theme, and will update <code>background</code> when the system theme changes.</p>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p><strong>NOTE:</strong> The meaning of the setting has changed in 0.16.0. The default value of the Neovim
 <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option is now always
 automatically set, and updates according to the system theme, as long as the user has not set it to
@@ -972,7 +972,7 @@ and the flickering does not bother as much.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_highlight_matching_pair = true
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>When enabled, Neovide highlights the matching pair using the system find indicator. The
 default is <code>false</code>.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
@@ -1029,7 +1029,7 @@ vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot;
 })
 </code></pre>
 <h4 id="macos-multi-window-editors"><a class="header" href="#macos-multi-window-editors">macOS Multi-window (Editors)</a></h4>
-<p><strong>Available on Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
 single host window.</p>
 <p>Set <code>system-native-tabs = true</code> to merge windows into a tab group. The native tab bar stays hidden
@@ -1333,7 +1333,7 @@ only here because the automatic detection of Neovim nightly versions does not al
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_has_mouse_grid_detection = true
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p><strong>Requires Neovim 0.12.0.</strong></p>
 <p>Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
 automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
@@ -1353,7 +1353,7 @@ window containing Neovide to the front and activate it. This
 is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.</p>
-<h2 id="force-click-macos-nightly"><a class="header" href="#force-click-macos-nightly">Force Click (macOS) (Nightly)</a></h2>
+<h2 id="force-click-macos-available-since-0160"><a class="header" href="#force-click-macos-available-since-0160">Force Click (macOS) (Available since 0.16.0)</a></h2>
 <p>On macOS, <code>:NeovideForceClick</code> triggers native force-click behaviours for whatever is under the
 cursor. Plain text falls back to the usual &quot;Look Up&quot; popover; file paths and URLs both open in the
 <a href="https://developer.apple.com/documentation/quicklook">Quick Look</a> panel, so you get previews
@@ -1369,7 +1369,7 @@ automatically and you can bind it manually if you want to trigger it from anothe
 <pre><code class="language-vim">nnoremap &lt;silent&gt; &lt;X1Mouse&gt; :NeovideForceClick&lt;CR&gt;
 nnoremap &lt;silent&gt; &lt;leader&gt;k :NeovideForceClick&lt;CR&gt;
 </code></pre>
-<h2 id="open-config-file-nightly"><a class="header" href="#open-config-file-nightly">Open Config File (Nightly)</a></h2>
+<h2 id="open-config-file-available-since-0160"><a class="header" href="#open-config-file-available-since-0160">Open Config File (Available since 0.16.0)</a></h2>
 <p>Running the <code>NeovideConfig</code> command will open your Neovide
 configuration file for editing. This provides a simple and
 discoverable way to access your settings without needing to
@@ -1475,7 +1475,7 @@ to its generalistic purpose.</p>
 <h3 id="application-icon"><a class="header" href="#application-icon">Application Icon</a></h3>
 <pre><code class="language-sh">--icon &lt;path&gt;
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>This sets a custom application icon. A default icon is bundled with Neovide.</p>
 <h3 id="srgb"><a class="header" href="#srgb">sRGB</a></h3>
 <pre><code class="language-sh">--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
@@ -1508,7 +1508,7 @@ or not.</p>
 <h3 id="reuse-existing-instance-macos-only"><a class="header" href="#reuse-existing-instance-macos-only">Reuse Existing Instance (macOS Only)</a></h3>
 <pre><code class="language-sh">--reuse-instance
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>If another Neovide instance is already running, it forwards the file-open request to that
 instance instead of starting a second app process.</p>
 <p>If no handoff listener is running, it falls back to normal startup and opens a fresh instance.</p>
@@ -1522,7 +1522,7 @@ directory before they are forwarded.</p>
 <h3 id="new-window-macos-only"><a class="header" href="#new-window-macos-only">New Window (macOS Only)</a></h3>
 <pre><code class="language-sh">--new-window
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Requires <code>--reuse-instance</code></p>
 <p>When used together with <code>--reuse-instance</code>, Neovide asks the running instance to create a new OS
 window before opening the requested files.</p>
@@ -1581,7 +1581,7 @@ Wayland, depending on what you are running on.</p>
 <h3 id="working-directory"><a class="header" href="#working-directory">Working Directory</a></h3>
 <pre><code class="language-sh">--chdir &lt;path&gt; or $NEOVIDE_CHDIR
 </code></pre>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p>Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial
 working directory for all instances of neovim or terminal. This value can
@@ -1653,12 +1653,12 @@ Settings that are mutually exclusive on the command line (for example <code>size
 <code>maximized</code>) are also mutually exclusive in the config file.</p>
 <h3 id="runtime-settings"><a class="header" href="#runtime-settings">Runtime settings</a></h3>
 <h4 id="window-geometry"><a class="header" href="#window-geometry">Window Geometry</a></h4>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p><code>size</code>, <code>grid</code> and <code>maximized</code> can be hot reloaded from <code>config.toml</code>.</p>
 <p>They are still mutually exclusive. <code>size</code> applies a new pixel size to all live windows, <code>grid</code>
 applies a new Neovim grid size, and <code>maximized</code> updates the live maximized state.</p>
 <h4 id="idle"><a class="header" href="#idle">Idle</a></h4>
-<p><strong>Nightly.</strong></p>
+<p><strong>Available since 0.16.0.</strong></p>
 <p><code>idle</code> can be hot reloaded from <code>config.toml</code>.</p>
 <h4 id="font-1"><a class="header" href="#font-1"><code>Font</code></a></h4>
 <p><strong>Available since 0.12.1.</strong></p>
@@ -2072,7 +2072,7 @@ end)
 </code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/pull/1589">BHatGuy here</a>.</p>
 <h2 id="how-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#how-can-i-dynamically-change-the-transparency-at-runtime-macos">How can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
-<p>from Nightly release <code>g:neovide_background_color</code> has been removed. To adjust the window
+<p>from <code>0.16.0</code>, <code>g:neovide_background_color</code> has been removed. To adjust the window
 transparency at runtime on macOS you only need to update <code>g:neovide_opacity</code> (and optionally
 <code>g:neovide_normal_opacity</code> for the editor background). Here is a simple example that binds the
 Command-<code>]</code>/Command-<code>[</code> keys to tweak the opacity:</p>
