@@ -166,7 +166,7 @@ This sets the window title to be hidden on macOS.
 --icon <path>
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 This sets a custom application icon. A default icon is bundled with Neovide.
 
@@ -217,7 +217,7 @@ or not.
 --reuse-instance
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 If another Neovide instance is already running, it forwards the file-open request to that
 instance instead of starting a second app process.
@@ -240,7 +240,7 @@ directory before they are forwarded.
 --new-window
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 Requires `--reuse-instance`
 
@@ -340,7 +340,7 @@ Wayland, depending on what you are running on.
 --chdir <path> or $NEOVIDE_CHDIR
 ```
 
-**Nightly.**
+**Available since 0.16.0.**
 
 Start neovim in the specified working directory. This will impact neovim
 arguments that use relative path names (e.g. file names), and the initial
