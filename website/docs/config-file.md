@@ -50,7 +50,6 @@ system-pinned-hotkey = "cmd+ctrl+z" # macOS only
 system-switcher-hotkey = "cmd+ctrl+n" # macOS only, requires system-native-tabs = true
 system-tab-prev-hotkey = "cmd+shift+[" # macOS only
 system-tab-next-hotkey = "cmd+shift+]" # macOS only
-theme = "auto"
 title-hidden = false
 vsync = true
 # wayland-app-id = "neovide"
