@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.15.2"
+version = "0.16.0"
 edition = "2021"
 build = "build.rs"
 resolver = "2"
@@ -70,7 +70,7 @@ mundy = { version = "0.2.2", default-features = false, features = [
   "tokio",
   "color-scheme",
 ] }
-neovide-derive = { path = "neovide-derive", version = "0.1.4" }
+neovide-derive = { path = "neovide-derive", version = "0.1.5" }
 notify-debouncer-full = "0.6.0"
 num = "0.4.3"
 nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
@@ -220,7 +220,7 @@ debug = true
 name = "Neovide"
 identifier = "com.neovide.neovide"
 icon = ["assets/neovide.ico"]
-version = "0.15.2"
+version = "0.16.0"
 resources = []
 copyright = "Copyright (c) Neovide Contributors 2025. All rights reserved."
 category = "Productivity"
