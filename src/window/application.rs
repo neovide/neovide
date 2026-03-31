@@ -5,7 +5,7 @@ use std::{
 
 #[cfg(target_os = "macos")]
 use {
-    crate::bridge::{send_or_queue_file_drop, set_active_route_handler},
+    crate::bridge::{OpenArgs, send_or_queue_file_drop, set_active_route_handler},
     crate::utils::resolve_relative_path,
     std::path::Path,
 };
@@ -260,14 +260,31 @@ impl Application {
         event_loop: &ActiveEventLoop,
         new_window: bool,
         cwd: Option<&Path>,
+        args: OpenArgs,
     ) {
-        if new_window {
-            self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd);
-            self.mark_should_render_all();
+        if !new_window {
+            self.activate_focused_route();
+            self.send_file_drops(args);
             return;
         }
 
-        self.activate_focused_route();
+        if self.settings.get::<CmdLineSettings>().server.is_some() {
+            self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd, None);
+            self.mark_should_render_all();
+            self.send_file_drops(args);
+            return;
+        }
+
+        let open_args = (!args.files_to_open.is_empty()).then_some(args);
+        self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd, open_args);
+        self.mark_should_render_all();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn send_file_drops(&self, args: OpenArgs) {
+        for path in args.files_to_open {
+            send_or_queue_file_drop(path, Some(args.tabs));
+        }
     }
 
     fn handle_app_config_changed(&mut self, config: AppHotReloadConfigs) {
@@ -360,7 +377,7 @@ impl Application {
         #[cfg(feature = "profiling")]
         self.aggregate_should_render().plot_tracy();
         if self.create_window_allowed && self.window_wrapper.has_pending_window_creation() {
-            self.window_wrapper.try_create_window(event_loop, &self.proxy, None);
+            self.window_wrapper.try_create_window(event_loop, &self.proxy, None, None);
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
@@ -671,12 +688,15 @@ impl ApplicationHandler<EventPayload> for Application {
             UserEvent::OpenFiles { files, cwd, caller_cwd, tabs, new_window } => {
                 let cwd = cwd.as_deref().map(Path::new);
                 let caller_cwd = caller_cwd.as_deref().map(Path::new);
-                self.prepare_open_files(event_loop, new_window, cwd);
+                let open_args = OpenArgs {
+                    files_to_open: files
+                        .into_iter()
+                        .map(|path| resolve_relative_path(&path, caller_cwd))
+                        .collect(),
+                    tabs,
+                };
 
-                for path in files {
-                    let path = resolve_relative_path(&path, caller_cwd);
-                    send_or_queue_file_drop(path, Some(tabs));
-                }
+                self.prepare_open_files(event_loop, new_window, cwd, open_args);
             }
             UserEvent::NeovimExited => {
                 let route_id = self.route_id_for_target(target);
@@ -767,7 +787,7 @@ impl ApplicationHandler<EventPayload> for Application {
             }
             #[cfg(target_os = "macos")]
             UserEvent::CreateWindow => {
-                self.window_wrapper.try_create_window(event_loop, &self.proxy, None);
+                self.window_wrapper.try_create_window(event_loop, &self.proxy, None, None);
                 self.sync_render_states();
                 self.mark_should_render_all();
             }

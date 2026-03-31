@@ -263,7 +263,7 @@ mod tests {
     use super::*;
     use crate::{
         bridge::{
-            create_tokio_nvim_command,
+            OpenMode, create_tokio_nvim_command,
             session::{NeovimInstance, NeovimSession},
         },
         cmd_line::CmdLineSettings,
@@ -369,7 +369,7 @@ mod tests {
         settings.set::<CmdLineSettings>(&CmdLineSettings::default());
 
         let cmdline_settings = settings.get::<CmdLineSettings>();
-        let command = create_tokio_nvim_command(&cmdline_settings, true, None);
+        let command = create_tokio_nvim_command(&cmdline_settings, true, None, OpenMode::Startup);
         let instance = NeovimInstance::Embedded(command);
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await
