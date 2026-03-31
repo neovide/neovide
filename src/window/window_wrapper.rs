@@ -41,8 +41,8 @@ use {
 use crate::{
     CmdLineSettings,
     bridge::{
-        NeovimHandler, NeovimRuntime, ParallelCommand, RestartDetails, SerialCommand, send_ui,
-        set_active_route_handler, unregister_route_handler,
+        NeovimHandler, NeovimRuntime, OpenArgs, OpenMode, ParallelCommand, RestartDetails,
+        SerialCommand, send_ui, set_active_route_handler, unregister_route_handler,
     },
     clipboard::ClipboardHandle,
     cmd_line::{GeometryArgs, MouseCursorIcon},
@@ -282,6 +282,7 @@ impl WinitWindowWrapper {
                 self.settings.clone(),
                 &config,
                 None,
+                OpenMode::Startup,
             )
             .expect("Failed to launch neovim runtime");
 
@@ -1390,6 +1391,7 @@ impl WinitWindowWrapper {
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<EventPayload>,
         cwd: Option<&Path>,
+        args: Option<OpenArgs>,
     ) {
         let creating_initial_window = self.routes.is_empty();
         let route_id = if creating_initial_window {
@@ -1507,6 +1509,7 @@ impl WinitWindowWrapper {
                         self.settings.clone(),
                         &config,
                         cwd,
+                        args.map_or(OpenMode::None, OpenMode::Args),
                     )
                     .expect("Failed to launch neovim runtime");
 

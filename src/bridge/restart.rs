@@ -2,24 +2,42 @@ use rmpv::Value;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RestartDetails {
-    pub progpath: String,
-    pub argv: Vec<String>,
+    pub listen_addr: String,
 }
 
 impl RestartDetails {
     pub fn from_values(arguments: &[Value]) -> Option<Self> {
-        if arguments.len() < 2 {
-            return None;
+        match arguments {
+            [listen_addr] => Some(Self { listen_addr: listen_addr.as_str()?.to_string() }),
+            _ => None,
         }
+    }
+}
 
-        let progpath = arguments[0].as_str()?.to_string();
-        let argv = arguments
-            .get(1)?
-            .as_array()?
-            .iter()
-            .filter_map(|value| value.as_str().map(|s| s.to_string()))
-            .collect::<Vec<_>>();
+#[cfg(test)]
+mod tests {
+    use super::RestartDetails;
+    use rmpv::Value;
 
-        Some(Self { progpath, argv })
+    #[test]
+    fn parses_listen_addr_restart_payload() {
+        let details = RestartDetails::from_values(&[Value::from("/tmp/nvim.sock")]);
+
+        assert_eq!(details, Some(RestartDetails { listen_addr: "/tmp/nvim.sock".to_string() }));
+    }
+
+    #[test]
+    fn rejects_restart_payload_with_extra_arguments() {
+        let details =
+            RestartDetails::from_values(&[Value::from("/tmp/nvim.sock"), Value::from("echo 1")]);
+
+        assert_eq!(details, None);
+    }
+
+    #[test]
+    fn rejects_restart_payload_with_invalid_type() {
+        let details = RestartDetails::from_values(&[Value::from("/tmp/nvim.sock"), Value::from(1)]);
+
+        assert_eq!(details, None);
     }
 }
