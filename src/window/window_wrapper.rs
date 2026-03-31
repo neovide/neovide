@@ -2449,6 +2449,19 @@ impl WinitWindowWrapper {
             let mut skia_renderer = route.window.skia_renderer.borrow_mut();
             skia_renderer.resize();
         }
+
+        // Read back the actual window size after the resize request. The OS may
+        // constrain the window (e.g. to screen bounds), so the actual size can differ
+        // from what was requested. When that happens, correct Neovim's grid size to
+        // match the real window dimensions.
+        let actual_size = window.inner_size();
+        if actual_size != new_size {
+            if let Some(route) = self.routes.get_mut(&window_id) {
+                route.state.saved_inner_size = actual_size;
+                route.window.last_synced_grid_size = None;
+            }
+            self.update_grid_size_from_window(window_id);
+        }
     }
 
     fn get_grid_size_from_window(
