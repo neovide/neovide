@@ -6,7 +6,6 @@ use std::{
 #[cfg(target_os = "macos")]
 use {
     crate::bridge::{OpenArgs, send_or_queue_file_drop, set_active_route_handler},
-    crate::utils::resolve_relative_path,
     std::path::Path,
 };
 
@@ -709,26 +708,9 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles {
-                files,
-                cwd,
-                caller_cwd,
-                tabs,
-                new_window,
-                neovim_bin,
-                neovim_args,
-            } => {
+            UserEvent::OpenFiles { files, cwd, tabs, new_window, neovim_bin, neovim_args } => {
                 let cwd = cwd.as_deref().map(Path::new);
-                let caller_cwd = caller_cwd.as_deref().map(Path::new);
-                let open_args = OpenArgs {
-                    files_to_open: files
-                        .into_iter()
-                        .map(|path| resolve_relative_path(&path, caller_cwd))
-                        .collect(),
-                    tabs,
-                    neovim_bin,
-                    neovim_args,
-                };
+                let open_args = OpenArgs { files_to_open: files, tabs, neovim_bin, neovim_args };
 
                 self.prepare_open_files(event_loop, new_window, cwd, open_args);
             }

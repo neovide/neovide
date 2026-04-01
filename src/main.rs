@@ -81,7 +81,7 @@ use crate::{
 };
 
 #[cfg(target_os = "macos")]
-use crate::utils::resolved_cwd;
+use crate::utils::{resolve_relative_path, resolved_cwd};
 
 pub use profiling::startup_profiler;
 
@@ -316,11 +316,16 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
     let CmdLineSettings { files_to_open, tabs, new_window, neovim_bin, neovim_args, .. } =
         cmdline_settings;
 
+    let cwd = std::env::current_dir().ok();
+    let files_to_open = files_to_open
+        .into_iter()
+        .map(|path| resolve_relative_path(&path, cwd.as_deref()))
+        .collect();
+
     let request = ipc::handoff::HandoffRequest {
         version: BUILD_VERSION.to_owned(),
         files_to_open,
         cwd: resolved_cwd(cmd_line::argv_chdir().as_deref()),
-        caller_cwd: resolved_cwd(None),
         tabs,
         new_window,
         neovim_bin,

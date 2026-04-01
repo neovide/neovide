@@ -27,8 +27,8 @@ const LISTENER_POLL_INTERVAL: Duration = Duration::from_millis(100);
 pub struct HandoffRequest {
     pub version: String,
     pub files_to_open: Vec<String>,
+    /// Directory to start nvim in, accounting for --chdir
     pub cwd: Option<String>,
-    pub caller_cwd: Option<String>,
     pub tabs: bool,
     pub new_window: bool,
     #[serde(default)]
@@ -44,7 +44,6 @@ impl HandoffRequest {
             version: BUILD_VERSION.to_owned(),
             files_to_open: Vec::new(),
             cwd: None,
-            caller_cwd: None,
             tabs: true,
             new_window: false,
             neovim_bin: None,
@@ -225,7 +224,6 @@ fn handle_request(
             payload: UserEvent::OpenFiles {
                 files: request.files_to_open,
                 cwd: request.cwd,
-                caller_cwd: request.caller_cwd,
                 tabs: request.tabs,
                 new_window: request.new_window,
                 neovim_bin: request.neovim_bin,
@@ -294,7 +292,6 @@ mod tests {
         assert_eq!(request.version, BUILD_VERSION);
         assert!(request.files_to_open.is_empty());
         assert!(request.cwd.is_none());
-        assert!(request.caller_cwd.is_none());
         assert!(request.tabs);
         assert!(!request.new_window);
     }
@@ -304,7 +301,6 @@ mod tests {
         let request = HandoffRequest {
             files_to_open: vec!["~/project".into()],
             cwd: Some("/path/to/user".into()),
-            caller_cwd: Some("/path/to/worktree".into()),
             tabs: false,
             new_window: true,
             ..HandoffRequest::new()
