@@ -146,6 +146,9 @@ pub enum UserEvent {
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
+    NeovimLaunchError {
+        message: String,
+    },
     NeovimRestart(RestartDetails),
     ShowProgressBar {
         percent: f32,

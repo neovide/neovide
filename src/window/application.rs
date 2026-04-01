@@ -22,7 +22,7 @@ use winit::{
 
 use super::{
     CmdLineSettings, EventPayload, EventTarget, RouteId, WindowSettings, WindowSize,
-    WinitWindowWrapper, save_window_size,
+    WinitWindowWrapper, error_window, save_window_size,
 };
 use crate::{
     clipboard::{Clipboard, ClipboardHandle},
@@ -124,6 +124,7 @@ pub struct Application {
     #[allow(dead_code)]
     initial_grid_size: Option<Size2<Grid<u32>>>,
     render_states: FxHashMap<WindowId, RenderState>,
+    error_windows: FxHashMap<WindowId, (error_window::State, String)>,
 
     pub window_wrapper: WinitWindowWrapper,
     create_window_allowed: bool,
@@ -161,6 +162,7 @@ impl Application {
             idle,
             initial_grid_size,
             render_states: FxHashMap::default(),
+            error_windows: FxHashMap::default(),
 
             window_wrapper,
             create_window_allowed: false,
@@ -648,6 +650,37 @@ impl ApplicationHandler<EventPayload> for Application {
         event: winit::event::WindowEvent,
     ) {
         tracy_zone!("window_event");
+
+        if self.error_windows.contains_key(&window_id) {
+            match &event {
+                WindowEvent::CloseRequested => {
+                    self.error_windows.remove(&window_id);
+                }
+                WindowEvent::RedrawRequested => {
+                    if let Some((error_state, _)) = self.error_windows.get_mut(&window_id) {
+                        error_state.render();
+                    }
+                }
+                _ => {
+                    let message = self
+                        .error_windows
+                        .get(&window_id)
+                        .map(|(_, m)| m.clone())
+                        .unwrap_or_default();
+                    if let Some((error_state, _)) = self.error_windows.get_mut(&window_id) {
+                        error_state.handle_window_event(event, &message);
+                        if error_state.should_close {
+                            self.error_windows.remove(&window_id);
+                        }
+                    }
+                }
+            }
+            if self.window_wrapper.is_empty() && self.error_windows.is_empty() {
+                event_loop.exit();
+            }
+            return;
+        }
+
         self.ensure_render_state(window_id);
         match event {
             WindowEvent::RedrawRequested => {
@@ -713,7 +746,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 if let Some(window_id) = window_id {
                     self.render_states.remove(&window_id);
                 }
-                if self.window_wrapper.is_empty() {
+                if self.window_wrapper.is_empty() && self.error_windows.is_empty() {
                     event_loop.exit();
                 }
             }
@@ -796,6 +829,18 @@ impl ApplicationHandler<EventPayload> for Application {
                 self.window_wrapper.handle_mac_shortcut(command);
                 self.mark_should_render_all();
             }
+            UserEvent::NeovimLaunchError { message } => {
+                let window_config = error_window::create_error_window(event_loop, &self.settings);
+                let clipboard_handle = ClipboardHandle::new(self.clipboard.as_ref().unwrap());
+                let state = error_window::State::new(
+                    &message,
+                    window_config,
+                    self.settings.clone(),
+                    clipboard_handle,
+                );
+                let window_id = state.window_id();
+                self.error_windows.insert(window_id, (state, message));
+            }
             UserEvent::NeovimRestart(details) => {
                 let route_id = self.route_id_for_target(target);
                 let Some(route_id) = route_id else {
@@ -841,6 +886,7 @@ impl ApplicationHandler<EventPayload> for Application {
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
         self.teardown();
+        self.error_windows.clear();
         self.window_wrapper.exit();
         self.schedule_next_event(event_loop);
     }

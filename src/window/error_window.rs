@@ -70,7 +70,7 @@ struct Paragraphs {
     help_messages: [Paragraph; PossibleScrollDirection::COUNT],
 }
 
-struct State {
+pub struct State {
     skia_renderer: Box<dyn SkiaRenderer>,
     font_collection: FontCollection,
     size: PhysicalSize<u32>,
@@ -81,6 +81,7 @@ struct State {
     modifiers: Modifiers,
     mouse_scroll_accumulator: f32,
     clipboard: ClipboardHandle,
+    pub should_close: bool,
 }
 
 struct ErrorWindow<'a> {
@@ -104,15 +105,19 @@ impl ApplicationHandler<EventPayload> for ErrorWindow<'_> {
         event: WindowEvent,
     ) {
         let state = self.state.as_mut().unwrap();
-        state.handle_window_event(event, event_loop, self.message);
+        state.handle_window_event(event, self.message);
+        if state.should_close {
+            event_loop.exit();
+        }
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_none() {
             if let Some(clipboard) = self.clipboard.as_ref() {
+                let window_config = create_error_window(event_loop, &self.settings);
                 self.state = Some(State::new(
                     self.message,
-                    event_loop,
+                    window_config,
                     self.settings.clone(),
                     ClipboardHandle::new(clipboard),
                 ));
@@ -127,9 +132,9 @@ impl ApplicationHandler<EventPayload> for ErrorWindow<'_> {
 }
 
 impl State {
-    fn new(
+    pub fn new(
         message: &str,
-        event_loop: &ActiveEventLoop,
+        window_config: WindowConfig,
         settings: Arc<Settings>,
         clipboard: ClipboardHandle,
     ) -> Self {
@@ -141,16 +146,11 @@ impl State {
 
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
-        let window = create_window(event_loop, &settings);
-        let skia_renderer = create_skia_renderer(&window, srgb, vsync, settings);
-        window.window.set_visible(true);
-        let scale_factor = window.window.scale_factor();
-        let size = window.window.inner_size();
+        let skia_renderer = create_skia_renderer(&window_config, srgb, vsync, settings);
+        window_config.window.set_visible(true);
+        let scale_factor = window_config.window.scale_factor();
+        let size = window_config.window.inner_size();
         let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
-        let scroll = Scroll::None;
-        let current_position = 0;
-        let modifiers = Modifiers::default();
-        let mouse_scroll_accumulator = 0.0;
 
         Self {
             skia_renderer,
@@ -158,23 +158,23 @@ impl State {
             size,
             scale_factor,
             paragraphs,
-            scroll,
-            current_position,
-            modifiers,
-            mouse_scroll_accumulator,
+            scroll: Scroll::None,
+            current_position: 0,
+            modifiers: Modifiers::default(),
+            mouse_scroll_accumulator: 0.0,
             clipboard,
+            should_close: false,
         }
     }
 
-    fn handle_window_event(
-        &mut self,
-        event: WindowEvent,
-        event_loop: &ActiveEventLoop,
-        message: &str,
-    ) {
+    pub fn window_id(&self) -> winit::window::WindowId {
+        self.skia_renderer.window().id()
+    }
+
+    pub fn handle_window_event(&mut self, event: WindowEvent, message: &str) {
         match event {
             WindowEvent::CloseRequested => {
-                event_loop.exit();
+                self.should_close = true;
             }
             WindowEvent::RedrawRequested => {
                 self.render();
@@ -189,7 +189,7 @@ impl State {
                     create_paragraphs(message, scale_factor as f32, &self.font_collection);
             }
             WindowEvent::KeyboardInput { event, is_synthetic: false, .. } => {
-                if self.handle_keyboard_input(event, event_loop, message) {
+                if self.handle_keyboard_input(event, message) {
                     self.skia_renderer.window().request_redraw();
                 }
             }
@@ -209,7 +209,7 @@ impl State {
         }
     }
 
-    fn render(&mut self) {
+    pub fn render(&mut self) {
         let (message_rect, help_message_rect) = self.layout();
 
         let (offset, possible_scroll_direction) =
@@ -231,12 +231,7 @@ impl State {
         self.skia_renderer.swap_buffers();
     }
 
-    fn handle_keyboard_input(
-        &mut self,
-        event: KeyEvent,
-        event_loop: &ActiveEventLoop,
-        message: &str,
-    ) -> bool {
+    fn handle_keyboard_input(&mut self, event: KeyEvent, message: &str) -> bool {
         if event.state != ElementState::Pressed {
             return false;
         }
@@ -266,7 +261,7 @@ impl State {
                         true
                     }
                     "q" => {
-                        event_loop.exit();
+                        self.should_close = true;
                         true
                     }
                     "y" => {
@@ -292,7 +287,7 @@ impl State {
                         true
                     }
                     NamedKey::Escape => {
-                        event_loop.exit();
+                        self.should_close = true;
                         true
                     }
                     _ => false,
@@ -494,7 +489,7 @@ fn create_paragraphs(
     Paragraphs { message: create_message(message, &normal_text), help_messages }
 }
 
-fn create_window(event_loop: &ActiveEventLoop, settings: &Settings) -> WindowConfig {
+pub fn create_error_window(event_loop: &ActiveEventLoop, settings: &Settings) -> WindowConfig {
     let cmd_line_settings = settings.get::<CmdLineSettings>();
     let icon = load_icon(cmd_line_settings.icon.as_ref());
 
