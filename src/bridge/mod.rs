@@ -218,6 +218,9 @@ async fn create_neovim_session(
         .await
         .context("Could not attach ui to neovim process")?;
 
+    #[cfg(target_os = "macos")]
+    ui_commands::mark_file_drop_handler_ready(&handler);
+
     info!("Neovim process attached");
 
     Ok(session)
