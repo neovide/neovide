@@ -205,6 +205,7 @@ pub struct WinitWindowWrapper {
 
     settings: Arc<Settings>,
     clipboard: ClipboardHandle,
+    startup_error: Option<String>,
 
     #[cfg(target_os = "macos")]
     window_mru: VecDeque<WindowId>,
@@ -223,20 +224,27 @@ impl WinitWindowWrapper {
         runtime_tracker: RunningTracker,
         clipboard_handle: ClipboardHandle,
     ) -> Self {
-        let runtime =
-            NeovimRuntime::new(clipboard_handle.clone()).expect("Failed to create neovim runtime");
+        let (runtime, startup_error) = match NeovimRuntime::new(clipboard_handle.clone()) {
+            Ok(rt) => (Some(rt), None),
+            Err(e) => {
+                let msg = format!("Failed to create neovim runtime: {e:?}");
+                log::error!("{msg}");
+                (None, Some(msg))
+            }
+        };
 
         Self {
             routes: Default::default(),
             route_cores: FxHashMap::default(),
             pending_window_creation_route: None,
-            runtime: Some(runtime),
+            runtime,
             runtime_tracker,
             pending_restart: FxHashMap::default(),
             keyboard_manager: KeyboardManager::new(settings.clone()),
             ui_state: UIState::Initing,
             settings: settings.clone(),
             clipboard: clipboard_handle,
+            startup_error,
             #[cfg(target_os = "macos")]
             window_mru: VecDeque::new(),
             #[cfg(target_os = "macos")]
@@ -248,8 +256,18 @@ impl WinitWindowWrapper {
         }
     }
 
+    fn report_startup_error(&self, proxy: &EventLoopProxy<EventPayload>, message: String) {
+        self.runtime_tracker.quit_with_code(1, &message);
+        let _ = proxy.send_event(EventPayload::all(UserEvent::NeovimLaunchError { message }));
+    }
+
     pub fn request_window_creation(&mut self, proxy: &EventLoopProxy<EventPayload>) {
         if !self.routes.is_empty() || !self.route_cores.is_empty() {
+            return;
+        }
+
+        if let Some(error) = self.startup_error.take() {
+            self.report_startup_error(proxy, error);
             return;
         }
 
@@ -273,18 +291,24 @@ impl WinitWindowWrapper {
         let route_id = RouteId::next();
         let runtime = self.runtime.as_mut().expect("Neovim runtime has not been initialized");
 
-        let neovim_handler = runtime
-            .launch(
-                route_id,
-                proxy.clone(),
-                desired_grid_size,
-                self.runtime_tracker.clone(),
-                self.settings.clone(),
-                &config,
-                None,
-                OpenMode::Startup,
-            )
-            .expect("Failed to launch neovim runtime");
+        let neovim_handler = match runtime.launch(
+            route_id,
+            proxy.clone(),
+            desired_grid_size,
+            self.runtime_tracker.clone(),
+            self.settings.clone(),
+            &config,
+            None,
+            OpenMode::Startup,
+        ) {
+            Ok(handler) => handler,
+            Err(err) => {
+                let msg = format!("Failed to launch neovim runtime: {err:?}");
+                log::error!("{msg}");
+                self.report_startup_error(proxy, msg);
+                return;
+            }
+        };
 
         self.route_cores.insert(
             route_id,
@@ -1500,18 +1524,26 @@ impl WinitWindowWrapper {
 
                 let runtime =
                     self.runtime.as_mut().expect("Neovim runtime has not been initialized");
-                let neovim_handler = runtime
-                    .launch(
-                        route_id,
-                        proxy.clone(),
-                        desired_grid_size,
-                        self.runtime_tracker.clone(),
-                        self.settings.clone(),
-                        &config,
-                        cwd,
-                        args.map_or(OpenMode::None, OpenMode::Args),
-                    )
-                    .expect("Failed to launch neovim runtime");
+                let neovim_handler = match runtime.launch(
+                    route_id,
+                    proxy.clone(),
+                    desired_grid_size,
+                    self.runtime_tracker.clone(),
+                    self.settings.clone(),
+                    &config,
+                    cwd,
+                    args.map_or(OpenMode::None, OpenMode::Args),
+                ) {
+                    Ok(handler) => handler,
+                    Err(err) => {
+                        let msg = format!("Failed to launch neovim runtime: {err:?}");
+                        log::error!("{msg}");
+                        let _ = proxy.send_event(EventPayload::all(UserEvent::NeovimLaunchError {
+                            message: msg,
+                        }));
+                        return;
+                    }
+                };
 
                 (renderer, neovim_handler, None, cwd.map(Path::to_path_buf))
             };
