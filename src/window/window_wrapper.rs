@@ -256,14 +256,18 @@ impl WinitWindowWrapper {
         }
     }
 
+    fn report_startup_error(&self, proxy: &EventLoopProxy<EventPayload>, message: String) {
+        self.runtime_tracker.quit_with_code(1, &message);
+        let _ = proxy.send_event(EventPayload::all(UserEvent::NeovimLaunchError { message }));
+    }
+
     pub fn request_window_creation(&mut self, proxy: &EventLoopProxy<EventPayload>) {
         if !self.routes.is_empty() || !self.route_cores.is_empty() {
             return;
         }
 
         if let Some(error) = self.startup_error.take() {
-            let _ = proxy
-                .send_event(EventPayload::all(UserEvent::NeovimLaunchError { message: error }));
+            self.report_startup_error(proxy, error);
             return;
         }
 
@@ -301,8 +305,7 @@ impl WinitWindowWrapper {
             Err(err) => {
                 let msg = format!("Failed to launch neovim runtime: {err:?}");
                 log::error!("{msg}");
-                let _ = proxy
-                    .send_event(EventPayload::all(UserEvent::NeovimLaunchError { message: msg }));
+                self.report_startup_error(proxy, msg);
                 return;
             }
         };

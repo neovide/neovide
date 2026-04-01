@@ -365,13 +365,12 @@ impl Application {
         }
     }
 
-    fn get_event_deadline(&self) -> Instant {
-        let now = Instant::now();
-        self.render_states
-            .values()
-            .map(|state| self.get_event_deadline_for(state))
-            .min()
-            .unwrap_or(now)
+    fn get_event_deadline(&self) -> Option<Instant> {
+        self.render_states.values().map(|state| self.get_event_deadline_for(state)).min()
+    }
+
+    fn next_control_flow(&self, now: Instant) -> ControlFlow {
+        next_control_flow_for(self.get_event_deadline(), !self.error_windows.is_empty(), now)
     }
 
     fn schedule_next_event(&mut self, event_loop: &ActiveEventLoop) {
@@ -381,7 +380,31 @@ impl Application {
         if self.create_window_allowed && self.window_wrapper.has_pending_window_creation() {
             self.window_wrapper.try_create_window(event_loop, &self.proxy, None, None);
         }
-        event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
+        event_loop.set_control_flow(self.next_control_flow(Instant::now()));
+    }
+
+    fn handle_error_window_event(
+        &mut self,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) -> Option<WindowEvent> {
+        let Some((mut error_state, message)) = self.error_windows.remove(&window_id) else {
+            return Some(event);
+        };
+
+        error_state.handle_window_event(event, &message);
+
+        if !error_state.should_close {
+            self.error_windows.insert(window_id, (error_state, message));
+        }
+
+        None
+    }
+
+    fn exit_if_no_windows_remain(&self, event_loop: &ActiveEventLoop) {
+        if self.window_wrapper.is_empty() && self.error_windows.is_empty() {
+            event_loop.exit();
+        }
     }
 
     fn teardown(&mut self) {
@@ -651,35 +674,10 @@ impl ApplicationHandler<EventPayload> for Application {
     ) {
         tracy_zone!("window_event");
 
-        if self.error_windows.contains_key(&window_id) {
-            match &event {
-                WindowEvent::CloseRequested => {
-                    self.error_windows.remove(&window_id);
-                }
-                WindowEvent::RedrawRequested => {
-                    if let Some((error_state, _)) = self.error_windows.get_mut(&window_id) {
-                        error_state.render();
-                    }
-                }
-                _ => {
-                    let message = self
-                        .error_windows
-                        .get(&window_id)
-                        .map(|(_, m)| m.clone())
-                        .unwrap_or_default();
-                    if let Some((error_state, _)) = self.error_windows.get_mut(&window_id) {
-                        error_state.handle_window_event(event, &message);
-                        if error_state.should_close {
-                            self.error_windows.remove(&window_id);
-                        }
-                    }
-                }
-            }
-            if self.window_wrapper.is_empty() && self.error_windows.is_empty() {
-                event_loop.exit();
-            }
+        let Some(event) = self.handle_error_window_event(window_id, event) else {
+            self.exit_if_no_windows_remain(event_loop);
             return;
-        }
+        };
 
         self.ensure_render_state(window_id);
         match event {
@@ -746,9 +744,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 if let Some(window_id) = window_id {
                     self.render_states.remove(&window_id);
                 }
-                if self.window_wrapper.is_empty() && self.error_windows.is_empty() {
-                    event_loop.exit();
-                }
+                self.exit_if_no_windows_remain(event_loop);
             }
             UserEvent::RedrawRequested => match target {
                 EventTarget::Window(window_id) => {
@@ -895,5 +891,17 @@ impl ApplicationHandler<EventPayload> for Application {
 impl Drop for Application {
     fn drop(&mut self) {
         self.teardown();
+    }
+}
+
+fn next_control_flow_for(
+    deadline: Option<Instant>,
+    has_error_windows: bool,
+    now: Instant,
+) -> ControlFlow {
+    match deadline {
+        Some(deadline) => ControlFlow::WaitUntil(deadline),
+        None if has_error_windows => ControlFlow::Wait,
+        None => ControlFlow::WaitUntil(now),
     }
 }
