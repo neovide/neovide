@@ -131,6 +131,10 @@ pub struct Route {
     cwd: Option<PathBuf>,
     pub pending_initial_window_size: Option<WindowSize>,
     state: RouteState,
+    #[cfg(target_os = "macos")]
+    pub neovim_bin: Option<String>,
+    #[cfg(target_os = "macos")]
+    pub neovim_args: Option<Vec<String>>,
 }
 
 impl fmt::Debug for Route {
@@ -1490,6 +1494,26 @@ impl WinitWindowWrapper {
             ..
         } = self.settings.get::<WindowSettings>();
 
+        // Capture per-route nvim overrides before args is consumed into OpenMode.
+        // For the initial window (args is None, uses OpenMode::Startup), pull from
+        // CmdLineSettings so "New Window" can clone the initial invocation's config.
+        #[cfg(target_os = "macos")]
+        let (route_nvim_bin, route_nvim_args) = if let Some(ref a) = args {
+            (a.neovim_bin.clone(), a.neovim_args.clone())
+        } else if creating_initial_window {
+            let cmdline = self.settings.get::<CmdLineSettings>();
+            (
+                cmdline.neovim_bin.clone(),
+                if cmdline.neovim_args.is_empty() {
+                    None
+                } else {
+                    Some(cmdline.neovim_args.clone())
+                },
+            )
+        } else {
+            (None, None)
+        };
+
         let (renderer, neovim_handler, route_pending_initial_window_size, route_cwd) =
             if creating_initial_window {
                 let Some(route_core) = self.route_cores.remove(&route_id) else {
@@ -1724,6 +1748,10 @@ impl WinitWindowWrapper {
             cwd: route_cwd,
             pending_initial_window_size,
             state,
+            #[cfg(target_os = "macos")]
+            neovim_bin: route_nvim_bin,
+            #[cfg(target_os = "macos")]
+            neovim_args: route_nvim_args,
         };
         self.routes.insert(window.id(), route);
         self.apply_theme_for_window(window.id());
@@ -2218,6 +2246,18 @@ impl WinitWindowWrapper {
         }
 
         self.routes.keys().next().copied()
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn focused_route_nvim_overrides(&self) -> Option<OpenArgs> {
+        let focused_id = self.get_focused_route()?;
+        let route = self.routes.get(&focused_id)?;
+        Some(OpenArgs {
+            files_to_open: vec![],
+            tabs: false,
+            neovim_bin: route.neovim_bin.clone(),
+            neovim_args: route.neovim_args.clone(),
+        })
     }
 
     #[cfg(target_os = "macos")]

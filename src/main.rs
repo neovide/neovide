@@ -318,6 +318,12 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
         caller_cwd: resolved_cwd(None),
         tabs: cmdline_settings.tabs,
         new_window: cmdline_settings.new_window,
+        neovim_bin: cmdline_settings.neovim_bin.clone(),
+        neovim_args: if cmdline_settings.neovim_args.is_empty() {
+            None
+        } else {
+            Some(cmdline_settings.neovim_args.clone())
+        },
     };
 
     match ipc::handoff::try_handoff(&request) {

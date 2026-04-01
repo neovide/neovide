@@ -23,6 +23,8 @@ const FORKED_FROM_TTY_ENV_VAR: &str = "NEOVIDE_FORKED_FROM_TTY";
 pub struct OpenArgs {
     pub files_to_open: Vec<String>,
     pub tabs: bool,
+    pub neovim_bin: Option<String>,
+    pub neovim_args: Option<Vec<String>>,
 }
 
 /// Mode is how neovide should populate argv when launching an embedded nvim instance.
@@ -102,12 +104,26 @@ fn build_nvim_command_parts(
     embed: bool,
     mode: OpenMode,
 ) -> (String, Vec<String>) {
-    let bin = cmdline_settings.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
-    let mut args = cmdline_settings.neovim_args.clone();
+    // For OpenMode::Args (handoff/new-window routes), use the route's own
+    // bin/args. None means "not specified" = default nvim, NOT the global
+    // CmdLineSettings value (which belongs to the original invocation).
+    // For Startup/None modes, use global CmdLineSettings as before.
+    let (bin, mut args) = match &mode {
+        OpenMode::Args(open_args) => {
+            let bin = open_args.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
+            let args = open_args.neovim_args.clone().unwrap_or_default();
+            (bin, args)
+        }
+        _ => {
+            let bin = cmdline_settings.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
+            let args = cmdline_settings.neovim_args.clone();
+            (bin, args)
+        }
+    };
+
     if embed {
         append_embed_arg(&mut args);
     }
-
     args.extend(build_open_args(cmdline_settings, mode));
 
     (bin, args)
@@ -308,12 +324,52 @@ mod tests {
     fn build_nvim_command_parts_uses_route_auto_open_args() {
         let cmdline_settings =
             parse_cmdline_settings(&["neovide", "./foo.txt", "./bar.md", "--grid=420x240"]);
-        let open_args = OpenArgs { files_to_open: vec!["/tmp/project".to_string()], tabs: false };
+        let open_args = OpenArgs {
+            files_to_open: vec!["/tmp/project".to_string()],
+            tabs: false,
+            neovim_bin: None,
+            neovim_args: None,
+        };
 
-        let (_, args) =
+        let (bin, args) =
             build_nvim_command_parts(&cmdline_settings, true, OpenMode::Args(open_args));
 
+        // Route args mode does NOT inherit global cmdline settings
+        assert_eq!(bin, "nvim");
         assert_eq!(args, vec!["--embed", "/tmp/project"]);
+    }
+
+    #[test]
+    fn build_nvim_command_parts_uses_route_neovim_bin_override() {
+        let cmdline_settings = parse_cmdline_settings(&["neovide", "--neovim-bin", "nvim-0.9"]);
+        let open_args = OpenArgs {
+            files_to_open: vec![],
+            tabs: false,
+            neovim_bin: Some("nvim-0.10".to_string()),
+            neovim_args: Some(vec!["--clean".to_string()]),
+        };
+
+        let (bin, args) =
+            build_nvim_command_parts(&cmdline_settings, true, OpenMode::Args(open_args));
+
+        // Uses the route's override, not the global --neovim-bin=nvim-0.9
+        assert_eq!(bin, "nvim-0.10");
+        assert_eq!(args, vec!["--clean", "--embed"]);
+    }
+
+    #[test]
+    fn build_nvim_command_parts_route_none_does_not_inherit_global() {
+        let cmdline_settings =
+            parse_cmdline_settings(&["neovide", "--neovim-bin", "nvim-0.9", "--", "--clean"]);
+        let open_args =
+            OpenArgs { files_to_open: vec![], tabs: false, neovim_bin: None, neovim_args: None };
+
+        let (bin, args) =
+            build_nvim_command_parts(&cmdline_settings, true, OpenMode::Args(open_args));
+
+        // None means default nvim, NOT the global nvim-0.9
+        assert_eq!(bin, "nvim");
+        assert_eq!(args, vec!["--embed"]);
     }
 
     #[test]

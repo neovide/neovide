@@ -139,6 +139,8 @@ pub enum UserEvent {
         caller_cwd: Option<String>,
         tabs: bool,
         new_window: bool,
+        neovim_bin: Option<String>,
+        neovim_args: Option<Vec<String>>,
     },
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
