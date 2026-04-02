@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use tokio::process::Command as TokioCommand;
 
-use crate::{cmd_line::CmdLineSettings, utils::handle_wslpaths};
+use crate::{
+    cmd_line::CmdLineSettings,
+    utils::{expand_tilde, handle_wslpaths},
+};
 
 #[cfg(target_os = "macos")]
 const FORKED_FROM_TTY_ENV_VAR: &str = "NEOVIDE_FORKED_FROM_TTY";
@@ -85,7 +88,11 @@ pub fn create_tokio_nvim_command(
 }
 
 fn command_cwd(settings: &CmdLineSettings, cwd: Option<&Path>) -> Option<PathBuf> {
-    cwd.map(Path::to_path_buf).or_else(|| settings.chdir.as_deref().map(PathBuf::from))
+    cwd.map(Path::to_path_buf).or_else(|| {
+        settings.chdir.as_deref().map(|dir| {
+            if dir.starts_with('~') { PathBuf::from(expand_tilde(dir)) } else { PathBuf::from(dir) }
+        })
+    })
 }
 
 fn build_nvim_command_parts(
@@ -323,5 +330,23 @@ mod tests {
         let cmdline_settings = parse_cmdline_settings(&["neovide", "--chdir", "/random/path"]);
 
         assert_eq!(command_cwd(&cmdline_settings, None), Some(PathBuf::from("/random/path")));
+    }
+
+    #[test]
+    fn command_cwd_expands_tilde_in_cmdline_setting() {
+        let cmdline_settings = parse_cmdline_settings(&["neovide", "--chdir", "~"]);
+
+        assert_eq!(command_cwd(&cmdline_settings, None), Some(PathBuf::from(expand_tilde("~"))));
+    }
+
+    #[test]
+    fn command_cwd_expands_tilde_subpath_in_cmdline_setting() {
+        let cmdline_settings =
+            parse_cmdline_settings(&["neovide", "--chdir", "~/some/other/project"]);
+
+        assert_eq!(
+            command_cwd(&cmdline_settings, None),
+            Some(PathBuf::from(expand_tilde("~/some/other/project")))
+        );
     }
 }
