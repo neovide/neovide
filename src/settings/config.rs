@@ -25,6 +25,13 @@ use crate::renderer::box_drawing::BoxDrawingSettings;
 use crate::window::EventPayload;
 use crate::window::UserEvent;
 
+#[derive(Debug, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct RemoteConfig {
+    #[serde(default)]
+    pub allowed_url_patterns: Vec<String>,
+}
+
 const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
@@ -124,6 +131,8 @@ pub struct Config {
     pub wayland_app_id: Option<String>,
     pub x11_wm_class: Option<String>,
     pub x11_wm_class_instance: Option<String>,
+    #[serde(default)]
+    pub remote: RemoteConfig,
 }
 
 #[derive(Debug, Clone, PartialEq)]

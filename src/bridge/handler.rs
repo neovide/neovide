@@ -23,6 +23,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use winit::event_loop::EventLoopProxy;
 
 use super::ui_commands::UiCommand;
+use super::url_allowlist::is_url_allowed;
 use crate::LoggingReceiver;
 use crate::LoggingSender;
 use crate::bridge::GuiOption;
@@ -148,6 +149,7 @@ pub struct NeovimHandler {
     #[allow(dead_code)]
     settings: Arc<Settings>,
     clipboard: ClipboardHandle,
+    allowed_url_patterns: Vec<String>,
 }
 
 impl std::fmt::Debug for NeovimHandler {
@@ -167,6 +169,7 @@ impl NeovimHandler {
         route_id: RouteId,
         settings: Arc<Settings>,
         clipboard: ClipboardHandle,
+        allowed_url_patterns: Vec<String>,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
@@ -179,6 +182,7 @@ impl NeovimHandler {
             route_id,
             settings,
             clipboard,
+            allowed_url_patterns,
         }
     }
 
@@ -302,6 +306,20 @@ impl Handler for NeovimHandler {
                     .map_err(|_| ClipboardRequestError::CannotSetContents)
             })
             .map_err(Value::from),
+            "neovide.open" => {
+                let path = arguments
+                    .first()
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| Value::from("neovide.open: missing path argument"))?;
+
+                if !is_url_allowed(path, &self.allowed_url_patterns) {
+                    return Err(Value::from(format!("URL rejected by allowlist: {path}")));
+                }
+
+                open::that_detached(path)
+                    .map(|_| Value::Nil)
+                    .map_err(|e| Value::from(format!("neovide.open: {e}")))
+            }
             "neovide.quit" => handle_quit_request(&self.running_tracker, &arguments),
             _ => Ok(Value::from("rpcrequest not handled")),
         }
