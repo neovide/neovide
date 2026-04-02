@@ -75,7 +75,10 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{Config, Settings, load_last_window_settings};
+use crate::{
+    error_handling::{StartupErrorOutput, report_startup_error},
+    settings::{Config, Settings, load_last_window_settings},
+};
 
 #[cfg(target_os = "macos")]
 use crate::utils::resolved_cwd;
@@ -110,15 +113,22 @@ fn main() -> ExitCode {
     #[cfg(target_os = "linux")]
     env::remove_var("ARGV0");
 
+    let settings = Arc::new(Settings::new());
+    let config = Config::init();
+    if let Err(err) = preflight(&settings) {
+        return report_startup_error(err, StartupErrorOutput::Stderr);
+    }
+
+    #[cfg(not(test))]
+    init_logger(&settings);
+
     let event_loop = create_event_loop();
     let clipboard = clipboard::Clipboard::new(&event_loop);
     let clipboard_handle = clipboard::ClipboardHandle::new(&clipboard);
-    let settings = Arc::new(Settings::new());
     let setup_proxy = event_loop.create_proxy();
-    let config = match setup(setup_proxy, settings.clone()) {
-        Ok(config) => config,
-        Err(err) => return handle_startup_errors(err, event_loop, settings.clone(), clipboard),
-    };
+    if let Err(err) = setup(setup_proxy, settings.clone(), &config) {
+        return handle_startup_errors(err, event_loop, settings.clone(), clipboard);
+    }
 
     // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
     // color.
@@ -160,7 +170,39 @@ fn main() -> ExitCode {
     }
 }
 
-fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result<Config> {
+fn preflight(settings: &Settings) -> Result<()> {
+    // will exit if -h or -v
+    cmd_line::handle_command_line_arguments(args().collect(), settings)?;
+
+    {
+        let cmdline_settings = settings.get::<CmdLineSettings>();
+        if let Some(status) = cmd_line::maybe_passthrough_to_neovim(&cmdline_settings)? {
+            std::process::exit(cmd_line::exit_status_code(status));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    match maybe_handoff(settings) {
+        HandoffOutcome::Continue => {}
+        HandoffOutcome::Exit => std::process::exit(0),
+        HandoffOutcome::Error(error) => return Err(anyhow::anyhow!(error)),
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    maybe_disown(settings);
+
+    startup_profiler();
+
+    trace!("Neovide version: {}", BUILD_VERSION);
+
+    Ok(())
+}
+
+fn setup(
+    proxy: EventLoopProxy<EventPayload>,
+    settings: Arc<Settings>,
+    config: &Config,
+) -> Result<()> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -235,7 +277,6 @@ fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result
     settings.register::<CursorSettings>();
     settings.register::<ProgressBarSettings>();
 
-    let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
     set_hook(Box::new({
@@ -250,31 +291,7 @@ fn setup(proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Result
         }
     }));
 
-    //Will exit if -h or -v
-    cmd_line::handle_command_line_arguments(args().collect(), settings.as_ref())?;
-    {
-        let cmdline_settings = settings.get::<CmdLineSettings>();
-        if let Some(status) = cmd_line::maybe_passthrough_to_neovim(&cmdline_settings)? {
-            std::process::exit(cmd_line::exit_status_code(status));
-        }
-    }
-    #[cfg(target_os = "macos")]
-    match maybe_handoff(settings.as_ref()) {
-        HandoffOutcome::Continue => {}
-        HandoffOutcome::Exit => std::process::exit(0),
-        HandoffOutcome::Error(error) => return Err(anyhow::anyhow!(error)),
-    }
-    #[cfg(not(target_os = "windows"))]
-    maybe_disown(&settings);
-
-    startup_profiler();
-
-    #[cfg(not(test))]
-    init_logger(&settings);
-
-    trace!("Neovide version: {}", BUILD_VERSION);
-
-    Ok(config)
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
