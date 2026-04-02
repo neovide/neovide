@@ -617,12 +617,7 @@ impl WinitWindowWrapper {
                 for window_id in window_ids.iter() {
                     if let Some(route) = self.routes.get_mut(window_id) {
                         let mut renderer = route.window.renderer.borrow_mut();
-                        let scale_factor = renderer.os_scale_factor;
-                        let renderer_user_scale_factor = renderer.user_scale_factor;
-                        renderer.user_scale_factor = user_scale_factor.into();
-                        renderer
-                            .grid_renderer
-                            .handle_scale_factor_update(scale_factor * renderer_user_scale_factor);
+                        renderer.handle_user_scale_factor_change(user_scale_factor.into());
                         route.state.font_changed_last_frame = true;
                     }
                 }
@@ -1553,6 +1548,7 @@ impl WinitWindowWrapper {
         let scale_factor = window.scale_factor();
         {
             let mut renderer_ref = renderer.borrow_mut();
+            renderer_ref.sync_scale_factor();
             renderer_ref.handle_os_scale_factor_change(scale_factor);
         }
 
