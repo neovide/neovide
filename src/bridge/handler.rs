@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::{
     Arc, Mutex, RwLock,
     atomic::{AtomicBool, Ordering},
@@ -28,6 +29,45 @@ use crate::{
 };
 
 use super::ui_commands::UiCommand;
+
+#[derive(Debug, PartialEq, Eq)]
+enum ClipboardRequestError {
+    Unavailable,
+    LockUnavailable(String),
+    CannotGetContents,
+    CannotSetContents,
+}
+
+impl fmt::Display for ClipboardRequestError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unavailable => write!(f, "clipboard unavailable"),
+            Self::LockUnavailable(source) => write!(f, "clipboard unavailable: {source}"),
+            Self::CannotGetContents => write!(f, "cannot get clipboard contents"),
+            Self::CannotSetContents => write!(f, "cannot set clipboard contents"),
+        }
+    }
+}
+
+impl From<ClipboardRequestError> for Value {
+    fn from(error: ClipboardRequestError) -> Self {
+        Value::from(error.to_string())
+    }
+}
+
+fn handle_clipboard_request<T, F>(
+    clipboard_handle: &ClipboardHandle,
+    request: F,
+) -> Result<T, ClipboardRequestError>
+where
+    F: FnOnce(&mut crate::clipboard::Clipboard) -> Result<T, ClipboardRequestError>,
+{
+    let clipboard = clipboard_handle.upgrade().ok_or(ClipboardRequestError::Unavailable)?;
+    let mut clipboard = clipboard
+        .lock()
+        .map_err(|error| ClipboardRequestError::LockUnavailable(error.to_string()))?;
+    request(&mut clipboard)
+}
 
 #[derive(Default)]
 struct NeovimState {
@@ -92,28 +132,24 @@ impl NeovimHandler {
         (self.ui_command_sender.clone(), self.ui_command_receiver.clone())
     }
 
-    pub(crate) fn update_current_neovim(
-        &self,
-        neovim: Neovim<NeovimWriter>,
-        can_support_ime_api: bool,
-    ) {
+    pub fn update_current_neovim(&self, neovim: Neovim<NeovimWriter>, can_support_ime_api: bool) {
         if let Ok(mut guard) = self.current_neovim.write() {
             guard.nvim = Some(neovim);
             guard.can_support_ime_api = can_support_ime_api;
         }
     }
 
-    pub(crate) fn clone_current_neovim(&self) -> Option<Neovim<NeovimWriter>> {
+    pub fn clone_current_neovim(&self) -> Option<Neovim<NeovimWriter>> {
         self.current_neovim.read().ok().and_then(|guard| guard.nvim.as_ref().cloned())
     }
 
-    pub(crate) fn clone_current_neovim_with_ime(&self) -> Option<(Neovim<NeovimWriter>, bool)> {
+    pub fn clone_current_neovim_with_ime(&self) -> Option<(Neovim<NeovimWriter>, bool)> {
         self.current_neovim.read().ok().and_then(|guard| {
             guard.nvim.as_ref().cloned().map(|nvim| (nvim, guard.can_support_ime_api))
         })
     }
 
-    pub(crate) fn mark_ui_command_started(&self) -> bool {
+    pub fn mark_ui_command_started(&self) -> bool {
         self.ui_command_started.swap(true, Ordering::SeqCst)
     }
 }
@@ -131,24 +167,16 @@ impl Handler for NeovimHandler {
         trace!("Neovim request: {:?}", &event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => {
-                self.clipboard.upgrade().ok_or(Value::from("clipboard unavailable")).and_then(
-                    |clipboard| {
-                        let mut clipboard = clipboard.lock().unwrap();
-                        get_clipboard_contents(&mut clipboard, &arguments[0])
-                            .map_err(|_| Value::from("cannot get clipboard contents"))
-                    },
-                )
-            }
-            "neovide.set_clipboard" => {
-                self.clipboard.upgrade().ok_or(Value::from("clipboard unavailable")).and_then(
-                    |clipboard| {
-                        let mut clipboard = clipboard.lock().unwrap();
-                        set_clipboard_contents(&mut clipboard, &arguments[0], &arguments[1])
-                            .map_err(|_| Value::from("cannot set clipboard contents"))
-                    },
-                )
-            }
+            "neovide.get_clipboard" => handle_clipboard_request(&self.clipboard, |clipboard| {
+                get_clipboard_contents(clipboard, &arguments[0])
+                    .map_err(|_| ClipboardRequestError::CannotGetContents)
+            })
+            .map_err(Value::from),
+            "neovide.set_clipboard" => handle_clipboard_request(&self.clipboard, |clipboard| {
+                set_clipboard_contents(clipboard, &arguments[0], &arguments[1])
+                    .map_err(|_| ClipboardRequestError::CannotSetContents)
+            })
+            .map_err(Value::from),
             "neovide.quit" => {
                 let error_code =
                     arguments[0].as_i64().expect("Could not parse error code from neovim");
@@ -317,4 +345,62 @@ async fn guifont_was_set(nvim: &Neovim<NeovimWriter>) -> Result<bool, String> {
 
 fn is_guifont_option_set(event: &RedrawEvent) -> bool {
     matches!(event, RedrawEvent::OptionSet { gui_option: GuiOption::GuiFont(_) })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::{Arc, Mutex},
+    };
+
+    use super::{ClipboardRequestError, handle_clipboard_request};
+    use crate::clipboard::{Clipboard, ClipboardError, ClipboardHandle, ProviderState};
+
+    fn unavailable_clipboard(error: ClipboardError) -> Arc<Mutex<Clipboard>> {
+        Arc::new(Mutex::new(Clipboard::from_provider_states_for_test(
+            ProviderState::unavailable_for_test(error.clone()),
+            #[cfg(target_os = "linux")]
+            ProviderState::unavailable_for_test(error),
+        )))
+    }
+
+    #[test]
+    fn clipboard_request_returns_generic_clipboard_error_message() {
+        let clipboard = unavailable_clipboard(ClipboardError::ProviderInitializationFailed {
+            provider: "clipboard",
+            backend: "x11",
+            source: "setup failed".to_string(),
+        });
+
+        let handle = ClipboardHandle::new(&clipboard);
+        let error = handle_clipboard_request(&handle, |clipboard| {
+            clipboard.get_contents("+").map_err(|_| ClipboardRequestError::CannotGetContents)
+        })
+        .unwrap_err();
+
+        assert_eq!(error, ClipboardRequestError::CannotGetContents);
+    }
+
+    #[test]
+    fn clipboard_request_returns_lock_error_instead_of_panicking() {
+        let clipboard = unavailable_clipboard(ClipboardError::ProviderInitializationFailed {
+            provider: "clipboard",
+            backend: "x11",
+            source: "setup failed".to_string(),
+        });
+
+        let handle = ClipboardHandle::new(&clipboard);
+        let _ = catch_unwind(AssertUnwindSafe(|| {
+            let _guard = clipboard.lock().unwrap();
+            panic!("poison clipboard mutex");
+        }));
+
+        let error = handle_clipboard_request(&handle, |clipboard| {
+            clipboard.get_contents("+").map_err(|_| ClipboardRequestError::CannotGetContents)
+        })
+        .unwrap_err();
+
+        assert!(matches!(error, ClipboardRequestError::LockUnavailable(_)));
+    }
 }

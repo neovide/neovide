@@ -265,9 +265,10 @@ impl State {
                         true
                     }
                     "y" => {
-                        if let Some(clipboard) = self.clipboard.upgrade() {
-                            let _ =
-                                clipboard.lock().unwrap().set_contents(message.to_string(), "+");
+                        if let Some(handle) = self.clipboard.upgrade() {
+                            if let Ok(mut clipboard) = handle.lock() {
+                                let _ = clipboard.set_contents(message.to_string(), "+");
+                            }
                         }
                         true
                     }
