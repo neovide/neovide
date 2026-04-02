@@ -21,6 +21,12 @@ use std::path::{Path, PathBuf};
 
 use super::font::FontSettings;
 
+#[derive(Debug, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct RemoteConfig {
+    pub allowed_url_patterns: Option<Vec<String>>,
+}
+
 const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
@@ -119,6 +125,7 @@ pub struct Config {
     pub wayland_app_id: Option<String>,
     pub x11_wm_class: Option<String>,
     pub x11_wm_class_instance: Option<String>,
+    pub remote: Option<RemoteConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

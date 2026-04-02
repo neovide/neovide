@@ -3,6 +3,7 @@
 ---@field neovide_version string
 ---@field config_path string
 ---@field register_clipboard boolean
+---@field register_open boolean
 ---@field register_right_click boolean
 ---@field remote boolean
 ---@field enable_focus_command boolean
@@ -78,6 +79,35 @@ if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
     }
     vim.g.loaded_clipboard_provider = nil
     vim.cmd.runtime("autoload/provider/clipboard.vim")
+end
+
+if args.register_open and not vim.g.neovide_no_remote_open then
+    local original_open = vim.ui.open
+
+    vim.ui.open = function(path, opt)
+        opt = opt or {}
+        -- If user specified a custom command or opted out of remote open,
+        -- delegate to the original implementation (runs on the remote machine)
+        if opt.cmd or opt.neovide_no_remote_open then
+            return original_open(path, opt)
+        end
+
+        -- Send to Neovide to open on the host system
+        local ok, err = pcall(rpcrequest, "neovide.open", path)
+        if not ok then
+            return nil, "neovide.open failed: " .. tostring(err)
+        end
+
+        -- Return a mock SystemObj for API compatibility
+        -- (callers may chain :wait() on the result)
+        local obj = {
+            pid = 0,
+            wait = function(_, _timeout)
+                return { code = 0, signal = 0, stdout = "", stderr = "" }
+            end,
+        }
+        return obj, nil
+    end
 end
 
 if args.register_right_click then
