@@ -37,7 +37,7 @@ pub enum OpenMode {
     Args(OpenArgs),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct CommandSpec {
     program: String,
     args: Vec<String>,
@@ -64,9 +64,10 @@ impl CommandSpec {
 
 pub fn create_blocking_nvim_command(cmdline_settings: &CmdLineSettings, embed: bool) -> StdCommand {
     let (bin, args) = build_nvim_command_parts(cmdline_settings, embed, OpenMode::Startup);
-    let spec = create_command_spec(&bin, &args, cmdline_settings);
+    let cwd = command_cwd(cmdline_settings, None);
+    let spec = create_command_spec(&bin, &args, cmdline_settings, cwd.as_deref());
     let mut cmd = std_command_from_spec(spec);
-    if let Some(dir) = command_cwd(cmdline_settings, None) {
+    if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
     cmd
@@ -79,9 +80,10 @@ pub fn create_tokio_nvim_command(
     mode: OpenMode,
 ) -> TokioCommand {
     let (bin, args) = build_nvim_command_parts(cmdline_settings, embed, mode);
-    let spec = create_command_spec(&bin, &args, cmdline_settings);
+    let cwd = command_cwd(cmdline_settings, cwd);
+    let spec = create_command_spec(&bin, &args, cmdline_settings, cwd.as_deref());
     let mut cmd = tokio_command_from_spec(spec);
-    if let Some(dir) = command_cwd(cmdline_settings, cwd) {
+    if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
     cmd
@@ -182,6 +184,7 @@ fn create_command_spec(
     command: &str,
     args: &[String],
     _cmdline_settings: &CmdLineSettings,
+    cwd: Option<&Path>,
 ) -> CommandSpec {
     use uzers::os::unix::UserExt;
     if !launched_from_desktop() {
@@ -194,9 +197,6 @@ fn create_command_spec(
         let user = uzers::get_user_by_uid(uzers::get_current_uid()).unwrap();
         let shell = user.shell();
 
-        // Convert to a single string and add quotes
-        let args =
-            shlex::try_join(args.iter().map(|s| s.as_ref())).expect("Failed to join arguments");
         CommandSpec::new(
             "/usr/bin/login",
             vec![
@@ -207,9 +207,26 @@ fn create_command_spec(
                 user.name().to_str().unwrap().to_string(),
                 shell.to_str().unwrap().to_string(),
                 "-c".to_string(),
-                format!("{command} {args}"),
+                build_login_shell_command(command, args, cwd),
             ],
         )
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn build_login_shell_command(command: &str, args: &[String], cwd: Option<&Path>) -> String {
+    let quoted_command = shlex::try_join(
+        std::iter::once(command).chain(args.iter().map(std::string::String::as_str)),
+    )
+    .expect("Failed to join command");
+
+    match cwd {
+        Some(dir) => {
+            let cwd_path = dir.to_string_lossy();
+            let cwd = shlex::try_quote(cwd_path.as_ref()).expect("Failed to quote cwd");
+            format!("cd {cwd} && exec {quoted_command}")
+        }
+        None => format!("exec {quoted_command}"),
     }
 }
 
@@ -219,6 +236,7 @@ fn create_command_spec(
     command: &str,
     args: &[String],
     cmdline_settings: &CmdLineSettings,
+    _cwd: Option<&Path>,
 ) -> CommandSpec {
     let spec = if cfg!(target_os = "windows") && cmdline_settings.wsl {
         let args =
@@ -246,6 +264,7 @@ fn create_command_spec(
     command: &str,
     args: &[String],
     _cmdline_settings: &CmdLineSettings,
+    _cwd: Option<&Path>,
 ) -> CommandSpec {
     CommandSpec::new(command, args.to_vec())
 }
@@ -348,5 +367,32 @@ mod tests {
             command_cwd(&cmdline_settings, None),
             Some(PathBuf::from(expand_tilde("~/some/other/project")))
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn build_login_shell_command_preserves_cwd() {
+        let command = build_login_shell_command(
+            "/bin/nvim",
+            &["--embed".to_string(), "-p".to_string(), "/path/to/project/file.txt".to_string()],
+            Some(Path::new("/path/to/new/cwd")),
+        );
+
+        assert_eq!(
+            command,
+            "cd /path/to/new/cwd && exec /bin/nvim --embed -p /path/to/project/file.txt"
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn build_login_shell_command_skips_cd_without_override() {
+        let command = build_login_shell_command(
+            "/bin/nvim",
+            &["--embed".to_string(), "-p".to_string(), "/path/to/project/file.txt".to_string()],
+            None,
+        );
+
+        assert_eq!(command, "exec /bin/nvim --embed -p /path/to/project/file.txt");
     }
 }
