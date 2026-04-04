@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use rmpv::Value;
 
 use crate::clipboard::Clipboard;
@@ -7,9 +5,10 @@ use crate::clipboard::Clipboard;
 pub fn get_clipboard_contents(
     clipboard: &mut Clipboard,
     register: &Value,
-) -> Result<Value, Box<dyn Error + Send + Sync>> {
+) -> Result<Value, String> {
     let register = register.as_str().unwrap_or("+");
-    let clipboard_raw = clipboard.get_contents(register)?.replace('\r', "");
+    let clipboard_raw =
+        clipboard.get_contents(register).map_err(|error| error.to_string())?.replace('\r', "");
     let is_line_paste = clipboard_raw.ends_with('\n');
 
     let lines = clipboard_raw.split('\n').map(Value::from).collect::<Vec<Value>>();
@@ -28,7 +27,7 @@ pub fn set_clipboard_contents(
     clipboard: &mut Clipboard,
     value: &Value,
     register: &Value,
-) -> Result<Value, Box<dyn Error + Send + Sync>> {
+) -> Result<Value, String> {
     #[cfg(not(windows))]
     let endline = "\n";
     #[cfg(windows)]
@@ -44,9 +43,9 @@ pub fn set_clipboard_contents(
                 .collect::<Vec<String>>()
                 .join(endline)
         })
-        .ok_or("can't build string from provided text")?;
+        .ok_or_else(|| "can't build string from provided text".to_string())?;
 
-    clipboard.set_contents(lines, register)?;
+    clipboard.set_contents(lines, register).map_err(|error| error.to_string())?;
 
     Ok(Value::Nil)
 }
