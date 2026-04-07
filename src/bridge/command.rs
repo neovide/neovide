@@ -120,10 +120,18 @@ fn build_open_args(cmdline_settings: &CmdLineSettings, open_mode: OpenMode) -> V
         OpenMode::Args(args) => (args.files_to_open, args.tabs),
     };
 
-    tabs.then(|| "-p".to_string())
+    (tabs && !has_tab_arg(cmdline_settings))
+        .then(|| "-p".to_string())
         .into_iter()
         .chain(handle_wslpaths(files_to_open, cmdline_settings.wsl))
         .collect()
+}
+
+fn has_tab_arg(cmdline_settings: &CmdLineSettings) -> bool {
+    return cmdline_settings.neovim_args.iter().any(|a| {
+        a.strip_prefix("-p")
+            .is_some_and(|count| count.chars().all(|c| c.is_ascii_digit()))
+    });
 }
 
 fn append_embed_arg(args: &mut Vec<String>) {
