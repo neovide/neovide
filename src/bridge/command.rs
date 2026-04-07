@@ -103,36 +103,27 @@ fn build_nvim_command_parts(
     mode: OpenMode,
 ) -> (String, Vec<String>) {
     let bin = cmdline_settings.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
-    let mut initial_args = cmdline_settings.neovim_args.clone();
+    let (nvim_args, nvim_files) = split_args(cmdline_settings.neovim_args.clone());
+
     let (mut files, tab) = match mode {
         OpenMode::None => (Vec::new(), false),
         OpenMode::Startup => (cmdline_settings.files_to_open.clone(), cmdline_settings.tabs),
         OpenMode::Args(args) => (args.files_to_open, args.tabs),
     };
-
     files = handle_wslpaths(files, cmdline_settings.wsl);
-
-    files.extend(
-        initial_args.split_off(
-            initial_args
-                .iter()
-                .position(|a| a == "--")
-                .and_then(|i| if i + 1 < initial_args.len() { Some(i + 1) } else { None })
-                .unwrap_or(initial_args.len()),
-        ),
-    );
+    files.extend(nvim_files);
 
     let args = (embed)
         .then(|| "--embed".to_string())
         .into_iter()
         .chain(
-            (tab && !has_tab_arg(&initial_args))
+            (tab && !has_tab_arg(&nvim_args))
             .then(|| "-p".to_string()),
         )
         .chain(
-            initial_args
+            nvim_args
                 .into_iter()
-                .filter(|a| (!embed || **a != "--embed".to_string()) && **a != "--".to_string()),
+                .filter(|a| !embed || **a != "--embed".to_string()),
         )
         .chain(
             (files.len() > 0)
@@ -143,6 +134,18 @@ fn build_nvim_command_parts(
         .collect();
 
     (bin, args)
+}
+
+fn split_args(mut args: Vec<String>) -> (Vec<String>, Vec<String>) {
+    let separator_pos = args.iter().position(|a| a == "--").and_then(|i| if i + 1 < args.len() { Some(i + 1) } else { None });
+    match separator_pos {
+        Some(pos) => {
+            let files = args.split_off(pos);
+            args.pop();
+            return (args, files)
+        },
+        None => return (args, Vec::new())
+    }
 }
 
 fn has_tab_arg(args: &Vec<String>) -> bool {
