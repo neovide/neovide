@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, rc::Rc};
+use std::{collections::HashSet, num::NonZeroUsize, rc::Rc};
 
 use itertools::Itertools;
 use log::{debug, error, info, trace, warn};
@@ -40,6 +40,28 @@ pub struct CachingShaper {
     scale_factor: f32,
     linespace: f32,
     font_info: Option<(Metrics, f32)>,
+}
+
+fn filter_failed_fonts(mut options: FontOptions, font_keys: &HashSet<FontKey>) -> FontOptions {
+    let original_normal = options.normal.clone();
+    let hinting = options.hinting.clone();
+    let edging = options.edging.clone();
+
+    options.normal.retain(|font_desc| {
+        let key = FontKey {
+            font_desc: Some(font_desc.clone()),
+            hinting: hinting.clone(),
+            edging: edging.clone(),
+        };
+
+        !font_keys.contains(&key)
+    });
+
+    if options.normal.is_empty() {
+        options.normal = original_normal;
+    }
+
+    options
 }
 
 impl CachingShaper {
@@ -135,6 +157,9 @@ impl CachingShaper {
                 failed_fonts.iter().join(", ")
             );
         }
+
+        let failed_font_keys = failed_fonts.into_iter().cloned().collect::<HashSet<_>>();
+        let options = filter_failed_fonts(options, &failed_font_keys);
 
         debug!("Font updated to: {options:?}");
         self.options = options;
@@ -464,5 +489,177 @@ impl CachingShaper {
         } else {
             vec![]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    struct PlatformDefault {
+        guifont: String,
+        failed_family: String,
+        expected: Vec<String>,
+    }
+
+    fn filter_normal_families(guifont: &str, failed_families: Vec<String>) -> Vec<String> {
+        let options = FontOptions::parse(guifont).unwrap();
+        let failed_font_keys = failed_families
+            .into_iter()
+            .map(|family| FontKey {
+                font_desc: Some(FontDescription { family, style: None }),
+                hinting: options.hinting.clone(),
+                edging: options.edging.clone(),
+            })
+            .collect::<HashSet<_>>();
+
+        filter_failed_fonts(options, &failed_font_keys)
+            .normal
+            .into_iter()
+            .map(|font| font.family)
+            .collect()
+    }
+
+    #[cfg(target_os = "linux")]
+    fn platform_default_guifont_case() -> PlatformDefault {
+        PlatformDefault {
+            guifont: "Source Code Pro,DejaVu Sans Mono,Courier New,monospace".to_string(),
+            failed_family: "Source Code Pro".to_string(),
+            expected: vec![
+                "DejaVu Sans Mono".to_string(),
+                "Courier New".to_string(),
+                "monospace".to_string(),
+            ],
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn platform_default_guifont_case() -> PlatformDefault {
+        PlatformDefault {
+            guifont: "SF Mono,Menlo,Monaco,Courier New,monospace".to_string(),
+            failed_family: "SF Mono".to_string(),
+            expected: vec![
+                "Menlo".to_string(),
+                "Monaco".to_string(),
+                "Courier New".to_string(),
+                "monospace".to_string(),
+            ],
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn platform_default_guifont_case() -> PlatformDefault {
+        PlatformDefault {
+            guifont: "Cascadia Code,Cascadia Mono,Consolas,Courier New,monospace".to_string(),
+            failed_family: "Cascadia Code".to_string(),
+            expected: vec![
+                "Cascadia Mono".to_string(),
+                "Consolas".to_string(),
+                "Courier New".to_string(),
+                "monospace".to_string(),
+            ],
+        }
+    }
+
+    #[test]
+    fn filters_failed_normal_fonts_and_preserves_order() {
+        let options = FontOptions {
+            normal: vec![
+                FontDescription { family: "Missing".to_string(), style: None },
+                FontDescription { family: "DejaVu Sans Mono".to_string(), style: None },
+                FontDescription { family: "Courier New".to_string(), style: None },
+            ],
+            ..FontOptions::default()
+        };
+
+        let failed_font_keys = HashSet::from([FontKey {
+            font_desc: Some(FontDescription { family: "Missing".to_string(), style: None }),
+            hinting: options.hinting.clone(),
+            edging: options.edging.clone(),
+        }]);
+
+        let filtered = filter_failed_fonts(options, &failed_font_keys);
+
+        assert_eq!(
+            filtered.normal,
+            vec![
+                FontDescription { family: "DejaVu Sans Mono".to_string(), style: None },
+                FontDescription { family: "Courier New".to_string(), style: None },
+            ]
+        );
+    }
+
+    #[test]
+    fn does_not_empty_normal_fonts_when_every_normal_font_fails() {
+        let options = FontOptions {
+            normal: vec![FontDescription { family: "Missing".to_string(), style: None }],
+            ..FontOptions::default()
+        };
+
+        let failed_font_keys = HashSet::from([FontKey {
+            font_desc: Some(FontDescription { family: "Missing".to_string(), style: None }),
+            hinting: options.hinting.clone(),
+            edging: options.edging.clone(),
+        }]);
+
+        let filtered = filter_failed_fonts(options.clone(), &failed_font_keys);
+
+        assert_eq!(filtered.normal, options.normal);
+    }
+
+    #[test]
+    fn filters_failed_font_from_neovim_platform_default_guifont() {
+        let case = platform_default_guifont_case();
+
+        assert_eq!(
+            filter_normal_families(&case.guifont, vec![case.failed_family.clone()]),
+            case.expected
+        );
+    }
+
+    #[test]
+    fn filters_failed_font_from_neovim_linux_default_guifont() {
+        assert_eq!(
+            filter_normal_families(
+                "Source Code Pro,DejaVu Sans Mono,Courier New,monospace",
+                vec!["Source Code Pro".to_string()]
+            ),
+            vec!["DejaVu Sans Mono", "Courier New", "monospace"]
+        );
+    }
+
+    #[test]
+    fn filters_failed_font_from_neovim_macos_default_guifont() {
+        assert_eq!(
+            filter_normal_families(
+                "SF Mono,Menlo,Monaco,Courier New,monospace",
+                vec!["SF Mono".to_string()]
+            ),
+            vec!["Menlo", "Monaco", "Courier New", "monospace"]
+        );
+    }
+
+    #[test]
+    fn filters_failed_font_from_neovim_windows_default_guifont() {
+        assert_eq!(
+            filter_normal_families(
+                "Cascadia Code,Cascadia Mono,Consolas,Courier New,monospace",
+                vec!["Cascadia Code".to_string()]
+            ),
+            vec!["Cascadia Mono", "Consolas", "Courier New", "monospace"]
+        );
+    }
+
+    #[test]
+    fn filters_failed_font_from_neovim_fallback_default_guifont() {
+        assert_eq!(
+            filter_normal_families(
+                "DejaVu Sans Mono,Courier New,monospace",
+                vec!["DejaVu Sans Mono".to_string()]
+            ),
+            vec!["Courier New", "monospace"]
+        );
     }
 }
