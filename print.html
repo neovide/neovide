@@ -1979,10 +1979,16 @@ useful and can usually help developers to troubleshoot the bug much faster. Here
 collect tracy data.</p>
 <ol>
 <li>
-<p><em>Install tracy.</em> Windows users can download it at
-<a href="https://github.com/wolfpld/tracy/releases">its GitHub release page</a>. Linux and macOS users can
-install it with package manager. Otherwise, you may have to build it yourself following tracy
-docs.</p>
+<p><em>Install tracy.</em> Neovide's profiling build currently depends on
+<code>tracy-client-sys 0.28.0</code>, which expects Tracy <code>v0.13.1</code> to work properly. An Older capture
+binaries will fail with an &quot;incompatible protocol version&quot; error. Windows users can download
+the correct version at <a href="https://github.com/wolfpld/tracy/releases">the Tracy release page</a>.
+macOS and linux users can install it with package manager, but distro packages may lag behind
+and ship an incompatible version.
+If that happens, build Tracy <code>v0.13.1</code> yourself instead. If Neovide updates its Tracy
+dependency later, please check <code>Cargo.toml</code> for the current <code>tracy-client-sys</code> version and
+verify the matching Tracy release in the crate's compatibility
+<a href="https://github.com/nagisa/rust_tracy_client#version-support-table">table</a>.</p>
 </li>
 <li>
 <p><em>Build a profiling version of Neovide.</em> Follow
