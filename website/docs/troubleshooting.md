@@ -44,25 +44,31 @@ when reporting bugs, [tracy](https://github.com/wolfpld/tracy) profiling data wi
 useful and can usually help developers to troubleshoot the bug much faster. Here is how you can
 collect tracy data.
 
-1. *Install tracy.* Windows users can download it at
-[its GitHub release page](https://github.com/wolfpld/tracy/releases). Linux and macOS users can
-install it with package manager. Otherwise, you may have to build it yourself following tracy
-docs.
+1. _Install tracy._ Neovide's profiling build currently depends on
+    `tracy-client-sys 0.28.0`, which expects Tracy `v0.13.1` to work properly. An Older capture
+    binaries will fail with an "incompatible protocol version" error. Windows users can download
+    the correct version at [the Tracy release page](https://github.com/wolfpld/tracy/releases).
+    macOS and linux users can install it with package manager, but distro packages may lag behind
+    and ship an incompatible version.
+    If that happens, build Tracy `v0.13.1` yourself instead. If Neovide updates its Tracy
+    dependency later, please check `Cargo.toml` for the current `tracy-client-sys` version and
+    verify the matching Tracy release in the crate's compatibility
+    [table](https://github.com/nagisa/rust_tracy_client#version-support-table).
 
-2. *Build a profiling version of Neovide.* Follow
-[the installation page](https://neovide.dev/installation.html) to install all required
-dependencies and Rust SDK. Download or clone
-[source code of Neovide](https://github.com/neovide/neovide). Build it with following commands.
-Note that you need to specify **both** `--profile profiling` and `--features profiling`, so that
-Neovide is built for a profiling version. Or, you can skip these commands, and let `cargo run`
-in step 5 build it automatically before running.
+2. _Build a profiling version of Neovide._ Follow
+    [the installation page](https://neovide.dev/installation.html) to install all required
+    dependencies and Rust SDK. Download or clone
+    [source code of Neovide](https://github.com/neovide/neovide). Build it with following commands.
+    Note that you need to specify **both** `--profile profiling` and `--features profiling`, so that
+    Neovide is built for a profiling version. Or, you can skip these commands, and let `cargo run`
+    in step 5 build it automatically before running.
 
     ```sh
     cd [neovide-source-dir]
     cargo build --profile profiling --features profiling
     ```
 
-3. *Prepare tracy for collecting data.* Start tracy with,
+3. _Prepare tracy for collecting data._ Start tracy with,
 
     ```sh
     tracy-capture -o [log-file-path]
@@ -76,10 +82,10 @@ in step 5 build it automatically before running.
 
     It means tracy begins to wait for Neovide and will capture profiling data once it starts.
 
-4. *Running Neovide and reproduce the performance issue.* Start Neovide with following
-commands in another terminal. If you have built Neovide with commands in step 3, this should
-be very fast. If not, it will build Neovide first. You have to specify
-`--profile profiling` and `--features profiling` here, too.
+4. _Running Neovide and reproduce the performance issue._ Start Neovide with following
+    commands in another terminal. If you have built Neovide with commands in step 3, this should
+    be very fast. If not, it will build Neovide first. You have to specify
+    `--profile profiling` and `--features profiling` here, too.
 
     ```sh
     cd [neovide-source-dir]
@@ -88,7 +94,7 @@ be very fast. If not, it will build Neovide first. You have to specify
 
     Now do whatever leads to performance issue in Neovide and exit.
 
-5. *Get the tracy data and report bugs with it.* Turn to tracy, you will see output like,
+5. _Get the tracy data and report bugs with it._ Turn to tracy, you will see output like,
 
     ```plain
     Saving trace... done!
