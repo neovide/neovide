@@ -264,6 +264,23 @@ default to mimic a standalone window. Enable this option to keep the tab bar vis
 shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
 and the Editors menu entry.
 
+### Menu Shortcuts
+
+```sh
+--system-hide-hotkey <combo> or $NEOVIDE_SYSTEM_HIDE_HOTKEY
+--system-hide-others-hotkey <combo> or $NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY
+--system-quit-hotkey <combo> or $NEOVIDE_SYSTEM_QUIT_HOTKEY
+--system-new-window-hotkey <combo> or $NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY
+--system-minimize-hotkey <combo> or $NEOVIDE_SYSTEM_MINIMIZE_HOTKEY
+--system-fullscreen-hotkey <combo> or $NEOVIDE_SYSTEM_FULLSCREEN_HOTKEY
+--system-show-all-tabs-hotkey <combo> or $NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY
+```
+
+Remaps the macOS menu shortcuts used by Neovide. The defaults are `cmd+h`, `cmd+alt+h`, `cmd+q`,
+`cmd+n`, `cmd+m`, `cmd+ctrl+f`, and `cmd+shift+e` for Hide, Hide Others, Quit, New Window,
+Minimize, Enter Full Screen, and Editors respectively. Set any of them to `false` or leave them
+empty to remove the shortcut while keeping the menu item available.
+
 ### System Tab Navigation
 
 ```sh

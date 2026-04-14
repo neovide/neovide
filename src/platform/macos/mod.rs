@@ -15,9 +15,9 @@ use objc2::{
 };
 
 use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
-    NSFontAttributeName, NSFontDescriptor, NSFontWeight, NSFontWeightLight, NSImage, NSMenu,
-    NSMenuDelegate, NSMenuItem, NSTextView, NSView, NSWindow, NSWindowDidBecomeKeyNotification,
+    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSFont, NSFontAttributeName,
+    NSFontDescriptor, NSFontWeight, NSFontWeightLight, NSImage, NSMenu, NSMenuDelegate, NSMenuItem,
+    NSTextView, NSView, NSWindow, NSWindowDidBecomeKeyNotification,
     NSWindowDidBecomeMainNotification, NSWindowStyleMask, NSWindowTabbingMode,
     NSWindowTitleVisibility, NSWorkspace,
 };
@@ -36,6 +36,7 @@ use crate::bridge::{
 use crate::renderer::fonts::font_options::FontOptions;
 use crate::settings::Settings;
 use crate::utils::expand_tilde;
+use crate::window::macos::tab_navigation::KeyCombo;
 use crate::{cmd_line::CmdLineSettings, frame::Frame};
 use winit::{event_loop::EventLoopProxy, window::Window};
 
@@ -314,6 +315,22 @@ fn open_external_url(url: &str) {
     } else {
         log::warn!("Failed to open URL from Help menu: {url}");
     }
+}
+
+fn apply_menu_item_hotkey(item: &NSMenuItem, raw: &str, setting_name: &str) {
+    let Some(shortcut) = KeyCombo::parse(raw) else {
+        return;
+    };
+
+    let Some(key) = shortcut.to_key() else {
+        log::warn!(
+            "macOS menu shortcut '{raw}' for {setting_name} uses an unsupported named key; ignoring"
+        );
+        return;
+    };
+
+    item.setKeyEquivalent(key.as_ref());
+    item.setKeyEquivalentModifierMask(shortcut.to_modifiers());
 }
 
 #[derive(Debug)]
@@ -1108,7 +1125,7 @@ impl MacosWindowFeature {
                 return;
             }
 
-            *menu_cell.borrow_mut() = Some(Menu::new(mtm));
+            *menu_cell.borrow_mut() = Some(Menu::new(mtm, self.settings.as_ref()));
             let app = NSApplication::sharedApplication(mtm);
             #[allow(deprecated)]
             app.activateIgnoringOtherApps(true);
@@ -1510,7 +1527,7 @@ struct Menu {
 }
 
 impl Menu {
-    fn new(mtm: MainThreadMarker) -> Self {
+    fn new(mtm: MainThreadMarker, settings: &Settings) -> Self {
         let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
             help_menu_handler: HelpMenuHandler::new(mtm),
@@ -1520,11 +1537,11 @@ impl Menu {
             _window_menu_observer: WindowMenuNotificationHandler::register(mtm),
             window_menu_delegate: WindowMenuDelegate::new(mtm),
         };
-        menu.add_menus(mtm);
+        menu.add_menus(mtm, &settings.get::<CmdLineSettings>());
         menu
     }
 
-    fn add_app_menu(&self, mtm: MainThreadMarker) -> Retained<NSMenu> {
+    fn add_app_menu(&self, mtm: MainThreadMarker, settings: &CmdLineSettings) -> Retained<NSMenu> {
         unsafe {
             let app_menu = NSMenu::new(mtm);
             let process_name = NSProcessInfo::processInfo().processName();
@@ -1545,15 +1562,16 @@ impl Menu {
             // application window operations
             let hide_item = NSMenuItem::new(mtm);
             hide_item.setTitle(&ns_string!("Hide ").stringByAppendingString(&process_name));
-            hide_item.setKeyEquivalent(ns_string!("h"));
+            apply_menu_item_hotkey(&hide_item, &settings.system_hide_hotkey, "system_hide_hotkey");
             hide_item.setAction(Some(sel!(hide:)));
             app_menu.addItem(&hide_item);
 
             let hide_others_item = NSMenuItem::new(mtm);
             hide_others_item.setTitle(ns_string!("Hide Others"));
-            hide_others_item.setKeyEquivalent(ns_string!("h"));
-            hide_others_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::Option | NSEventModifierFlags::Command,
+            apply_menu_item_hotkey(
+                &hide_others_item,
+                &settings.system_hide_others_hotkey,
+                "system_hide_others_hotkey",
             );
             hide_others_item.setAction(Some(sel!(hideOtherApplications:)));
             app_menu.addItem(&hide_others_item);
@@ -1568,7 +1586,7 @@ impl Menu {
 
             let quit_item = NSMenuItem::new(mtm);
             quit_item.setTitle(&ns_string!("Quit ").stringByAppendingString(&process_name));
-            quit_item.setKeyEquivalent(ns_string!("q"));
+            apply_menu_item_hotkey(&quit_item, &settings.system_quit_hotkey, "system_quit_hotkey");
             quit_item.setAction(Some(sel!(quit:)));
             quit_item.setTarget(Some(&self.quit_handler));
             app_menu.addItem(&quit_item);
@@ -1577,12 +1595,12 @@ impl Menu {
         }
     }
 
-    fn add_menus(&self, mtm: MainThreadMarker) {
+    fn add_menus(&self, mtm: MainThreadMarker, settings: &CmdLineSettings) {
         let app = NSApplication::sharedApplication(mtm);
 
         let main_menu = NSMenu::new(mtm);
 
-        let app_menu = self.add_app_menu(mtm);
+        let app_menu = self.add_app_menu(mtm, settings);
         let app_menu_item = NSMenuItem::new(mtm);
         app_menu_item.setSubmenu(Some(&app_menu));
         if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
@@ -1590,7 +1608,7 @@ impl Menu {
         }
         main_menu.addItem(&app_menu_item);
 
-        let win_menu = self.add_window_menu(mtm);
+        let win_menu = self.add_window_menu(mtm, settings);
         let win_menu_item = NSMenuItem::new(mtm);
         win_menu_item.setSubmenu(Some(&win_menu));
         main_menu.addItem(&win_menu_item);
@@ -1606,7 +1624,11 @@ impl Menu {
         app.setMainMenu(Some(&main_menu));
     }
 
-    fn add_window_menu(&self, mtm: MainThreadMarker) -> Retained<NSMenu> {
+    fn add_window_menu(
+        &self,
+        mtm: MainThreadMarker,
+        settings: &CmdLineSettings,
+    ) -> Retained<NSMenu> {
         unsafe {
             let menu = NSMenu::new(mtm);
             menu.setTitle(ns_string!("Window"));
@@ -1616,16 +1638,21 @@ impl Menu {
 
             let full_screen_item = NSMenuItem::new(mtm);
             full_screen_item.setTitle(ns_string!("Enter Full Screen"));
-            full_screen_item.setKeyEquivalent(ns_string!("f"));
-            full_screen_item.setAction(Some(sel!(toggleFullScreen:)));
-            full_screen_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::Control | NSEventModifierFlags::Command,
+            apply_menu_item_hotkey(
+                &full_screen_item,
+                &settings.system_fullscreen_hotkey,
+                "system_fullscreen_hotkey",
             );
+            full_screen_item.setAction(Some(sel!(toggleFullScreen:)));
             menu.addItem(&full_screen_item);
 
             let create_new_window = NSMenuItem::new(mtm);
             create_new_window.setTitle(ns_string!("New Window"));
-            create_new_window.setKeyEquivalent(ns_string!("n"));
+            apply_menu_item_hotkey(
+                &create_new_window,
+                &settings.system_new_window_hotkey,
+                "system_new_window_hotkey",
+            );
             create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
             create_new_window.setTarget(Some(&self.new_window_handler));
             menu.addItem(&create_new_window);
@@ -1633,9 +1660,10 @@ impl Menu {
             if should_show_native_tab_bar() {
                 let show_all_tabs_item = NSMenuItem::new(mtm);
                 show_all_tabs_item.setTitle(ns_string!("Editors"));
-                show_all_tabs_item.setKeyEquivalent(ns_string!("e"));
-                show_all_tabs_item.setKeyEquivalentModifierMask(
-                    NSEventModifierFlags::Command | NSEventModifierFlags::Shift,
+                apply_menu_item_hotkey(
+                    &show_all_tabs_item,
+                    &settings.system_show_all_tabs_hotkey,
+                    "system_show_all_tabs_hotkey",
                 );
                 show_all_tabs_item.setAction(Some(sel!(neovideShowAllTabs:)));
                 show_all_tabs_item.setTarget(Some(&self.tab_overview_handler));
@@ -1644,7 +1672,11 @@ impl Menu {
 
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
-            min_item.setKeyEquivalent(ns_string!("m"));
+            apply_menu_item_hotkey(
+                &min_item,
+                &settings.system_minimize_hotkey,
+                "system_minimize_hotkey",
+            );
             min_item.setAction(Some(sel!(performMiniaturize:)));
             menu.addItem(&min_item);
             menu
