@@ -127,7 +127,7 @@ impl KeyboardManager {
         let is_numlock_key = key_event.text.is_some();
         match physical_key_code {
             KeyCode::NumpadDivide => Some("kDivide"),
-            KeyCode::NumpadStar => Some("kMultiply"),
+            KeyCode::NumpadMultiply => Some("kMultiply"),
             KeyCode::NumpadSubtract => Some("kMinus"),
             KeyCode::NumpadAdd => Some("kPlus"),
             KeyCode::NumpadEnter => Some("kEnter"),
