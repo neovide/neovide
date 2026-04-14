@@ -103,33 +103,55 @@ fn build_nvim_command_parts(
     mode: OpenMode,
 ) -> (String, Vec<String>) {
     let bin = cmdline_settings.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
-    let mut args = cmdline_settings.neovim_args.clone();
-    if embed {
-        append_embed_arg(&mut args);
-    }
+    let (nvim_args, nvim_files) = split_args(cmdline_settings.neovim_args.clone());
 
-    args.extend(build_open_args(cmdline_settings, mode));
+    let (mut files, tab) = match mode {
+        OpenMode::None => (Vec::new(), false),
+        OpenMode::Startup => (cmdline_settings.files_to_open.clone(), cmdline_settings.tabs),
+        OpenMode::Args(args) => (args.files_to_open, args.tabs),
+    };
+    files = handle_wslpaths(files, cmdline_settings.wsl);
+    files.extend(nvim_files);
+
+    let args = (embed)
+        .then(|| "--embed".to_string())
+        .into_iter()
+        .chain(
+            (tab && !has_tab_arg(&nvim_args))
+            .then(|| "-p".to_string()),
+        )
+        .chain(
+            nvim_args
+                .into_iter()
+                .filter(|a| !embed || **a != "--embed".to_string()),
+        )
+        .chain(
+            (files.len() > 0)
+                .then_some(std::iter::once("--".to_string()).chain(files))
+                .into_iter()
+                .flatten(),
+        )
+        .collect();
 
     (bin, args)
 }
 
-fn build_open_args(cmdline_settings: &CmdLineSettings, open_mode: OpenMode) -> Vec<String> {
-    let (files_to_open, tabs) = match open_mode {
-        OpenMode::None => return Vec::new(),
-        OpenMode::Startup => (cmdline_settings.files_to_open.clone(), cmdline_settings.tabs),
-        OpenMode::Args(args) => (args.files_to_open, args.tabs),
-    };
-
-    tabs.then(|| "-p".to_string())
-        .into_iter()
-        .chain(handle_wslpaths(files_to_open, cmdline_settings.wsl))
-        .collect()
+fn split_args(mut args: Vec<String>) -> (Vec<String>, Vec<String>) {
+    let separator_pos = args.iter().position(|a| a == "--").and_then(|i| if i + 1 < args.len() { Some(i + 1) } else { None });
+    match separator_pos {
+        Some(pos) => {
+            let files = args.split_off(pos);
+            args.pop();
+            return (args, files)
+        },
+        None => return (args, Vec::new())
+    }
 }
 
-fn append_embed_arg(args: &mut Vec<String>) {
-    if !args.iter().any(|arg| arg == "--embed") {
-        args.push("--embed".to_string());
-    }
+fn has_tab_arg(args: &Vec<String>) -> bool {
+    return args.iter().any(|a| {
+        a.strip_prefix("-p").is_some_and(|count| count.chars().all(|c| c.is_ascii_digit()))
+    });
 }
 
 fn tokio_command_from_spec(spec: CommandSpec) -> TokioCommand {
@@ -291,7 +313,7 @@ mod tests {
 
         let (_, args) = build_nvim_command_parts(&cmdline_settings, true, OpenMode::Startup);
 
-        assert_eq!(args, vec!["--embed", "-p", "./foo.txt", "./bar.md"]);
+        assert_eq!(args, vec!["--embed", "-p", "--", "./foo.txt", "./bar.md"]);
     }
 
     #[test]
@@ -313,7 +335,7 @@ mod tests {
         let (_, args) =
             build_nvim_command_parts(&cmdline_settings, true, OpenMode::Args(open_args));
 
-        assert_eq!(args, vec!["--embed", "/tmp/project"]);
+        assert_eq!(args, vec!["--embed", "--", "/tmp/project"]);
     }
 
     #[test]
@@ -331,7 +353,7 @@ mod tests {
         let (bin, args) = build_nvim_command_parts(&cmdline_settings, true, OpenMode::Startup);
 
         assert_eq!(bin, "ssh");
-        assert_eq!(args, vec!["my-server", "nvim", "--embed"]);
+        assert_eq!(args, vec!["--embed", "my-server", "nvim"]);
     }
 
     #[test]
