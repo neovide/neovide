@@ -311,19 +311,18 @@ fn maybe_handoff(settings: &Settings) -> HandoffOutcome {
         return HandoffOutcome::Continue;
     }
 
+    let CmdLineSettings { files_to_open, tabs, new_window, neovim_bin, neovim_args, .. } =
+        cmdline_settings;
+
     let request = ipc::handoff::HandoffRequest {
         version: BUILD_VERSION.to_owned(),
-        files_to_open: cmdline_settings.files_to_open.clone(),
+        files_to_open,
         cwd: resolved_cwd(cmd_line::argv_chdir().as_deref()),
         caller_cwd: resolved_cwd(None),
-        tabs: cmdline_settings.tabs,
-        new_window: cmdline_settings.new_window,
-        neovim_bin: cmdline_settings.neovim_bin.clone(),
-        neovim_args: if cmdline_settings.neovim_args.is_empty() {
-            None
-        } else {
-            Some(cmdline_settings.neovim_args.clone())
-        },
+        tabs,
+        new_window,
+        neovim_bin,
+        neovim_args: (!neovim_args.is_empty()).then_some(neovim_args),
     };
 
     match ipc::handoff::try_handoff(&request) {
