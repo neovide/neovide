@@ -102,6 +102,27 @@ enum GeometryTarget {
     None,
 }
 
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+struct RouteLaunchConfig {
+    neovim_bin: Option<String>,
+    neovim_args: Option<Vec<String>>,
+}
+
+#[cfg(target_os = "macos")]
+impl RouteLaunchConfig {
+    fn from_open_args(args: &OpenArgs) -> Self {
+        Self { neovim_bin: args.neovim_bin.clone(), neovim_args: args.neovim_args.clone() }
+    }
+
+    fn from_cmdline(cmdline: CmdLineSettings) -> Self {
+        Self {
+            neovim_bin: cmdline.neovim_bin,
+            neovim_args: (!cmdline.neovim_args.is_empty()).then_some(cmdline.neovim_args),
+        }
+    }
+}
+
 pub struct RouteWindow {
     pub skia_renderer: Rc<RefCell<Box<dyn SkiaRenderer>>>,
     pub winit_window: Rc<Window>,
@@ -330,6 +351,23 @@ impl WinitWindowWrapper {
                 font_changed_last_frame: false,
             },
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    fn route_launch_config_for_window_creation(
+        &self,
+        args: Option<&OpenArgs>,
+        creating_initial_window: bool,
+    ) -> RouteLaunchConfig {
+        if let Some(args) = args {
+            return RouteLaunchConfig::from_open_args(args);
+        }
+
+        if !creating_initial_window {
+            return RouteLaunchConfig::default();
+        }
+
+        RouteLaunchConfig::from_cmdline(self.settings.get::<CmdLineSettings>())
     }
 
     pub fn has_pending_window_creation(&self) -> bool {
@@ -1494,25 +1532,12 @@ impl WinitWindowWrapper {
             ..
         } = self.settings.get::<WindowSettings>();
 
-        // Capture per-route nvim overrides before args is consumed into OpenMode.
+        // Capture per-route launch config before args is consumed into OpenMode.
         // For the initial window (args is None, uses OpenMode::Startup), pull from
         // CmdLineSettings so "New Window" can clone the initial invocation's config.
         #[cfg(target_os = "macos")]
-        let (route_nvim_bin, route_nvim_args) = if let Some(ref a) = args {
-            (a.neovim_bin.clone(), a.neovim_args.clone())
-        } else if creating_initial_window {
-            let cmdline = self.settings.get::<CmdLineSettings>();
-            (
-                cmdline.neovim_bin.clone(),
-                if cmdline.neovim_args.is_empty() {
-                    None
-                } else {
-                    Some(cmdline.neovim_args.clone())
-                },
-            )
-        } else {
-            (None, None)
-        };
+        let route_launch_config =
+            self.route_launch_config_for_window_creation(args.as_ref(), creating_initial_window);
 
         let (renderer, neovim_handler, route_pending_initial_window_size, route_cwd) =
             if creating_initial_window {
@@ -1749,9 +1774,9 @@ impl WinitWindowWrapper {
             pending_initial_window_size,
             state,
             #[cfg(target_os = "macos")]
-            neovim_bin: route_nvim_bin,
+            neovim_bin: route_launch_config.neovim_bin,
             #[cfg(target_os = "macos")]
-            neovim_args: route_nvim_args,
+            neovim_args: route_launch_config.neovim_args,
         };
         self.routes.insert(window.id(), route);
         self.apply_theme_for_window(window.id());
@@ -2249,15 +2274,18 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn focused_route_nvim_overrides(&self) -> Option<OpenArgs> {
+    pub fn focused_route_launch_context(&self) -> Option<(Option<PathBuf>, OpenArgs)> {
         let focused_id = self.get_focused_route()?;
         let route = self.routes.get(&focused_id)?;
-        Some(OpenArgs {
-            files_to_open: vec![],
-            tabs: false,
-            neovim_bin: route.neovim_bin.clone(),
-            neovim_args: route.neovim_args.clone(),
-        })
+        Some((
+            route.cwd.clone(),
+            OpenArgs {
+                files_to_open: vec![],
+                tabs: false,
+                neovim_bin: route.neovim_bin.clone(),
+                neovim_args: route.neovim_args.clone(),
+            },
+        ))
     }
 
     #[cfg(target_os = "macos")]

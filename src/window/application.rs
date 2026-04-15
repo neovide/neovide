@@ -825,8 +825,17 @@ impl ApplicationHandler<EventPayload> for Application {
             }
             #[cfg(target_os = "macos")]
             UserEvent::CreateWindow => {
-                let args = self.window_wrapper.focused_route_nvim_overrides();
-                self.window_wrapper.try_create_window(event_loop, &self.proxy, None, args);
+                let (cwd, args) = self
+                    .window_wrapper
+                    .focused_route_launch_context()
+                    .map(|(cwd, args)| (cwd, Some(args)))
+                    .unwrap_or((None, None));
+                self.window_wrapper.try_create_window(
+                    event_loop,
+                    &self.proxy,
+                    cwd.as_deref(),
+                    args,
+                );
                 self.sync_render_states();
                 self.mark_should_render_all();
             }
