@@ -277,8 +277,7 @@ impl Application {
             return;
         }
 
-        let open_args = (!args.files_to_open.is_empty()).then_some(args);
-        self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd, open_args);
+        self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd, Some(args));
         self.mark_should_render_all();
     }
 
@@ -716,7 +715,15 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles { files, cwd, caller_cwd, tabs, new_window } => {
+            UserEvent::OpenFiles {
+                files,
+                cwd,
+                caller_cwd,
+                tabs,
+                new_window,
+                neovim_bin,
+                neovim_args,
+            } => {
                 let cwd = cwd.as_deref().map(Path::new);
                 let caller_cwd = caller_cwd.as_deref().map(Path::new);
                 let open_args = OpenArgs {
@@ -725,6 +732,8 @@ impl ApplicationHandler<EventPayload> for Application {
                         .map(|path| resolve_relative_path(&path, caller_cwd))
                         .collect(),
                     tabs,
+                    neovim_bin,
+                    neovim_args,
                 };
 
                 self.prepare_open_files(event_loop, new_window, cwd, open_args);
@@ -816,7 +825,17 @@ impl ApplicationHandler<EventPayload> for Application {
             }
             #[cfg(target_os = "macos")]
             UserEvent::CreateWindow => {
-                self.window_wrapper.try_create_window(event_loop, &self.proxy, None, None);
+                let (cwd, args) = self
+                    .window_wrapper
+                    .focused_route_launch_context()
+                    .map(|(cwd, args)| (cwd, Some(args)))
+                    .unwrap_or((None, None));
+                self.window_wrapper.try_create_window(
+                    event_loop,
+                    &self.proxy,
+                    cwd.as_deref(),
+                    args,
+                );
                 self.sync_render_states();
                 self.mark_should_render_all();
             }

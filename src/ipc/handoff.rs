@@ -31,6 +31,10 @@ pub struct HandoffRequest {
     pub caller_cwd: Option<String>,
     pub tabs: bool,
     pub new_window: bool,
+    #[serde(default)]
+    pub neovim_bin: Option<String>,
+    #[serde(default)]
+    pub neovim_args: Option<Vec<String>>,
 }
 
 impl HandoffRequest {
@@ -43,6 +47,8 @@ impl HandoffRequest {
             caller_cwd: None,
             tabs: true,
             new_window: false,
+            neovim_bin: None,
+            neovim_args: None,
         }
     }
 }
@@ -222,6 +228,8 @@ fn handle_request(
                 caller_cwd: request.caller_cwd,
                 tabs: request.tabs,
                 new_window: request.new_window,
+                neovim_bin: request.neovim_bin,
+                neovim_args: request.neovim_args,
             },
             target: EventTarget::Focused,
         };
