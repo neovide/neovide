@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fmt::{Display, Formatter},
     num::NonZeroUsize,
     rc::Rc,
@@ -61,6 +62,7 @@ pub struct FontKey {
 pub struct FontLoader {
     font_mgr: FontMgr,
     cache: LruCache<FontKey, Rc<FontPair>>,
+    failed_fonts: HashSet<FontKey>,
     font_size: f32,
     last_resort: Option<Rc<FontPair>>,
 }
@@ -80,6 +82,7 @@ impl FontLoader {
         FontLoader {
             font_mgr: FontMgr::new(),
             cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
+            failed_fonts: HashSet::new(),
             font_size,
             last_resort: None,
         }
@@ -104,11 +107,23 @@ impl FontLoader {
             return Some(cached.clone());
         }
 
-        let loaded_font = self.load(font_key.clone())?;
-        let font_rc = Rc::new(loaded_font);
-        self.cache.put(font_key.clone(), font_rc.clone());
+        if self.failed_fonts.contains(font_key) {
+            return None;
+        }
 
-        Some(font_rc)
+        let font = match self.load(font_key.clone()) {
+            Some(loaded_font) => loaded_font,
+            None => {
+                self.failed_fonts.insert(font_key.clone());
+                return None;
+            }
+        };
+
+        let font = Rc::new(font);
+        self.cache.put(font_key.clone(), font.clone());
+        self.failed_fonts.remove(font_key);
+
+        Some(font)
     }
 
     pub fn load_font_for_character(
@@ -182,5 +197,29 @@ fn font_edging(edging: &FontEdging) -> SkiaEdging {
         FontEdging::AntiAlias => SkiaEdging::AntiAlias,
         FontEdging::Alias => SkiaEdging::Alias,
         FontEdging::SubpixelAntiAlias => SkiaEdging::SubpixelAntiAlias,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn caches_failed_font_keys() {
+        let mut loader = FontLoader::new(14.0);
+        let missing_font = FontKey {
+            font_desc: Some(FontDescription {
+                family: "missing-font-family".to_string(),
+                style: None,
+            }),
+            hinting: FontHinting::default(),
+            edging: FontEdging::default(),
+        };
+
+        assert!(loader.get_or_load(&missing_font).is_none());
+        assert!(loader.failed_fonts.contains(&missing_font));
+
+        assert!(loader.get_or_load(&missing_font).is_none());
+        assert_eq!(loader.failed_fonts.len(), 1);
     }
 }

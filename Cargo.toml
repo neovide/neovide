@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.16.1"
+version = "0.16.2"
 edition = "2021"
 build = "build.rs"
 resolver = "2"
@@ -91,7 +91,7 @@ time = { version = "0.3.47", features = ["macros", "formatting"] }
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-util = { version = "0.7.18", features = ["compat"] }
 toml = "0.9.5"
-tracy-client-sys = { version = "0.27.0", optional = true, default-features = false, features = [
+tracy-client-sys = { version = "0.28.0", optional = true, default-features = false, features = [
   "broadcast",
   "delayed-init",
   "enable",
