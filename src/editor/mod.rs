@@ -264,13 +264,7 @@ impl Editor {
             }
             RedrawEvent::HighlightGroupSet { name, id } => {
                 tracy_zone!("EditorHighlightGroupSet");
-                #[cfg(target_os = "macos")]
-                if name.starts_with("MatchParen") {
-                    self.register_match_paren_highlight_id(id);
-                }
-
-                #[cfg(not(target_os = "macos"))]
-                let _ = (name, id);
+                self.handle_highlight_group_set(name.as_str(), id);
             }
             RedrawEvent::CursorGoto { grid, column: left, row: top } => {
                 tracy_zone!("EditorCursorGoto");
@@ -727,6 +721,16 @@ impl Editor {
         self.match_paren_highlight_ids.insert(id);
         self.reset_match_paren_cache_state();
     }
+
+    #[cfg(target_os = "macos")]
+    fn handle_highlight_group_set(&mut self, name: &str, id: u64) {
+        if name.starts_with("MatchParen") {
+            self.register_match_paren_highlight_id(id);
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn handle_highlight_group_set(&mut self, _name: &str, _id: u64) {}
 
     #[cfg(target_os = "macos")]
     fn grid_cell_text(&self, grid: u64, row: u64, column: u64) -> Option<String> {

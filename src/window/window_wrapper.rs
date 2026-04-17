@@ -674,13 +674,11 @@ impl WinitWindowWrapper {
                     }
                 }
             }
-            WindowSettingsChanged::MessageAreaDragSelection(enabled) => {
-                if !enabled {
-                    for window_id in window_ids.iter() {
-                        if let Some(route) = self.routes.get(window_id) {
-                            route.window.mouse_manager.borrow_mut().clear_message_selection();
-                            route.window.renderer.borrow_mut().set_message_selection(None);
-                        }
+            WindowSettingsChanged::MessageAreaDragSelection(enabled) if !enabled => {
+                for window_id in window_ids.iter() {
+                    if let Some(route) = self.routes.get(window_id) {
+                        route.window.mouse_manager.borrow_mut().clear_message_selection();
+                        route.window.renderer.borrow_mut().set_message_selection(None);
                     }
                 }
             }
@@ -724,14 +722,12 @@ impl WinitWindowWrapper {
             }
 
             #[cfg(target_os = "macos")]
-            WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
-                if enabled {
-                    error_msg!(concat!(
-                        "neovide_input_macos_alt_is_meta has now been removed. ",
-                        "Use neovide_input_macos_option_key_is_meta instead. ",
-                        "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
-                    ));
-                }
+            WindowSettingsChanged::InputMacosAltIsMeta(enabled) if enabled => {
+                error_msg!(concat!(
+                    "neovide_input_macos_alt_is_meta has now been removed. ",
+                    "Use neovide_input_macos_option_key_is_meta instead. ",
+                    "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
+                ));
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::MacosSimpleFullscreen(fullscreen) => {
