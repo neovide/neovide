@@ -211,7 +211,7 @@ pub fn group_windows(
     for i in 0..windows.len() {
         let _ = get_window_group(&mut windows, i);
     }
-    windows.sort_by(|a, b| a.group.cmp(&b.group));
+    windows.sort_by_key(|a| a.group);
     windows
         .into_iter()
         .chunk_by(|window| window.group)
