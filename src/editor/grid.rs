@@ -51,11 +51,11 @@ impl CharacterGrid {
     }
 
     pub fn get_cell(&self, x: usize, y: usize) -> Option<&GridCell> {
-        self.lines[y].characters.get(x)
+        self.row(y).and_then(|row| row.get(x))
     }
 
     pub fn get_cell_mut(&mut self, x: usize, y: usize) -> Option<&mut GridCell> {
-        self.lines[y].characters.get_mut(x)
+        self.row_mut(y).and_then(|row| row.get_mut(x))
     }
 
     pub fn set_all_characters(&mut self, value: GridCell) {
@@ -67,7 +67,11 @@ impl CharacterGrid {
     }
 
     pub fn row(&self, row_index: usize) -> Option<&[GridCell]> {
-        if row_index < self.height { Some(&self.lines[row_index].characters[..]) } else { None }
+        self.lines.get(row_index).map(|line| line.characters.as_slice())
+    }
+
+    fn row_mut(&mut self, row_index: usize) -> Option<&mut [GridCell]> {
+        self.lines.get_mut(row_index).map(|line| line.characters.as_mut_slice())
     }
 
     /// Scroll the region defined by top, bottom, left, and right by rows and columns.
@@ -231,6 +235,22 @@ mod tests {
         *cell = ("bar".to_string(), Some(Arc::new(Style::new(context.none_colors.clone()))));
 
         assert_eq!(character_grid.get_cell_mut(context.x, context.y).unwrap(), &result);
+    }
+
+    #[test]
+    fn get_cell_returns_none_for_zero_height_grid() {
+        let mut character_grid = CharacterGrid::new((10, 0));
+
+        assert_eq!(character_grid.get_cell(0, 0), None);
+        assert_eq!(character_grid.get_cell_mut(0, 0), None);
+    }
+
+    #[test]
+    fn get_cell_returns_none_for_out_of_bounds_row() {
+        let mut character_grid = CharacterGrid::new((4, 2));
+
+        assert_eq!(character_grid.get_cell(0, 2), None);
+        assert_eq!(character_grid.get_cell_mut(0, 2), None);
     }
 
     #[test]

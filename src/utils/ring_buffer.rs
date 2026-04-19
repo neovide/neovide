@@ -62,6 +62,16 @@ impl<T: Clone> RingBuffer<T> {
         self.elements.len()
     }
 
+    pub fn get(&self, index: usize) -> Option<&T> {
+        let array_index = self.checked_array_index(index)?;
+        Some(&self.elements[array_index])
+    }
+
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        let array_index = self.checked_array_index(index)?;
+        Some(&mut self.elements[array_index])
+    }
+
     pub fn resize(&mut self, new_size: usize, default_value: T) {
         if new_size > 0 && !self.elements.is_empty() {
             let index = self.get_array_index(0);
@@ -78,6 +88,10 @@ impl<T: Clone> RingBuffer<T> {
     fn get_array_index(&self, index: isize) -> usize {
         let num = self.elements.len() as isize;
         (self.current_index + index).rem_euclid(num) as usize
+    }
+
+    fn checked_array_index(&self, index: usize) -> Option<usize> {
+        (index < self.len()).then(|| self.get_array_index(index as isize))
     }
 
     fn get_bounds<R: RangeBounds<isize>>(&self, range: R) -> Range<isize> {
@@ -177,6 +191,8 @@ mod tests {
         let mut buffer = RingBuffer::<i32>::new(0, 5);
         assert_eq!(buffer.len(), 0);
         assert!(buffer.is_empty());
+        assert_eq!(buffer.get(0), None);
+        assert_eq!(buffer.get_mut(0), None);
         assert_eq!(buffer.iter().size_hint(), (0, Some(0)));
         assert_eq!(buffer.iter_mut().size_hint(), (0, Some(0)));
     }
@@ -207,11 +223,25 @@ mod tests {
         let mut buffer = RingBuffer::<i32>::new(3, 0);
         assert_eq!(buffer.len(), 3);
         assert_eq!(buffer[0], 0);
+        assert_eq!(buffer.get(0), Some(&0));
         assert_eq!(buffer[2], 0);
         buffer.clone_from_iter(&[1, 2, 3]);
         assert!(buffer.iter().eq([1, 2, 3].iter()));
         assert_eq!(buffer[0], 1);
         assert_eq!(buffer[2], 3);
+        assert_eq!(buffer.get(3), None);
+    }
+
+    #[test]
+    fn get_respects_rotation_and_bounds() {
+        let mut buffer = RingBuffer::<i32>::new(3, 0);
+        buffer.clone_from_iter(&[1, 2, 3]);
+        buffer.rotate(1);
+
+        assert_eq!(buffer.get(0), Some(&2));
+        assert_eq!(buffer.get(1), Some(&3));
+        assert_eq!(buffer.get(2), Some(&1));
+        assert_eq!(buffer.get(3), None);
     }
 
     #[test]
