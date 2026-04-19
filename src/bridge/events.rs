@@ -601,7 +601,7 @@ fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
             "insert" => EditorMode::Insert,
             "visual" => EditorMode::Visual,
             "replace" => EditorMode::Replace,
-            "cmdline_normal" => EditorMode::CmdLine,
+            "cmdline_normal" | "cmdline_insert" | "cmdline_replace" => EditorMode::CmdLine,
             _ => EditorMode::Unknown(mode_name),
         },
         mode_index: parse_u64(mode_index)?,

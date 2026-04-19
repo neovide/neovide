@@ -135,6 +135,8 @@ impl Corner {
         }
 
         if immediate_movement {
+            self.animation_x.reset();
+            self.animation_y.reset();
             self.current_position = corner_destination;
             return false;
         }
@@ -214,6 +216,38 @@ impl Corner {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CmdlineCtx {
+    Inactive,
+    Active { window: u64 },
+    Exiting { window: u64 },
+}
+
+impl CmdlineCtx {
+    fn active(current_window: u64) -> Self {
+        Self::Active { window: current_window }
+    }
+
+    fn exiting_or_inactive(window: u64, current_window: u64) -> Self {
+        if current_window == window { Self::Exiting { window } } else { Self::Inactive }
+    }
+
+    fn advance(self, current_mode: &EditorMode, current_window: u64) -> Self {
+        let in_cmdline = matches!(current_mode, EditorMode::CmdLine);
+
+        if in_cmdline {
+            return Self::active(current_window);
+        }
+
+        match self {
+            Self::Inactive => Self::Inactive,
+            Self::Active { window } | Self::Exiting { window } => {
+                Self::exiting_or_inactive(window, current_window)
+            }
+        }
+    }
+}
+
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     cursor: Cursor,
@@ -221,7 +255,7 @@ pub struct CursorRenderer {
     blink_status: BlinkStatus,
     previous_cursor_position: Option<(u64, GridPos<u64>)>,
     previous_cursor_shape: Option<CursorShape>,
-    previous_editor_mode: EditorMode,
+    cmdline_ctx: CmdlineCtx,
     cursor_vfxs: Vec<Box<dyn cursor_vfx::CursorVfx>>,
     previous_vfx_mode: cursor_vfx::VfxModeList,
     window_has_focus: bool,
@@ -239,7 +273,7 @@ impl CursorRenderer {
             blink_status: BlinkStatus::new(),
             previous_cursor_position: None,
             previous_cursor_shape: None,
-            previous_editor_mode: EditorMode::Normal,
+            cmdline_ctx: CmdlineCtx::Inactive,
             cursor_vfxs: vec![],
             previous_vfx_mode: cursor_vfx::VfxModeList::default(),
             window_has_focus: true,
@@ -434,8 +468,9 @@ impl CursorRenderer {
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
-        let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
-            ^ matches!(current_mode, EditorMode::CmdLine);
+        let next_cmdline_ctx = self.cmdline_ctx.advance(current_mode, self.cursor.parent_window_id);
+        let changed_to_from_cmdline = !matches!(self.cmdline_ctx, CmdlineCtx::Inactive)
+            ^ !matches!(next_cmdline_ctx, CmdlineCtx::Inactive);
 
         let center_destination = self.destination + cursor_dimensions.to_vector() * 0.5;
 
@@ -455,7 +490,7 @@ impl CursorRenderer {
 
         if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
-                || !settings.animate_command_line && !changed_to_from_cmdline;
+                || !settings.animate_command_line && changed_to_from_cmdline;
             if self.jumped {
                 // Caclculate the direction alignment for each corner and generate a sorted list
                 // This way we know which corner is the front and which is the back
@@ -522,14 +557,11 @@ impl CursorRenderer {
             animating |= vfx_animating;
         }
         self.jumped = false;
+        self.cmdline_ctx = next_cmdline_ctx;
 
         let blink_animating = settings.smooth_blink && self.blink_status.should_animate();
 
         animating |= blink_animating;
-
-        if !animating {
-            self.previous_editor_mode = current_mode.clone();
-        }
         tracy_plot!("cursor animating", animating as u8 as f64);
         animating
     }
