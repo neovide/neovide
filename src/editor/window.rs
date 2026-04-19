@@ -735,4 +735,17 @@ mod tests {
 
         assert_eq!(next_start, window.grid.width);
     }
+
+    #[test]
+    fn get_cursor_grid_cell_returns_default_for_zero_height_window() {
+        let window = Window {
+            grid_id: 1,
+            grid: CharacterGrid::new((4, 0)),
+            window_type: WindowType::Editor,
+            anchor_info: None,
+            grid_position: (0.0, 0.0),
+        };
+
+        assert_eq!(window.get_cursor_grid_cell(0, 0), (" ".to_string(), None, false));
+    }
 }
