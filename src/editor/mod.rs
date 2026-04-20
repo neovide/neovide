@@ -184,10 +184,10 @@ impl Editor {
             RedrawEvent::ModeInfoSet { cursor_modes } => {
                 tracy_zone!("EditorModeInfoSet");
                 self.mode_list = cursor_modes;
-                if let Some(current_mode_i) = self.current_mode_index {
-                    if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
-                        self.cursor.change_mode(current_mode, &self.defined_styles)
-                    }
+                if let Some(current_mode_i) = self.current_mode_index
+                    && let Some(current_mode) = self.mode_list.get(current_mode_i as usize)
+                {
+                    self.cursor.change_mode(current_mode, &self.defined_styles)
                 }
             }
             RedrawEvent::OptionSet { gui_option } => {
@@ -636,36 +636,36 @@ impl Editor {
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
         let mut window = self.windows.get_mut(&grid);
-        if let Some(window) = &mut window {
-            if let Some(anchor) = window.anchor_info.as_mut() {
-                // Neovim moves a window to the top of the layer each time the cursor enters it, so do the same here as well
-                self.composition_order += 1;
-                anchor.sort_order.composition_order = self.composition_order;
-                self.draw_command_batcher.queue(DrawCommand::Window {
-                    grid_id: grid,
-                    command: WindowDrawCommand::SortOrder(anchor.sort_order.clone()),
-                });
-            }
+        if let Some(window) = &mut window
+            && let Some(anchor) = window.anchor_info.as_mut()
+        {
+            // Neovim moves a window to the top of the layer each time the cursor enters it, so do the same here as well
+            self.composition_order += 1;
+            anchor.sort_order.composition_order = self.composition_order;
+            self.draw_command_batcher.queue(DrawCommand::Window {
+                grid_id: grid,
+                command: WindowDrawCommand::SortOrder(anchor.sort_order.clone()),
+            });
         }
 
-        if self.settings.get::<WindowSettings>().cursor_hack {
-            if let Some(Window { window_type: WindowType::Message { .. }, .. }) = window {
-                // When the user presses ":" to type a command, the cursor is sent to the gutter
-                // in position 1 (right after the ":"). In all other cases, we want to skip
-                // positioning to avoid confusing movements.
-                let intentional = grid_left == 1;
-                // If the cursor was already in this message, we can still move within it.
-                let already_there = self.cursor.parent_window_id == grid;
-                // This ^ check alone is a bit buggy though, since it fails when the cursor is
-                // technically still in the edit window but "temporarily" at the cmdline. (#1207)
-                let using_cmdline = matches!(self.current_mode, EditorMode::CmdLine);
+        if self.settings.get::<WindowSettings>().cursor_hack
+            && let Some(Window { window_type: WindowType::Message { .. }, .. }) = window
+        {
+            // When the user presses ":" to type a command, the cursor is sent to the gutter
+            // in position 1 (right after the ":"). In all other cases, we want to skip
+            // positioning to avoid confusing movements.
+            let intentional = grid_left == 1;
+            // If the cursor was already in this message, we can still move within it.
+            let already_there = self.cursor.parent_window_id == grid;
+            // This ^ check alone is a bit buggy though, since it fails when the cursor is
+            // technically still in the edit window but "temporarily" at the cmdline. (#1207)
+            let using_cmdline = matches!(self.current_mode, EditorMode::CmdLine);
 
-                if !intentional && !already_there && !using_cmdline {
-                    trace!(
-                        "Cursor unexpectedly sent to message buffer {grid} ({grid_left}, {grid_top})"
-                    );
-                    return;
-                }
+            if !intentional && !already_there && !using_cmdline {
+                trace!(
+                    "Cursor unexpectedly sent to message buffer {grid} ({grid_left}, {grid_top})"
+                );
+                return;
             }
         }
 
@@ -744,18 +744,17 @@ impl Editor {
     fn match_paren_expected_char(&self) -> Option<char> {
         let (cursor_column, cursor_row) = self.cursor.grid_position;
         let cursor_grid = self.cursor.parent_window_id;
-        if let Some(text) = self.grid_cell_text(cursor_grid, cursor_row, cursor_column) {
-            if let Some(expected_char) = Self::match_paren_expected_char_from_text(&text) {
-                return Some(expected_char);
-            }
+        if let Some(text) = self.grid_cell_text(cursor_grid, cursor_row, cursor_column)
+            && let Some(expected_char) = Self::match_paren_expected_char_from_text(&text)
+        {
+            return Some(expected_char);
         }
 
-        if let Some(left_column) = cursor_column.checked_sub(1) {
-            if let Some(text) = self.grid_cell_text(cursor_grid, cursor_row, left_column) {
-                if let Some(expected_char) = Self::match_paren_expected_char_from_text(&text) {
-                    return Some(expected_char);
-                }
-            }
+        if let Some(left_column) = cursor_column.checked_sub(1)
+            && let Some(text) = self.grid_cell_text(cursor_grid, cursor_row, left_column)
+            && let Some(expected_char) = Self::match_paren_expected_char_from_text(&text)
+        {
+            return Some(expected_char);
         }
 
         Self::match_paren_expected_char_from_text(&self.cursor.grid_cell.0)
@@ -1137,15 +1136,15 @@ impl Editor {
     }
 
     fn maybe_inject_intro_banner(&mut self, grid: u64, banner_row: Option<u64>) {
-        if let Some(start_row) = banner_row {
-            if let Some(window) = self.windows.get_mut(&grid) {
-                self.intro_message_extender.inject_banner(
-                    grid,
-                    window,
-                    start_row,
-                    &mut self.draw_command_batcher,
-                );
-            }
+        if let Some(start_row) = banner_row
+            && let Some(window) = self.windows.get_mut(&grid)
+        {
+            self.intro_message_extender.inject_banner(
+                grid,
+                window,
+                start_row,
+                &mut self.draw_command_batcher,
+            );
         }
     }
 

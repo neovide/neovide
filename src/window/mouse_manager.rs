@@ -342,17 +342,18 @@ impl MouseManager {
         // MouseInput only reports press/release. we start message selection on left press,
         // this keeps the selection as a *client* overlay and avoids interfering with neovim
         // mouse handling outside message windows.
-        if !down && mouse_button == MouseButton::Left {
-            if let Some(selection) = self.message_selection.take() {
-                let end = self.get_relative_position(&selection.draw_details, editor_state);
-                self.drag_details = None;
-                self.has_moved = false;
-                return Some(MessageSelectionEvent::Finish(MessageSelection {
-                    grid_id: selection.draw_details.id,
-                    start: selection.start,
-                    end,
-                }));
-            }
+        if !down
+            && mouse_button == MouseButton::Left
+            && let Some(selection) = self.message_selection.take()
+        {
+            let end = self.get_relative_position(&selection.draw_details, editor_state);
+            self.drag_details = None;
+            self.has_moved = false;
+            return Some(MessageSelectionEvent::Finish(MessageSelection {
+                grid_id: selection.draw_details.id,
+                start: selection.start,
+                end,
+            }));
         }
 
         if down && mouse_button == MouseButton::Left {
@@ -366,22 +367,22 @@ impl MouseManager {
                 return Some(MessageSelectionEvent::Clear);
             }
 
-            if let Some(details) = details {
-                if allow_selection {
-                    let position = self.get_relative_position(details, editor_state);
-                    self.message_selection = Some(MessageSelectionState {
-                        draw_details: details.clone(),
-                        start: position,
-                        end: position,
-                    });
-                    self.drag_details = None;
-                    self.has_moved = false;
-                    return Some(MessageSelectionEvent::Update(MessageSelection {
-                        grid_id: details.id,
-                        start: position,
-                        end: position,
-                    }));
-                }
+            if let Some(details) = details
+                && allow_selection
+            {
+                let position = self.get_relative_position(details, editor_state);
+                self.message_selection = Some(MessageSelectionState {
+                    draw_details: details.clone(),
+                    start: position,
+                    end: position,
+                });
+                self.drag_details = None;
+                self.has_moved = false;
+                return Some(MessageSelectionEvent::Update(MessageSelection {
+                    grid_id: details.id,
+                    start: position,
+                    end: position,
+                }));
             }
         }
 

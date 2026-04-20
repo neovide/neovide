@@ -1,56 +1,56 @@
 [package]
 name = "neovide"
 version = "0.16.2"
-edition = "2021"
-build = "build.rs"
-resolver = "2"
-license = "MIT"
+edition = "2024"
 description = "Neovide: No Nonsense Neovim Gui"
+readme = "README.md"
 homepage = "https://neovide.dev/"
 repository = "https://github.com/neovide/neovide"
-readme = "README.md"
-keywords = ["neovim", "nvim", "gui"]
+license = "MIT"
+keywords = ["gui", "neovim", "nvim"]
+build = "build.rs"
 exclude = [
-  "website/*",
-  "ubuntu-builder/*",
-  "wix/*",
-  "macos-builder/*",
-  ".vscode/**/*",
+  "*.md",
   ".github/**/*",
+  ".gitignore",
+  ".vscode/**/*",
   "assets/dmg-background/**/*",
   "assets/neovide-*.png",
   "assets/neovide.svg",
-  "*.md",
-  "scripts/*.sh",
   "docs/*",
-  "target/*",
-  ".gitignore",
+  "macos-builder/*",
+  "scripts/*.sh",
   "stylua.toml",
+  "target/*",
+  "ubuntu-builder/*",
+  "website/*",
+  "wix/*",
 ]
+resolver = "2"
+
+[package.metadata.bundle]
+name = "Neovide"
+identifier = "com.neovide.neovide"
+icon = ["assets/neovide.ico"]
+version = "0.16.0"
+resources = []
+copyright = "Copyright (c) Neovide Contributors 2025. All rights reserved."
+category = "Productivity"
+short_description = "A simple GUI for Neovim."
+long_description = """
+This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act functionally like the terminal UI.
+"""
+osx_minimum_system_version = "10.11"
 
 [workspace]
 members = ["neovide-derive"]
-
-[features]
-default = []
-embed-fonts = []
-profiling = ["dep:tracy-client-sys"]
-gpu_profiling = ["profiling"]
-# Corresponds to https://github.com/nagisa/rust_tracy_client/blob/main/FEATURES.mkd
-tracy-system-tracing = ["tracy-client-sys?/system-tracing"]
-tracy-context-switch-tracing = ["tracy-client-sys?/context-switch-tracing"]
-tracy-sampling = ["tracy-client-sys?/sampling"]
-tracy-code-transfer = ["tracy-client-sys?/code-transfer"]
-tracy-callstack-inlines = ["tracy-client-sys?/callstack-inlines"]
-d3d_debug = []                                                              # Enable the D3D debug layer
 
 [dependencies]
 anyhow = { version = "1.0.95", features = ["backtrace"] }
 approx = "0.5.1"
 async-trait = "0.1.83"
 backtrace = "0.3.74"
-clap = { version = "4.5.23", features = ["cargo", "derive", "env", "color"] }
-rustc-hash = "2.0.0"
+clap = { version = "4.5.23", features = ["cargo", "color", "derive", "env"] }
 copypasta = "0.10.2"
 csscolorparser = "0.7.0"
 derive-new = "0.7.0"
@@ -58,17 +58,17 @@ dirs = "6.0.0"
 flexi_logger = { version = "0.31.2", default-features = false }
 futures = "0.3.31"
 gl = "0.14.0"
+glamour = { version = "0.18.0", features = ["serde"] }
 glutin = "0.32.3"
 glutin-winit = "0.5.0"
-glamour = { version = "0.18.0", features = ["serde"] }
 image = { version = "0.25.5", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.14.0"
 log = "0.4.22"
 lru = "0.16.3"
 mundy = { version = "0.2.2", default-features = false, features = [
-  "tokio",
   "color-scheme",
+  "tokio",
 ] }
 neovide-derive = { path = "neovide-derive", version = "0.1.5" }
 notify-debouncer-full = "0.6.0"
@@ -77,35 +77,113 @@ nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
 parking_lot = "0.12.3"
 rand = "0.9.0"
 raw-window-handle = "0.6.2"
+regex = "1.11.1"
 rmpv = "1.3.0"
+rustc-hash = "2.0.0"
 serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.134"
 spin_sleep = "1.3.0"
-unicode-segmentation = "1.12.0"
-which = "7.0.1"
-winit = { version = "=0.30.13", features = ["serde"] }
-regex = "1.11.1"
 strum = { version = "0.27.2", features = ["derive"] }
 swash = { version = "0.2.1", default-features = false, features = ["std"] }
-time = { version = "0.3.47", features = ["macros", "formatting"] }
+time = { version = "0.3.47", features = ["formatting", "macros"] }
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-util = { version = "0.7.18", features = ["compat"] }
 toml = "0.9.5"
-tracy-client-sys = { version = "0.28.0", optional = true, default-features = false, features = [
+tracy-client-sys = { version = "0.28.0", default-features = false, features = [
   "broadcast",
   "delayed-init",
   "enable",
-  "manual-lifetime",
   "fibers",
-] }
+  "manual-lifetime",
+], optional = true }
+unicode-segmentation = "1.12.0"
+which = "7.0.1"
+winit = { version = "=0.30.13", features = ["serde"] }
 xdg = "3.0.0"
 
 [dev-dependencies]
 scoped-env = "2.1.0"
 serial_test = "3.2.0"
 
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+csscolorparser = "0.7.0"
+shlex = "1.3.0"
+
+[target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
+skia-safe = { version = "0.93.1", features = ["gl", "textlayout"] }
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+fork = "0.4.0"
+rustix = { version = "1.0.8", features = ["fs", "process"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.1"
+objc2-app-kit = { version = "0.3.1", default-features = false, features = [
+  "NSApplication",
+  "NSColor",
+  "NSColorSpace",
+  "NSEvent",
+  "NSFont",
+  "NSFontDescriptor",
+  "NSGraphics",
+  "NSImage",
+  "NSLayoutConstraint",
+  "NSMenu",
+  "NSMenuItem",
+  "NSResponder",
+  "NSScreen",
+  "NSView",
+  "NSWindow",
+  "NSWindowTabGroup",
+  "NSWorkspace",
+  "block2",
+  "objc2-core-foundation",
+  "objc2-quartz-core",
+  "std",
+] }
+objc2-core-foundation = { version = "0.3.1", default-features = false, features = [
+  "CFCGTypes",
+] }
+objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
+  "CGColor",
+  "CGDirectDisplay",
+] }
+objc2-core-video = { version = "0.3.1", default-features = false, features = [
+  "CVBase",
+  "CVDisplayLink",
+  "CVReturn",
+  "objc2-core-graphics",
+] }
+objc2-foundation = { version = "0.3.1", default-features = false, features = [
+  "NSArray",
+  "NSAttributedString",
+  "NSDictionary",
+  "NSProcessInfo",
+  "NSString",
+  "NSTimer",
+  "NSURL",
+  "NSUserDefaults",
+  "std",
+] }
+objc2-metal = { version = "0.3.1", default-features = false, features = [
+  "MTLCommandBuffer",
+  "MTLCommandQueue",
+  "std",
+] }
+objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
+  "CALayer",
+  "CAMetalLayer",
+  "CATransaction",
+  "objc2-core-foundation",
+  "objc2-core-graphics",
+  "objc2-metal",
+  "std",
+] }
+skia-safe = { version = "0.93.1", features = ["gl", "metal", "textlayout"] }
+uzers = "0.12.1"
+
 [target.'cfg(target_os = "windows")'.dependencies]
-skia-safe = { version = "0.93.1", features = ["gl", "d3d", "textlayout"] }
+skia-safe = { version = "0.93.1", features = ["d3d", "gl", "textlayout"] }
 # This needs to match the version used by skia
 windows = { version = "0.62.0", features = [
   "Win32_Graphics_Direct3D",
@@ -123,109 +201,28 @@ windows = { version = "0.62.0", features = [
 windows-registry = "0.6.1"
 wslpath-rs = "0.2"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.1"
-objc2-core-foundation = { version = "0.3.1", default-features = false, features = [
-  "CFCGTypes",
-] }
-objc2-foundation = { version = "0.3.1", default-features = false, features = [
-  "std",
-  "NSArray",
-  "NSDictionary",
-  "NSString",
-  "NSAttributedString",
-  "NSUserDefaults",
-  "NSTimer",
-  "NSProcessInfo",
-  "NSURL",
-] }
-objc2-app-kit = { version = "0.3.1", default-features = false, features = [
-  "std",
-  "block2",
-  "NSLayoutConstraint",
-  "NSColorSpace",
-  "NSGraphics",
-  "NSWindowTabGroup",
-  "objc2-core-foundation",
-  "objc2-quartz-core",
-  "NSFont",
-  "NSFontDescriptor",
-  "NSResponder",
-  "NSEvent",
-  "NSView",
-  "NSWindow",
-  "NSScreen",
-  "NSApplication",
-  "NSMenu",
-  "NSMenuItem",
-  "NSLayoutConstraint",
-  "NSColor",
-  "NSColorSpace",
-  "NSImage",
-  "NSGraphics",
-  "NSWorkspace",
-] }
-objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
-  "std",
-  "objc2-core-foundation",
-  "objc2-core-graphics",
-  "objc2-metal",
-  "CATransaction",
-  "CALayer",
-  "CAMetalLayer",
-] }
-objc2-core-video = { version = "0.3.1", default-features = false, features = [
-  "objc2-core-graphics",
-  "CVBase",
-  "CVReturn",
-  "CVDisplayLink",
-] }
-objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
-  "CGColor",
-  "CGDirectDisplay",
-] }
-objc2-metal = { version = "0.3.1", default-features = false, features = [
-  "std",
-  "MTLCommandQueue",
-  "MTLCommandBuffer",
-] }
-skia-safe = { version = "0.93.1", features = ["metal", "gl", "textlayout"] }
-uzers = "0.12.1"
-
-[target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.93.1", features = ["gl", "textlayout"] }
-
-[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
-csscolorparser = "0.7.0"
-shlex = "1.3.0"
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-rustix = { version = "1.0.8", features = ["fs", "process"] }
-fork = "0.4.0"
-
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
 
+[features]
+default = []
+d3d_debug = []  # Enable the D3D debug layer
+embed-fonts = []
+gpu_profiling = ["profiling"]
+profiling = ["dep:tracy-client-sys"]
+tracy-callstack-inlines = ["tracy-client-sys?/callstack-inlines"]
+tracy-code-transfer = ["tracy-client-sys?/code-transfer"]
+tracy-context-switch-tracing = ["tracy-client-sys?/context-switch-tracing"]
+tracy-sampling = ["tracy-client-sys?/sampling"]
+# Corresponds to https://github.com/nagisa/rust_tracy_client/blob/main/FEATURES.mkd
+tracy-system-tracing = ["tracy-client-sys?/system-tracing"]
+
 [profile.release]
+strip = true
 lto = true
 incremental = true
-strip = true
 
 [profile.profiling]
 inherits = "release"
-strip = false
 debug = true
-
-[package.metadata.bundle]
-name = "Neovide"
-identifier = "com.neovide.neovide"
-icon = ["assets/neovide.ico"]
-version = "0.16.0"
-resources = []
-copyright = "Copyright (c) Neovide Contributors 2025. All rights reserved."
-category = "Productivity"
-short_description = "A simple GUI for Neovim."
-long_description = """
-This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act functionally like the terminal UI.
-"""
-osx_minimum_system_version = "10.11"
+strip = false

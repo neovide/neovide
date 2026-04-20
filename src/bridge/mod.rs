@@ -268,10 +268,9 @@ pub async fn set_background_if_allowed(background: &str, neovim: &Neovim<NeovimW
     if let Ok(can_set) = neovim
         .exec_lua("return neovide.private.can_set_background()", vec![background.into()])
         .await
+        && can_set.as_bool().unwrap()
     {
-        if can_set.as_bool().unwrap() {
-            let _ = neovim.set_option("background", background.into()).await;
-        }
+        let _ = neovim.set_option("background", background.into()).await;
     }
 }
 

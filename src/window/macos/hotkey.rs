@@ -54,7 +54,7 @@ type EventHandlerProcPtr =
     unsafe extern "C" fn(EventHandlerCallRef, EventRef, *mut c_void) -> OSStatus;
 
 #[link(name = "Carbon", kind = "framework")]
-extern "C" {
+unsafe extern "C" {
     fn RegisterEventHotKey(
         keyCode: u32,
         modifiers: u32,
@@ -305,26 +305,28 @@ unsafe extern "C" fn hotkey_handler(
     }
 
     let mut hotkey_id = MaybeUninit::<EventHotKeyID>::uninit();
-    let status = GetEventParameter(
-        event,
-        EVENT_PARAM_DIRECT_OBJECT,
-        TYPE_EVENT_HOT_KEY_ID,
-        ptr::null_mut(),
-        mem::size_of::<EventHotKeyID>() as u32,
-        ptr::null_mut(),
-        hotkey_id.as_mut_ptr().cast(),
-    );
+    let status = unsafe {
+        GetEventParameter(
+            event,
+            EVENT_PARAM_DIRECT_OBJECT,
+            TYPE_EVENT_HOT_KEY_ID,
+            ptr::null_mut(),
+            mem::size_of::<EventHotKeyID>() as u32,
+            ptr::null_mut(),
+            hotkey_id.as_mut_ptr().cast(),
+        )
+    };
 
     if status != NO_ERR {
         return status;
     }
 
-    let hotkey_id = hotkey_id.assume_init();
+    let hotkey_id = unsafe { hotkey_id.assume_init() };
     if hotkey_id.signature != HOTKEY_SIGNATURE {
         return NO_ERR;
     }
 
-    let context = &*(user_data as *mut HotkeyContext);
+    let context = unsafe { &*(user_data as *mut HotkeyContext) };
     if let Some(entry) = context.entries.iter().find(|entry| entry.id == hotkey_id.id) {
         info!("macOS activation shortcut detected; requesting focus ({})", entry.description);
         let payload = EventPayload::all(UserEvent::MacShortcut(entry.action.command()));
