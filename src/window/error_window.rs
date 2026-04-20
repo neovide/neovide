@@ -112,16 +112,16 @@ impl ApplicationHandler<EventPayload> for ErrorWindow<'_> {
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.state.is_none() {
-            if let Some(clipboard) = self.clipboard.as_ref() {
-                let window_config = create_error_window(event_loop, &self.settings);
-                self.state = Some(State::new(
-                    self.message,
-                    window_config,
-                    self.settings.clone(),
-                    ClipboardHandle::new(clipboard),
-                ));
-            }
+        if self.state.is_none()
+            && let Some(clipboard) = self.clipboard.as_ref()
+        {
+            let window_config = create_error_window(event_loop, &self.settings);
+            self.state = Some(State::new(
+                self.message,
+                window_config,
+                self.settings.clone(),
+                ClipboardHandle::new(clipboard),
+            ));
         }
     }
 
@@ -265,10 +265,10 @@ impl State {
                         true
                     }
                     "y" => {
-                        if let Some(handle) = self.clipboard.upgrade() {
-                            if let Ok(mut clipboard) = handle.lock() {
-                                let _ = clipboard.set_contents(message.to_string(), "+");
-                            }
+                        if let Some(handle) = self.clipboard.upgrade()
+                            && let Ok(mut clipboard) = handle.lock()
+                        {
+                            let _ = clipboard.set_contents(message.to_string(), "+");
                         }
                         true
                     }

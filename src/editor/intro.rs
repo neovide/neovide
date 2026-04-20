@@ -139,12 +139,11 @@ impl IntroMessageExtender {
         windows: &mut HashMap<u64, Window>,
         batcher: &mut DrawCommandBatcher,
     ) {
-        if let Some(state) = self.per_grid.get_mut(&grid) {
-            if let Some(start_row) = state.take_banner_start_row() {
-                if let Some(window) = windows.get_mut(&grid) {
-                    clear_banner_rows(window, start_row, batcher);
-                }
-            }
+        if let Some(state) = self.per_grid.get_mut(&grid)
+            && let Some(start_row) = state.take_banner_start_row()
+            && let Some(window) = windows.get_mut(&grid)
+        {
+            clear_banner_rows(window, start_row, batcher);
         }
     }
 

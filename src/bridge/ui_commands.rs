@@ -61,11 +61,11 @@ pub fn require_active_handler() -> NeovimHandler {
 
 #[cfg(target_os = "macos")]
 pub fn send_or_queue_file_drop(path: String, tabs: Option<bool>) {
-    if FILE_DROP_HANDLER_READY.load(Ordering::SeqCst) {
-        if let Some(handler) = get_active_handler() {
-            send_ui(ParallelCommand::FileDrop { path, tabs }, &handler);
-            return;
-        }
+    if FILE_DROP_HANDLER_READY.load(Ordering::SeqCst)
+        && let Some(handler) = get_active_handler()
+    {
+        send_ui(ParallelCommand::FileDrop { path, tabs }, &handler);
+        return;
     }
 
     PENDING_FILE_DROPS.lock().unwrap().push((path, tabs));

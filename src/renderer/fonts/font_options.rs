@@ -275,7 +275,7 @@ fn parse_pixels(part: &str) -> Result<f32, ParseFloatError> {
 }
 
 fn parse_font_name(font_name: impl AsRef<str>) -> String {
-    let parsed_font_name = font_name
+    font_name
         .as_ref()
         .chars()
         .batching(|iter| {
@@ -286,9 +286,7 @@ fn parse_font_name(font_name: impl AsRef<str>) -> String {
                 _ => ch,
             }
         })
-        .collect();
-
-    parsed_font_name
+        .collect()
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
@@ -433,10 +431,10 @@ impl FontDescription {
                     "Italic" => slant = Slant::Italic,
                     "Oblique" => slant = Slant::Oblique,
                     _ => {
-                        if let Some(rest) = part.strip_prefix('W') {
-                            if let Ok(weight_value) = rest.parse::<i32>() {
-                                weight = Weight::from(weight_value);
-                            }
+                        if let Some(rest) = part.strip_prefix('W')
+                            && let Ok(weight_value) = rest.parse::<i32>()
+                        {
+                            weight = Weight::from(weight_value);
                         }
                     }
                 }

@@ -120,10 +120,10 @@ impl CharacterGrid {
                     let dest_x = ((x as isize) - cols) as usize;
                     let cell_data = self.get_cell(x, y).cloned();
 
-                    if let Some(cell_data) = cell_data {
-                        if let Some(dest_cell) = self.get_cell_mut(dest_x, dest_y as usize) {
-                            *dest_cell = cell_data;
-                        }
+                    if let Some(cell_data) = cell_data
+                        && let Some(dest_cell) = self.get_cell_mut(dest_x, dest_y as usize)
+                    {
+                        *dest_cell = cell_data;
                     }
                 }
             }
