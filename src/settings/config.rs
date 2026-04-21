@@ -83,7 +83,8 @@ pub struct Config {
     pub grid: Option<String>,
     pub idle: Option<bool>,
     pub maximized: Option<bool>,
-    pub neovim_bin: Option<PathBuf>,
+    #[serde(default, deserialize_with = "string_or_array")]
+    pub neovim_bin: Option<Vec<String>>,
     pub no_multigrid: Option<bool>,
     pub srgb: Option<bool>,
     pub startup_message_capture: Option<bool>,
@@ -124,6 +125,23 @@ pub struct Config {
     pub wayland_app_id: Option<String>,
     pub x11_wm_class: Option<String>,
     pub x11_wm_class_instance: Option<String>,
+}
+
+/// Accepts an array of strings, or a scalar string (equivalent to a single-element array).
+fn string_or_array<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Raw {
+        Single(String),
+        Array(Vec<String>),
+    }
+
+    Ok(Some(match Raw::deserialize(deserializer)? {
+        Raw::Single(value) => vec![value],
+        Raw::Array(value) => value,
+    }))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -169,6 +187,8 @@ impl Config {
     }
 
     fn write_to_env(&self) {
+        // Clap reads these `NEOVIDE_*` as fallbacks for unset flags, so doing this means that the
+        // setting precedence is inherited environment < config file values < explicit flags.
         if let Some(server) = &self.server {
             unsafe { env::set_var("NEOVIDE_SERVER", server) };
         }
@@ -210,8 +230,11 @@ impl Config {
         if let Some(grid) = &self.grid {
             unsafe { env::set_var("NEOVIDE_GRID", grid) };
         }
-        if let Some(neovim_bin) = &self.neovim_bin {
-            unsafe { env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string()) };
+        if self.neovim_bin.is_some() {
+            // We can't just set NEOVIM_BIN to a string, because it needs to be treated as an array.
+            // Instead, we just clear any NEOVIM_BIN environment variable if there is a value set in
+            // the config file, and then handle it separately in handle_command_line_arguments.
+            unsafe { env::remove_var("NEOVIM_BIN") };
         }
         if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
             unsafe { env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon) };
@@ -498,7 +521,7 @@ mod tests {
         config.write_to_env();
 
         let settings = Settings::new();
-        handle_command_line_arguments(vec!["neovide".into()], &settings).unwrap();
+        handle_command_line_arguments(vec!["neovide".into()], &settings, &config).unwrap();
         let cmdline = settings.get::<CmdLineSettings>();
         assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("clear"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "0.3");
@@ -510,7 +533,7 @@ mod tests {
         ]
         .map(String::from)
         .to_vec();
-        handle_command_line_arguments(args, &settings).unwrap();
+        handle_command_line_arguments(args, &settings, &config).unwrap();
         let cmdline = settings.get::<CmdLineSettings>();
         assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("regular"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "0");
@@ -552,5 +575,17 @@ mod tests {
         let events = [DebouncedEvent::new(event, Instant::now())];
 
         assert!(events_relevant_to_config(&events, Path::new("/tmp/config.toml")));
+    }
+
+    #[test]
+    fn neovim_bin_accepts_scalar_or_array() {
+        let scalar: Config = toml::from_str(r#"neovim-bin = "/opt/nvim""#).unwrap();
+        assert_eq!(scalar.neovim_bin, Some(vec!["/opt/nvim".to_string()]));
+
+        let array: Config = toml::from_str(r#"neovim-bin = ["ssh", "host"]"#).unwrap();
+        assert_eq!(array.neovim_bin, Some(vec!["ssh".to_string(), "host".to_string()]));
+
+        let absent: Config = toml::from_str("").unwrap();
+        assert_eq!(absent.neovim_bin, None);
     }
 }

@@ -23,7 +23,7 @@ const FORKED_FROM_TTY_ENV_VAR: &str = "NEOVIDE_FORKED_FROM_TTY";
 pub struct OpenArgs {
     pub files_to_open: Vec<String>,
     pub tabs: bool,
-    pub neovim_bin: Option<String>,
+    pub neovim_bin: Option<Vec<String>>,
     pub neovim_args: Option<Vec<String>>,
 }
 
@@ -105,21 +105,18 @@ fn build_nvim_command_parts(
     mode: OpenMode,
 ) -> (String, Vec<String>) {
     // For OpenMode::Args (handoff/new-window routes), use the route's own
-    // bin/args. None means "not specified" = default nvim, NOT the global
+    // command/args. None means "not specified" = default nvim, NOT the global
     // CmdLineSettings value (which belongs to the original invocation).
     // For Startup/None modes, use global CmdLineSettings as before.
-    let (bin, mut args) = match &mode {
+    let (command, user_args) = match &mode {
         OpenMode::Args(open_args) => {
-            let bin = open_args.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
-            let args = open_args.neovim_args.clone().unwrap_or_default();
-            (bin, args)
+            (open_args.neovim_bin.clone(), open_args.neovim_args.clone().unwrap_or_default())
         }
-        _ => {
-            let bin = cmdline_settings.neovim_bin.clone().unwrap_or_else(|| "nvim".to_owned());
-            let args = cmdline_settings.neovim_args.clone();
-            (bin, args)
-        }
+        _ => (cmdline_settings.neovim_bin.clone(), cmdline_settings.neovim_args.clone()),
     };
+    let mut command = command.unwrap_or_default().into_iter();
+    let bin = command.next().unwrap_or_else(|| "nvim".to_owned());
+    let mut args: Vec<String> = command.chain(user_args).collect();
 
     if embed {
         append_embed_arg(&mut args);
@@ -293,13 +290,23 @@ mod tests {
 
     use super::*;
     use crate::cmd_line::handle_command_line_arguments;
+    use crate::settings::Config;
     use crate::settings::Settings;
 
     fn parse_cmdline_settings(args: &[&str]) -> CmdLineSettings {
+        parse_cmdline_settings_with_config(args, &Config::default())
+    }
+
+    fn parse_cmdline_settings_with_config(args: &[&str], config: &Config) -> CmdLineSettings {
         let settings = Settings::new();
         let args = args.iter().map(|arg| arg.to_string()).collect();
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, config).expect("Could not parse arguments");
         settings.get::<CmdLineSettings>()
+    }
+
+    fn config_with_neovim_bin(parts: &[&str]) -> Config {
+        let parts = parts.iter().map(|part| part.to_string()).collect();
+        Config { neovim_bin: Some(parts), ..Config::default() }
     }
 
     #[test]
@@ -347,7 +354,7 @@ mod tests {
         let open_args = OpenArgs {
             files_to_open: vec![],
             tabs: false,
-            neovim_bin: Some("nvim-0.10".to_string()),
+            neovim_bin: Some(vec!["nvim-0.10".to_string()]),
             neovim_args: Some(vec!["--clean".to_string()]),
         };
 
@@ -371,6 +378,34 @@ mod tests {
 
         // None means default nvim, NOT the global nvim-0.9
         assert_eq!(bin, "nvim");
+        assert_eq!(args, vec!["--embed"]);
+    }
+
+    #[test]
+    fn build_nvim_command_parts_config_array_prepends_before_trailing_args() {
+        let config = config_with_neovim_bin(&["ssh", "host", "nvim"]);
+        let cmdline_settings =
+            parse_cmdline_settings_with_config(&["neovide", "--no-tabs", "--", "--clean"], &config);
+
+        let (bin, args) = build_nvim_command_parts(&cmdline_settings, true, OpenMode::Startup);
+
+        // Config array elements come before the user's trailing `-- --clean`.
+        assert_eq!(bin, "ssh");
+        assert_eq!(args, vec!["host", "nvim", "--clean", "--embed"]);
+    }
+
+    #[test]
+    fn build_nvim_command_parts_cli_neovim_bin_ignores_config_array() {
+        let config = config_with_neovim_bin(&["ssh", "host", "nvim"]);
+        let cmdline_settings = parse_cmdline_settings_with_config(
+            &["neovide", "--no-tabs", "--neovim-bin", "/opt/nvim"],
+            &config,
+        );
+
+        let (bin, args) = build_nvim_command_parts(&cmdline_settings, true, OpenMode::Startup);
+
+        // CLI present, so config is entirely ignored, no "host"/"nvim" prepended.
+        assert_eq!(bin, "/opt/nvim");
         assert_eq!(args, vec!["--embed"]);
     }
 
