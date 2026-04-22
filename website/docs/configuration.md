@@ -831,6 +831,61 @@ vim.g.neovide_highlight_matching_pair = true
 When enabled, Neovide highlights the matching pair using the system find indicator. The
 default is `false`.
 
+### Remote Settings
+
+These settings only take effect when Neovide is connecting to a remote Neovim instance, i.e. when
+`--server` or `--wsl` is passed (even on non-Windows platforms).
+
+#### No Custom Clipboard
+
+VimScript:
+
+```vim
+let g:neovide_no_custom_clipboard = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_no_custom_clipboard = true
+```
+
+When running in remote mode, Neovide normally overrides the clipboard provider so that yanking and
+pasting use the host system's clipboard rather than the remote machine's. Setting
+`g:neovide_no_custom_clipboard` to a boolean value of `true` disables this override, letting the
+remote Neovim's own clipboard provider handle things instead. The default is `false`.
+
+#### No Remote Open
+
+VimScript:
+
+```vim
+let g:neovide_no_remote_open = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_no_remote_open = true
+```
+
+When running in remote mode, Neovide normally overrides `vim.ui.open` so that opening URLs and files
+(for example via `gx`) uses the host system's default handler rather than trying to open them on the
+remote machine. Setting `g:neovide_no_remote_open` to a boolean value of `true` disables this
+override entirely at startup, so the remote Neovim's native `vim.ui.open` is used instead. The
+default is `false`.
+
+You can also bypass the override on a per-call basis by passing `neovide_no_remote_open = true` in
+the options table:
+
+```lua
+vim.ui.open("https://example.com", { neovide_no_remote_open = true })
+```
+
+This forces the call to use the remote machine's native handler without disabling the override
+globally. Additionally, if the call specifies a `cmd` to use, Neovide does not intercept the call
+(so `cmd` is always run remotely).
+
 ### Input Settings
 
 #### macOS Option Key is Meta
