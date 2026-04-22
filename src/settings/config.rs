@@ -3,7 +3,10 @@
 use std::{env, fs, sync::mpsc, time::Duration};
 
 use notify_debouncer_full::{new_debouncer, notify::RecursiveMode};
-use serde::Deserialize;
+use serde::{
+    Deserialize, Deserializer,
+    de::{Error as DeError, Unexpected},
+};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -45,6 +48,27 @@ pub fn config_path() -> PathBuf {
         })
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum HotkeyConfigValue {
+    String(String),
+    Bool(bool),
+}
+
+fn deserialize_optional_hotkey<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<HotkeyConfigValue>::deserialize(deserializer)? {
+        None => Ok(None),
+        Some(HotkeyConfigValue::String(value)) => Ok(Some(value)),
+        Some(HotkeyConfigValue::Bool(false)) => Ok(Some("false".to_string())),
+        Some(HotkeyConfigValue::Bool(true)) => {
+            Err(D::Error::invalid_value(Unexpected::Bool(true), &"a shortcut string or false"))
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
@@ -67,9 +91,27 @@ pub struct Config {
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
     pub backtraces_path: Option<PathBuf>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
     pub system_pinned_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
     pub system_switcher_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_new_window_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_hide_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_hide_others_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_quit_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_minimize_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_fullscreen_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
+    pub system_show_all_tabs_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
     pub system_tab_prev_hotkey: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
     pub system_tab_next_hotkey: Option<String>,
     pub icon: Option<String>,
     pub chdir: Option<PathBuf>,
@@ -178,6 +220,27 @@ impl Config {
         }
         if let Some(switcher_hotkey) = &self.system_switcher_hotkey {
             unsafe { env::set_var("NEOVIDE_SYSTEM_SWITCHER_HOTKEY", switcher_hotkey) };
+        }
+        if let Some(new_window_hotkey) = &self.system_new_window_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY", new_window_hotkey) };
+        }
+        if let Some(hide_hotkey) = &self.system_hide_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_HIDE_HOTKEY", hide_hotkey) };
+        }
+        if let Some(hide_others_hotkey) = &self.system_hide_others_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY", hide_others_hotkey) };
+        }
+        if let Some(quit_hotkey) = &self.system_quit_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_QUIT_HOTKEY", quit_hotkey) };
+        }
+        if let Some(minimize_hotkey) = &self.system_minimize_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_MINIMIZE_HOTKEY", minimize_hotkey) };
+        }
+        if let Some(fullscreen_hotkey) = &self.system_fullscreen_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_FULLSCREEN_HOTKEY", fullscreen_hotkey) };
+        }
+        if let Some(show_all_tabs_hotkey) = &self.system_show_all_tabs_hotkey {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY", show_all_tabs_hotkey) };
         }
         if let Some(tab_prev_hotkey) = &self.system_tab_prev_hotkey {
             unsafe { env::set_var("NEOVIDE_SYSTEM_TAB_PREV_HOTKEY", tab_prev_hotkey) };

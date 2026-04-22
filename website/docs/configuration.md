@@ -918,8 +918,8 @@ single host window.
 Set `system-native-tabs = true` to merge windows into a tab group. The native tab bar stays hidden
 until more than one tab exists to keep a clean single-window look.
 
-Use Window > New Window (cmd+n) or the Dock menu to open another Neovide window. If native tabs
-are enabled, new windows become tabs in the host window.
+Use Window > New Window (default: `cmd+n`) or the Dock menu to open another Neovide window. If
+native tabs are enabled, new windows become tabs in the host window.
 
 If you have native tabs enabled, the Window menu shows an Editors entry and the Editors hotkey
 becomes available. You can also remap the in-app tab cycling shortcuts.
@@ -956,6 +956,21 @@ You can also configure them inside `config.toml`:
 system-pinned-hotkey = "ctrl+shift+z"
 system-switcher-hotkey = "ctrl+shift+n"
 ```
+
+You can also remap the macOS application and Window menu shortcuts:
+
+```toml
+system-hide-hotkey = "cmd+h"
+system-hide-others-hotkey = "cmd+alt+h"
+system-quit-hotkey = "cmd+q"
+system-new-window-hotkey = "cmd+n"
+system-minimize-hotkey = "cmd+m"
+system-fullscreen-hotkey = "cmd+ctrl+f"
+system-show-all-tabs-hotkey = "cmd+shift+e"
+```
+
+Set any of them to `false` (or an empty value) to remove the menu shortcut while keeping the menu
+item.
 
 When `system-native-tabs` is enabled, you can also customize the in-app tab navigation shortcuts:
 

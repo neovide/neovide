@@ -48,6 +48,13 @@ tabs = true
 system-native-tabs = false # macOS only
 system-pinned-hotkey = "cmd+ctrl+z" # macOS only
 system-switcher-hotkey = "cmd+ctrl+n" # macOS only, requires system-native-tabs = true
+system-new-window-hotkey = "cmd+n" # macOS only
+system-hide-hotkey = "cmd+h" # macOS only
+system-hide-others-hotkey = "cmd+alt+h" # macOS only
+system-quit-hotkey = "cmd+q" # macOS only
+system-minimize-hotkey = "cmd+m" # macOS only
+system-fullscreen-hotkey = "cmd+ctrl+f" # macOS only
+system-show-all-tabs-hotkey = "cmd+shift+e" # macOS only
 system-tab-prev-hotkey = "cmd+shift+[" # macOS only
 system-tab-next-hotkey = "cmd+shift+]" # macOS only
 title-hidden = false

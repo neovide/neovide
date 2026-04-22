@@ -1,4 +1,7 @@
 use log::warn;
+use objc2::rc::Retained;
+use objc2_app_kit::NSEventModifierFlags;
+use objc2_foundation::NSString;
 use winit::{
     event::{ElementState, KeyEvent, Modifiers},
     keyboard::{Key, NamedKey},
@@ -7,19 +10,19 @@ use winit::{
 use crate::{CmdLineSettings, settings::Settings};
 
 #[derive(Clone, Copy)]
-pub(crate) enum TabNavigationAction {
+pub enum TabNavigationAction {
     Next,
     Previous,
 }
 
 #[derive(Clone)]
-pub(crate) struct TabNavigationHotkeys {
+pub struct TabNavigationHotkeys {
     next: Option<KeyCombo>,
     prev: Option<KeyCombo>,
 }
 
 impl TabNavigationHotkeys {
-    pub(crate) fn new(settings: &Settings) -> Self {
+    pub fn new(settings: &Settings) -> Self {
         let cmdline = settings.get::<CmdLineSettings>();
         Self {
             next: KeyCombo::parse(&cmdline.system_tab_next_hotkey),
@@ -27,7 +30,7 @@ impl TabNavigationHotkeys {
         }
     }
 
-    pub(crate) fn action_for(
+    pub fn action_for(
         &self,
         event: &KeyEvent,
         modifiers: &Modifiers,
@@ -45,8 +48,8 @@ impl TabNavigationHotkeys {
     }
 }
 
-#[derive(Clone, Copy)]
-struct KeyCombo {
+#[derive(Debug, Clone, Copy)]
+pub struct KeyCombo {
     command: bool,
     control: bool,
     option: bool,
@@ -55,7 +58,7 @@ struct KeyCombo {
 }
 
 impl KeyCombo {
-    fn parse(raw: &str) -> Option<Self> {
+    pub fn parse(raw: &str) -> Option<Self> {
         let trimmed = raw.trim();
         if trimmed.is_empty() || is_disabled_keyword(trimmed) {
             return None;
@@ -70,6 +73,41 @@ impl KeyCombo {
                 Some(state)
             })?
             .build(raw)
+    }
+
+    pub fn to_modifiers(self) -> NSEventModifierFlags {
+        let mut flags = NSEventModifierFlags::empty();
+
+        if self.command {
+            flags |= NSEventModifierFlags::Command;
+        }
+
+        if self.control {
+            flags |= NSEventModifierFlags::Control;
+        }
+
+        if self.option {
+            flags |= NSEventModifierFlags::Option;
+        }
+
+        if self.shift {
+            flags |= NSEventModifierFlags::Shift;
+        }
+
+        flags
+    }
+
+    /// Constructs an `NSString` representing the key component of this combo, if it's a character
+    /// key. Named keys will return `None`.
+    pub fn to_key(self) -> Option<Retained<NSString>> {
+        match self.key {
+            KeyMatch::Char(character) => Some(NSString::from_str(&character.to_string())),
+            KeyMatch::Named(_named) => {
+                // TODO: Figure out how to represent named keys in a way that can be used with
+                // NSEvent. For now, we don't support this.
+                None
+            }
+        }
     }
 
     fn matches(&self, event: &KeyEvent, modifiers: &Modifiers) -> bool {
@@ -121,15 +159,12 @@ fn parse_token(value: &str, raw: &str) -> Option<ParsedToken> {
 fn parse_character_key(value: &str, raw: &str) -> Option<char> {
     let mut chars = value.chars();
     let Some(ch) = chars.next() else {
-        warn!("macOS tab navigation shortcut '{}' has no key; ignoring", raw);
+        warn!("macOS shortcut '{}' has no key; ignoring", raw);
         return None;
     };
 
     if chars.next().is_some() {
-        warn!(
-            "macOS tab navigation shortcut '{}' must end with a single character key; ignoring",
-            raw
-        );
+        warn!("macOS shortcut '{}' must end with a single character key; ignoring", raw);
         return None;
     }
 
@@ -166,7 +201,7 @@ impl ParseState {
     fn set_key(&mut self, value: KeyMatch, raw: &str) -> Option<()> {
         match self.key {
             Some(_) => {
-                warn!("macOS tab navigation shortcut '{}' has multiple keys; ignoring", raw);
+                warn!("macOS shortcut '{}' has multiple keys; ignoring", raw);
                 None
             }
             None => {
@@ -183,10 +218,7 @@ impl ParseState {
             option: self.option,
             shift: self.shift,
             key: self.key.or_else(|| {
-                warn!(
-                    "macOS tab navigation shortcut '{}' is missing a key component; ignoring",
-                    raw
-                );
+                warn!("macOS shortcut '{}' is missing a key component; ignoring", raw);
                 None
             })?,
         })
@@ -197,7 +229,7 @@ fn is_disabled_keyword(value: &str) -> bool {
     value.trim().eq_ignore_ascii_case("false")
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum KeyMatch {
     Char(char),
     Named(NamedKey),
