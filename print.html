@@ -1034,8 +1034,8 @@ vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot;
 single host window.</p>
 <p>Set <code>system-native-tabs = true</code> to merge windows into a tab group. The native tab bar stays hidden
 until more than one tab exists to keep a clean single-window look.</p>
-<p>Use Window &gt; New Window (cmd+n) or the Dock menu to open another Neovide window. If native tabs
-are enabled, new windows become tabs in the host window.</p>
+<p>Use Window &gt; New Window (default: <code>cmd+n</code>) or the Dock menu to open another Neovide window. If
+native tabs are enabled, new windows become tabs in the host window.</p>
 <p>If you have native tabs enabled, the Window menu shows an Editors entry and the Editors hotkey
 becomes available. You can also remap the in-app tab cycling shortcuts.</p>
 <h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
@@ -1061,6 +1061,17 @@ system. Check the Neovide log for warnings.</p>
 <pre><code class="language-toml">system-pinned-hotkey = &quot;ctrl+shift+z&quot;
 system-switcher-hotkey = &quot;ctrl+shift+n&quot;
 </code></pre>
+<p>You can also remap the macOS application and Window menu shortcuts:</p>
+<pre><code class="language-toml">system-hide-hotkey = &quot;cmd+h&quot;
+system-hide-others-hotkey = &quot;cmd+alt+h&quot;
+system-quit-hotkey = &quot;cmd+q&quot;
+system-new-window-hotkey = &quot;cmd+n&quot;
+system-minimize-hotkey = &quot;cmd+m&quot;
+system-fullscreen-hotkey = &quot;cmd+ctrl+f&quot;
+system-show-all-tabs-hotkey = &quot;cmd+shift+e&quot;
+</code></pre>
+<p>Set any of them to <code>false</code> (or an empty value) to remove the menu shortcut while keeping the menu
+item.</p>
 <p>When <code>system-native-tabs</code> is enabled, you can also customize the in-app tab navigation shortcuts:</p>
 <pre><code class="language-toml">system-tab-prev-hotkey = &quot;cmd+shift+[&quot;
 system-tab-next-hotkey = &quot;cmd+shift+]&quot;
@@ -1537,6 +1548,19 @@ as with <code>--reuse-instance</code> works.</p>
 default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
 shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
 and the Editors menu entry.</p>
+<h3 id="menu-shortcuts"><a class="header" href="#menu-shortcuts">Menu Shortcuts</a></h3>
+<pre><code class="language-sh">--system-hide-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_HIDE_HOTKEY
+--system-hide-others-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY
+--system-quit-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_QUIT_HOTKEY
+--system-new-window-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY
+--system-minimize-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_MINIMIZE_HOTKEY
+--system-fullscreen-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_FULLSCREEN_HOTKEY
+--system-show-all-tabs-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY
+</code></pre>
+<p>Remaps the macOS menu shortcuts used by Neovide. The defaults are <code>cmd+h</code>, <code>cmd+alt+h</code>, <code>cmd+q</code>,
+<code>cmd+n</code>, <code>cmd+m</code>, <code>cmd+ctrl+f</code>, and <code>cmd+shift+e</code> for Hide, Hide Others, Quit, New Window,
+Minimize, Enter Full Screen, and Editors respectively. Set any of them to <code>false</code> or leave them
+empty to remove the shortcut while keeping the menu item available.</p>
 <h3 id="system-tab-navigation"><a class="header" href="#system-tab-navigation">System Tab Navigation</a></h3>
 <pre><code class="language-sh">--system-tab-prev-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_TAB_PREV_HOTKEY
 --system-tab-next-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY
@@ -1627,6 +1651,13 @@ tabs = true
 system-native-tabs = false # macOS only
 system-pinned-hotkey = &quot;cmd+ctrl+z&quot; # macOS only
 system-switcher-hotkey = &quot;cmd+ctrl+n&quot; # macOS only, requires system-native-tabs = true
+system-new-window-hotkey = &quot;cmd+n&quot; # macOS only
+system-hide-hotkey = &quot;cmd+h&quot; # macOS only
+system-hide-others-hotkey = &quot;cmd+alt+h&quot; # macOS only
+system-quit-hotkey = &quot;cmd+q&quot; # macOS only
+system-minimize-hotkey = &quot;cmd+m&quot; # macOS only
+system-fullscreen-hotkey = &quot;cmd+ctrl+f&quot; # macOS only
+system-show-all-tabs-hotkey = &quot;cmd+shift+e&quot; # macOS only
 system-tab-prev-hotkey = &quot;cmd+shift+[&quot; # macOS only
 system-tab-next-hotkey = &quot;cmd+shift+]&quot; # macOS only
 title-hidden = false

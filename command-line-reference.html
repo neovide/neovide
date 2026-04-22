@@ -306,6 +306,19 @@ as with <code>--reuse-instance</code> works.</p>
 default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
 shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
 and the Editors menu entry.</p>
+<h3 id="menu-shortcuts"><a class="header" href="#menu-shortcuts">Menu Shortcuts</a></h3>
+<pre><code class="language-sh">--system-hide-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_HIDE_HOTKEY
+--system-hide-others-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY
+--system-quit-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_QUIT_HOTKEY
+--system-new-window-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY
+--system-minimize-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_MINIMIZE_HOTKEY
+--system-fullscreen-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_FULLSCREEN_HOTKEY
+--system-show-all-tabs-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY
+</code></pre>
+<p>Remaps the macOS menu shortcuts used by Neovide. The defaults are <code>cmd+h</code>, <code>cmd+alt+h</code>, <code>cmd+q</code>,
+<code>cmd+n</code>, <code>cmd+m</code>, <code>cmd+ctrl+f</code>, and <code>cmd+shift+e</code> for Hide, Hide Others, Quit, New Window,
+Minimize, Enter Full Screen, and Editors respectively. Set any of them to <code>false</code> or leave them
+empty to remove the shortcut while keeping the menu item available.</p>
 <h3 id="system-tab-navigation"><a class="header" href="#system-tab-navigation">System Tab Navigation</a></h3>
 <pre><code class="language-sh">--system-tab-prev-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_TAB_PREV_HOTKEY
 --system-tab-next-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY
