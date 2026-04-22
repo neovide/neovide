@@ -222,25 +222,25 @@ impl Config {
             unsafe { env::set_var("NEOVIDE_SYSTEM_SWITCHER_HOTKEY", switcher_hotkey) };
         }
         if let Some(new_window_hotkey) = &self.system_new_window_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY", new_window_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY", new_window_hotkey) };
         }
         if let Some(hide_hotkey) = &self.system_hide_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_HIDE_HOTKEY", hide_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_HIDE_HOTKEY", hide_hotkey) };
         }
         if let Some(hide_others_hotkey) = &self.system_hide_others_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY", hide_others_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY", hide_others_hotkey) };
         }
         if let Some(quit_hotkey) = &self.system_quit_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_QUIT_HOTKEY", quit_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_QUIT_HOTKEY", quit_hotkey) };
         }
         if let Some(minimize_hotkey) = &self.system_minimize_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_MINIMIZE_HOTKEY", minimize_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_MINIMIZE_HOTKEY", minimize_hotkey) };
         }
         if let Some(fullscreen_hotkey) = &self.system_fullscreen_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_FULLSCREEN_HOTKEY", fullscreen_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_FULLSCREEN_HOTKEY", fullscreen_hotkey) };
         }
         if let Some(show_all_tabs_hotkey) = &self.system_show_all_tabs_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY", show_all_tabs_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY", show_all_tabs_hotkey) };
         }
         if let Some(tab_prev_hotkey) = &self.system_tab_prev_hotkey {
             unsafe { env::set_var("NEOVIDE_SYSTEM_TAB_PREV_HOTKEY", tab_prev_hotkey) };
