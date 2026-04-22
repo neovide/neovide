@@ -1025,6 +1025,13 @@ impl MacosWindowFeature {
         self.update_ns_background(opaque, show_border);
     }
 
+    pub fn set_document_state(&self, path: &str, modified: bool) {
+        let represented_path = if path.is_empty() || !Path::new(path).exists() { "" } else { path };
+        let ns_path = NSString::from_str(represented_path);
+        self.ns_window.setRepresentedFilename(&ns_path);
+        self.ns_window.setDocumentEdited(modified);
+    }
+
     pub fn set_title_hidden(&self, title_hidden: bool) {
         let frame = self.settings.get::<CmdLineSettings>().frame;
         let transparent = matches!(frame, Frame::Transparent | Frame::Buttonless);

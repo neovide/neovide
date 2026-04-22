@@ -831,6 +831,26 @@ vim.g.neovide_highlight_matching_pair = true
 When enabled, Neovide highlights the matching pair using the system find indicator. The
 default is `false`.
 
+#### Window Proxy Icon (macOS only)
+
+VimScript:
+
+```vim
+let g:neovide_proxy_icon = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_proxy_icon = true
+```
+
+When set to `true` Neovide exposes the current file as a native macOS window proxy icon in the
+title bar and reflects the current buffer's modified state through the standard document-edited
+indicator.
+
+Note: recommended setup is `--frame full` with titles enabled for a cleaner look.
+
 ### Input Settings
 
 #### macOS Option Key is Meta

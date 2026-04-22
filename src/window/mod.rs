@@ -114,6 +114,11 @@ pub enum WindowCommand {
         column: u64,
         text: Option<String>,
     },
+    #[cfg(target_os = "macos")]
+    DocumentStateChanged {
+        path: String,
+        modified: bool,
+    },
     Minimize,
     ThemeChanged(Option<Theme>),
     #[cfg(windows)]
