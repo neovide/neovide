@@ -52,12 +52,12 @@ impl KeyboardManager {
                 if self.ime_preedit.0.is_empty() =>
             {
                 log::trace!("{key_event:#?}");
-                if key_event.state == ElementState::Pressed {
-                    if let Some(text) = self.format_key(key_event) {
-                        log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
-                        tracy_named_frame!("keyboard input");
-                        send_ui(SerialCommand::Keyboard(text), neovim_handler);
-                    }
+                if key_event.state == ElementState::Pressed
+                    && let Some(text) = self.format_key(key_event)
+                {
+                    log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+                    tracy_named_frame!("keyboard input");
+                    send_ui(SerialCommand::Keyboard(text), neovim_handler);
                 }
             }
             WindowEvent::Ime(Ime::Commit(text)) => {

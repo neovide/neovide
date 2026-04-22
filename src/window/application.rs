@@ -425,10 +425,10 @@ impl Application {
         let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
         let step = dt / num_steps;
         for _ in 0..num_steps {
-            if self.window_wrapper.animate_frame(window_id, step.as_secs_f32()) {
-                if let Some(state) = self.render_states.get_mut(&window_id) {
-                    state.should_render = ShouldRender::Immediately;
-                }
+            if self.window_wrapper.animate_frame(window_id, step.as_secs_f32())
+                && let Some(state) = self.render_states.get_mut(&window_id)
+            {
+                state.should_render = ShouldRender::Immediately;
             }
         }
     }
@@ -600,16 +600,10 @@ impl Application {
                     .map(|state| state.num_consecutive_rendered > 0)
                     .unwrap_or(false);
 
-                if should_cleanup_cache {
-                    if let Some(route) = self.window_wrapper.routes.get(&window_id) {
-                        route
-                            .window
-                            .renderer
-                            .borrow_mut()
-                            .grid_renderer
-                            .shaper
-                            .cleanup_font_cache();
-                    }
+                if should_cleanup_cache
+                    && let Some(route) = self.window_wrapper.routes.get(&window_id)
+                {
+                    route.window.renderer.borrow_mut().grid_renderer.shaper.cleanup_font_cache();
                 }
 
                 if let Some(state) = self.render_states.get_mut(&window_id) {
@@ -693,10 +687,10 @@ impl ApplicationHandler<EventPayload> for Application {
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    if let Some(route) = self.window_wrapper.routes.get(&window_id) {
-                        if let Some(macos_feature) = route.window.macos_feature.as_ref() {
-                            macos_feature.borrow_mut().ensure_app_initialized();
-                        }
+                    if let Some(route) = self.window_wrapper.routes.get(&window_id)
+                        && let Some(macos_feature) = route.window.macos_feature.as_ref()
+                    {
+                        macos_feature.borrow_mut().ensure_app_initialized();
                     }
                 }
             }
@@ -863,11 +857,11 @@ impl ApplicationHandler<EventPayload> for Application {
                     return;
                 };
                 self.window_wrapper.queue_restart_route(route_id, details);
-                if let Some(window_id) = self.window_wrapper.window_id_for_route(route_id) {
-                    if let Some(state) = self.render_states.get_mut(&window_id) {
-                        state.pending_draw_commands.clear();
-                        state.should_render = ShouldRender::Immediately;
-                    }
+                if let Some(window_id) = self.window_wrapper.window_id_for_route(route_id)
+                    && let Some(state) = self.render_states.get_mut(&window_id)
+                {
+                    state.pending_draw_commands.clear();
+                    state.should_render = ShouldRender::Immediately;
                 }
             }
             payload => {

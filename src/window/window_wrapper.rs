@@ -468,11 +468,11 @@ impl WinitWindowWrapper {
 
     pub fn handle_window_command(&mut self, target: EventTarget, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
-        if let EventTarget::Route(route_id) = target {
-            if self.window_id_for_route(route_id).is_none() {
-                self.handle_route_core_window_command(route_id, command);
-                return;
-            }
+        if let EventTarget::Route(route_id) = target
+            && self.window_id_for_route(route_id).is_none()
+        {
+            self.handle_route_core_window_command(route_id, command);
+            return;
         }
 
         let Some(target_window_id) = self.resolve_target_window_id(target) else {
@@ -564,13 +564,13 @@ impl WinitWindowWrapper {
                 }
             }
             WindowCommand::ThemeChanged(new_theme) => {
-                if let Some(route) = self.routes.get_mut(&target_window_id) {
-                    if route.state.inferred_theme != new_theme {
-                        route.state.inferred_theme = new_theme;
-                        let WindowSettings { theme, .. } = self.settings.get::<WindowSettings>();
-                        if matches!(theme, ThemeSettings::BgColor) {
-                            self.apply_theme_for_window(target_window_id);
-                        }
+                if let Some(route) = self.routes.get_mut(&target_window_id)
+                    && route.state.inferred_theme != new_theme
+                {
+                    route.state.inferred_theme = new_theme;
+                    let WindowSettings { theme, .. } = self.settings.get::<WindowSettings>();
+                    if matches!(theme, ThemeSettings::BgColor) {
+                        self.apply_theme_for_window(target_window_id);
                     }
                 }
             }
@@ -857,24 +857,20 @@ impl WinitWindowWrapper {
 
         #[cfg(target_os = "macos")]
         {
-            if native_tab_bar_enabled() {
-                if let WindowEvent::KeyboardInput { event: key_event, .. } = event {
-                    let modifiers = self.keyboard_manager.current_modifiers();
-                    if let Some(action) =
-                        self.tab_navigation_hotkeys.action_for(key_event, &modifiers)
-                    {
-                        if let Some(feature) = &route.window.macos_feature {
-                            let feature_ref = feature.borrow();
-                            if feature_ref.can_navigate_tabs() {
-                                match action {
-                                    TabNavigationAction::Next => feature_ref.select_next_tab(),
-                                    TabNavigationAction::Previous => {
-                                        feature_ref.select_previous_tab()
-                                    }
-                                }
-                                consumed_key_event = true;
-                            }
+            if native_tab_bar_enabled()
+                && let WindowEvent::KeyboardInput { event: key_event, .. } = event
+            {
+                let modifiers = self.keyboard_manager.current_modifiers();
+                if let Some(action) = self.tab_navigation_hotkeys.action_for(key_event, &modifiers)
+                    && let Some(feature) = &route.window.macos_feature
+                {
+                    let feature_ref = feature.borrow();
+                    if feature_ref.can_navigate_tabs() {
+                        match action {
+                            TabNavigationAction::Next => feature_ref.select_next_tab(),
+                            TabNavigationAction::Previous => feature_ref.select_previous_tab(),
                         }
+                        consumed_key_event = true;
                     }
                 }
             }
@@ -1028,21 +1024,18 @@ impl WinitWindowWrapper {
                     log::trace!("Suppressing focus event during tab detach (focus = {})", focus);
                     return self.ui_state >= UIState::FirstFrame && should_render;
                 }
-                if focus {
-                    if let Some(route) = self.routes.get(&window_id) {
-                        let ns_window =
-                            crate::window::macos::get_ns_window(route.window.winit_window.as_ref());
-                        let host_ptr = crate::window::macos::get_last_host_window();
-                        let window_ptr =
-                            crate::window::macos::window_identifier(ns_window.as_ref());
-                        if host_ptr != 0 && window_ptr != host_ptr {
-                            log::trace!(
-                                "Focus gained for non-host window; refocusing host {:?}",
-                                host_ptr
-                            );
-                            ns_window.makeKeyAndOrderFront(None);
-                            ns_window.orderFrontRegardless();
-                        }
+                if focus && let Some(route) = self.routes.get(&window_id) {
+                    let ns_window =
+                        crate::window::macos::get_ns_window(route.window.winit_window.as_ref());
+                    let host_ptr = crate::window::macos::get_last_host_window();
+                    let window_ptr = crate::window::macos::window_identifier(ns_window.as_ref());
+                    if host_ptr != 0 && window_ptr != host_ptr {
+                        log::trace!(
+                            "Focus gained for non-host window; refocusing host {:?}",
+                            host_ptr
+                        );
+                        ns_window.makeKeyAndOrderFront(None);
+                        ns_window.orderFrontRegardless();
                     }
                 }
             }
@@ -1077,10 +1070,10 @@ impl WinitWindowWrapper {
         // System native tabs share one visual surface. Keep all routes in sync so
         // fullscreen transitions trigger immediate grid updates for every tab.
         for window_id in window_ids {
-            if let Some(route) = self.routes.get_mut(&window_id) {
-                if let Some(macos_feature) = &mut route.window.macos_feature {
-                    macos_feature.borrow_mut().handle_size_changed();
-                }
+            if let Some(route) = self.routes.get_mut(&window_id)
+                && let Some(macos_feature) = &mut route.window.macos_feature
+            {
+                macos_feature.borrow_mut().handle_size_changed();
             }
 
             let window_padding = self.calculate_window_padding(window_id);
@@ -1163,12 +1156,12 @@ impl WinitWindowWrapper {
 
         let text = lines.join("\n");
 
-        if let Some(clipboard) = self.clipboard.upgrade() {
-            if let Ok(mut clipboard) = clipboard.lock() {
-                #[cfg(target_os = "linux")]
-                let _ = clipboard.set_contents(text.clone(), "*");
-                let _ = clipboard.set_contents(text, "+");
-            }
+        if let Some(clipboard) = self.clipboard.upgrade()
+            && let Ok(mut clipboard) = clipboard.lock()
+        {
+            #[cfg(target_os = "linux")]
+            let _ = clipboard.set_contents(text.clone(), "*");
+            let _ = clipboard.set_contents(text, "+");
         }
     }
 
@@ -1348,19 +1341,19 @@ impl WinitWindowWrapper {
         #[cfg(target_os = "macos")]
         {
             let mut opened_overview = false;
-            if let Some(window_id) = self.pinned_candidate() {
-                if let Some(feature_rc) = self.macos_feature_for_window(window_id) {
-                    {
-                        let feature = feature_rc.borrow();
-                        if feature.is_simple_fullscreen_enabled() {
-                            drop(feature);
-                            self.toggle_pinned_window();
-                            return;
-                        }
+            if let Some(window_id) = self.pinned_candidate()
+                && let Some(feature_rc) = self.macos_feature_for_window(window_id)
+            {
+                {
+                    let feature = feature_rc.borrow();
+                    if feature.is_simple_fullscreen_enabled() {
+                        drop(feature);
+                        self.toggle_pinned_window();
+                        return;
                     }
-                    feature_rc.borrow().activate_application();
-                    opened_overview = true;
                 }
+                feature_rc.borrow().activate_application();
+                opened_overview = true;
             }
 
             if opened_overview {
@@ -1476,20 +1469,18 @@ impl WinitWindowWrapper {
         #[cfg(target_os = "macos")]
         let mut host_window_position: Option<winit::dpi::PhysicalPosition<i32>> = None;
 
-        if !self.routes.is_empty() {
-            if let Some(host_id) = self.get_focused_route() {
-                if let Some(host_route) = self.routes.get(&host_id) {
-                    desired_window_size =
-                        WindowSize::Size(host_route.window.last_applied_window_size);
-                    desired_grid_size = host_route.window.last_synced_grid_size.or_else(|| {
-                        let renderer = host_route.window.renderer.borrow();
-                        Some(renderer.get_grid_size())
-                    });
-                    #[cfg(target_os = "macos")]
-                    {
-                        host_window_position = host_route.window.winit_window.outer_position().ok();
-                    }
-                }
+        if !self.routes.is_empty()
+            && let Some(host_id) = self.get_focused_route()
+            && let Some(host_route) = self.routes.get(&host_id)
+        {
+            desired_window_size = WindowSize::Size(host_route.window.last_applied_window_size);
+            desired_grid_size = host_route.window.last_synced_grid_size.or_else(|| {
+                let renderer = host_route.window.renderer.borrow();
+                Some(renderer.get_grid_size())
+            });
+            #[cfg(target_os = "macos")]
+            {
+                host_window_position = host_route.window.winit_window.outer_position().ok();
             }
         }
         let initial_inferred_theme = if creating_initial_window {
@@ -1611,11 +1602,9 @@ impl WinitWindowWrapper {
         if pending_initial_window_size.is_none() {
             pending_initial_window_size = route_pending_initial_window_size;
         }
-        if !maximized {
-            if let Some(size) = initial_pixel_size {
-                tracy_zone!("request_inner_size");
-                let _ = window.request_inner_size(size);
-            }
+        if !maximized && let Some(size) = initial_pixel_size {
+            tracy_zone!("request_inner_size");
+            let _ = window.request_inner_size(size);
         }
 
         #[cfg(target_os = "macos")]
@@ -1624,26 +1613,26 @@ impl WinitWindowWrapper {
         }
 
         // Check that window is visible in some monitor, and reposition it if not.
-        if let Ok(previous_position) = window.outer_position() {
-            if let Some(current_monitor) = window.current_monitor() {
-                let monitor_position = current_monitor.position();
-                let monitor_size = current_monitor.size();
-                let monitor_width = monitor_size.width as i32;
-                let monitor_height = monitor_size.height as i32;
+        if let Ok(previous_position) = window.outer_position()
+            && let Some(current_monitor) = window.current_monitor()
+        {
+            let monitor_position = current_monitor.position();
+            let monitor_size = current_monitor.size();
+            let monitor_width = monitor_size.width as i32;
+            let monitor_height = monitor_size.height as i32;
 
-                let window_position = previous_position;
+            let window_position = previous_position;
 
-                let window_size = window.outer_size();
-                let window_width = window_size.width as i32;
-                let window_height = window_size.height as i32;
+            let window_size = window.outer_size();
+            let window_width = window_size.width as i32;
+            let window_height = window_size.height as i32;
 
-                if window_position.x + window_width < monitor_position.x
-                    || window_position.y + window_height < monitor_position.y
-                    || window_position.x > monitor_position.x + monitor_width
-                    || window_position.y > monitor_position.y + monitor_height
-                {
-                    window.set_outer_position(monitor_position);
-                };
+            if window_position.x + window_width < monitor_position.x
+                || window_position.y + window_height < monitor_position.y
+                || window_position.x > monitor_position.x + monitor_width
+                || window_position.y > monitor_position.y + monitor_height
+            {
+                window.set_outer_position(monitor_position);
             };
         }
         let logged_size = initial_pixel_size.unwrap_or_default();
@@ -1961,12 +1950,11 @@ impl WinitWindowWrapper {
         window_id: WindowId,
         proxy: &EventLoopProxy<EventPayload>,
     ) {
-        if let Some(route_id) = self.route_id_for_window(window_id) {
-            if let Some(restart) = self.pending_restart.remove(&route_id) {
-                if self.restart_neovim_route(route_id, restart, proxy).is_ok() {
-                    return;
-                }
-            }
+        if let Some(route_id) = self.route_id_for_window(window_id)
+            && let Some(restart) = self.pending_restart.remove(&route_id)
+            && self.restart_neovim_route(route_id, restart, proxy).is_ok()
+        {
+            return;
         }
 
         if let Some(route) = self.routes.remove(&window_id) {
@@ -2002,10 +1990,10 @@ impl WinitWindowWrapper {
             return;
         }
 
-        if let Some(restart) = self.pending_restart.remove(&route_id) {
-            if self.restart_neovim_route(route_id, restart, proxy).is_ok() {
-                return;
-            }
+        if let Some(restart) = self.pending_restart.remove(&route_id)
+            && self.restart_neovim_route(route_id, restart, proxy).is_ok()
+        {
+            return;
         }
 
         self.route_cores.remove(&route_id);
@@ -2407,14 +2395,13 @@ impl WinitWindowWrapper {
             };
 
             let mut needs_window_update = false;
-            if let Some(route) = self.routes.get(&window_id) {
-                if route.state.saved_inner_size != new_window_size
+            if let Some(route) = self.routes.get(&window_id)
+                && (route.state.saved_inner_size != new_window_size
                     || route.state.font_changed_last_frame
                     || padding_changed
-                    || route.window.last_applied_window_size != route.state.saved_inner_size
-                {
-                    needs_window_update = true;
-                }
+                    || route.window.last_applied_window_size != route.state.saved_inner_size)
+            {
+                needs_window_update = true;
             }
 
             if needs_window_update {
@@ -2437,12 +2424,12 @@ impl WinitWindowWrapper {
             should_render.update(renderer.prepare_frame());
         }
 
-        if let Some(route) = self.routes.get_mut(&window_id) {
-            if route.state.font_changed_last_frame {
-                let mut renderer = route.window.renderer.borrow_mut();
-                renderer.prepare_lines(true);
-                route.state.font_changed_last_frame = false;
-            }
+        if let Some(route) = self.routes.get_mut(&window_id)
+            && route.state.font_changed_last_frame
+        {
+            let mut renderer = route.window.renderer.borrow_mut();
+            renderer.prepare_lines(true);
+            route.state.font_changed_last_frame = false;
         }
 
         should_render

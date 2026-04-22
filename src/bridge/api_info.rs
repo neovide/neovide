@@ -233,13 +233,11 @@ fn parse_version(
     let mut prerelease_commit = String::default();
     if let Some((_, dev, version)) =
         version_str.strip_suffix("-dirty").unwrap_or(version_str).split('-').collect_tuple()
+        && dev == "dev"
+        && let Some((version, commit)) = version.split("+").collect_tuple()
     {
-        if dev == "dev" {
-            if let Some((version, commit)) = version.split("+").collect_tuple() {
-                prerelease_version = version.parse().unwrap_or(0);
-                prerelease_commit = commit.to_string();
-            }
-        }
+        prerelease_version = version.parse().unwrap_or(0);
+        prerelease_commit = commit.to_string();
     }
 
     Ok(ApiVersion {

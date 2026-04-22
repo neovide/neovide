@@ -165,61 +165,61 @@ impl Config {
 
     fn write_to_env(&self) {
         if let Some(server) = &self.server {
-            env::set_var("NEOVIDE_SERVER", server);
+            unsafe { env::set_var("NEOVIDE_SERVER", server) };
         }
         if let Some(wsl) = self.wsl {
-            env::set_var("NEOVIDE_WSL", wsl.to_string());
+            unsafe { env::set_var("NEOVIDE_WSL", wsl.to_string()) };
         }
         if let Some(no_multigrid) = self.no_multigrid {
-            env::set_var("NEOVIDE_NO_MULTIGRID", no_multigrid.to_string());
+            unsafe { env::set_var("NEOVIDE_NO_MULTIGRID", no_multigrid.to_string()) };
         }
         if let Some(maximized) = self.maximized {
-            env::set_var("NEOVIDE_MAXIMIZED", maximized.to_string());
+            unsafe { env::set_var("NEOVIDE_MAXIMIZED", maximized.to_string()) };
         }
         if let Some(vsync) = self.vsync {
-            env::set_var("NEOVIDE_VSYNC", vsync.to_string());
+            unsafe { env::set_var("NEOVIDE_VSYNC", vsync.to_string()) };
         }
         if let Some(srgb) = self.srgb {
-            env::set_var("NEOVIDE_SRGB", srgb.to_string());
+            unsafe { env::set_var("NEOVIDE_SRGB", srgb.to_string()) };
         }
         if let Some(fork) = self.fork {
-            env::set_var("NEOVIDE_FORK", fork.to_string());
+            unsafe { env::set_var("NEOVIDE_FORK", fork.to_string()) };
         }
         if let Some(opengl) = self.opengl {
-            env::set_var("NEOVIDE_OPENGL", opengl.to_string());
+            unsafe { env::set_var("NEOVIDE_OPENGL", opengl.to_string()) };
         }
         if let Some(idle) = self.idle {
-            env::set_var("NEOVIDE_IDLE", idle.to_string());
+            unsafe { env::set_var("NEOVIDE_IDLE", idle.to_string()) };
         }
         if let Some(frame) = self.frame {
-            env::set_var("NEOVIDE_FRAME", frame.to_string());
+            unsafe { env::set_var("NEOVIDE_FRAME", frame.to_string()) };
         }
         if let Some(size) = &self.size {
-            env::set_var("NEOVIDE_SIZE", size);
+            unsafe { env::set_var("NEOVIDE_SIZE", size) };
         }
         if let Some(grid) = &self.grid {
-            env::set_var("NEOVIDE_GRID", grid);
+            unsafe { env::set_var("NEOVIDE_GRID", grid) };
         }
         if let Some(neovim_bin) = &self.neovim_bin {
-            env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
+            unsafe { env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string()) };
         }
         if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
-            env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon);
+            unsafe { env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon) };
         }
         if let Some(title_hidden) = &self.title_hidden {
-            env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string());
+            unsafe { env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string()) };
         }
         if let Some(tabs) = &self.tabs {
-            env::set_var("NEOVIDE_TABS", tabs.to_string());
+            unsafe { env::set_var("NEOVIDE_TABS", tabs.to_string()) };
         }
         if let Some(system_native_tabs) = &self.system_native_tabs {
-            env::set_var("NEOVIDE_SYSTEM_NATIVE_TABS", system_native_tabs.to_string());
+            unsafe { env::set_var("NEOVIDE_SYSTEM_NATIVE_TABS", system_native_tabs.to_string()) };
         }
         if let Some(pinned_hotkey) = &self.system_pinned_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_PINNED_HOTKEY", pinned_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_PINNED_HOTKEY", pinned_hotkey) };
         }
         if let Some(switcher_hotkey) = &self.system_switcher_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_SWITCHER_HOTKEY", switcher_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_SWITCHER_HOTKEY", switcher_hotkey) };
         }
         if let Some(new_window_hotkey) = &self.system_new_window_hotkey {
             env::set_var("NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY", new_window_hotkey);
@@ -243,25 +243,25 @@ impl Config {
             env::set_var("NEOVIDE_SYSTEM_SHOW_ALL_TABS_HOTKEY", show_all_tabs_hotkey);
         }
         if let Some(tab_prev_hotkey) = &self.system_tab_prev_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_TAB_PREV_HOTKEY", tab_prev_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_TAB_PREV_HOTKEY", tab_prev_hotkey) };
         }
         if let Some(tab_next_hotkey) = &self.system_tab_next_hotkey {
-            env::set_var("NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY", tab_next_hotkey);
+            unsafe { env::set_var("NEOVIDE_SYSTEM_TAB_NEXT_HOTKEY", tab_next_hotkey) };
         }
         if let Some(icon) = &self.icon {
-            env::set_var("NEOVIDE_ICON", icon);
+            unsafe { env::set_var("NEOVIDE_ICON", icon) };
         }
         if let Some(wayland_app_id) = &self.wayland_app_id {
-            env::set_var("NEOVIDE_APP_ID", wayland_app_id);
+            unsafe { env::set_var("NEOVIDE_APP_ID", wayland_app_id) };
         }
         if let Some(x11_wm_class) = &self.x11_wm_class {
-            env::set_var("NEOVIDE_WM_CLASS", x11_wm_class);
+            unsafe { env::set_var("NEOVIDE_WM_CLASS", x11_wm_class) };
         }
         if let Some(x11_wm_class_instance) = &self.x11_wm_class_instance {
-            env::set_var("NEOVIDE_WM_CLASS_INSTANCE", x11_wm_class_instance);
+            unsafe { env::set_var("NEOVIDE_WM_CLASS_INSTANCE", x11_wm_class_instance) };
         }
         if let Some(chdir) = &self.chdir {
-            env::set_var("NEOVIDE_CHDIR", chdir.to_string_lossy().to_string());
+            unsafe { env::set_var("NEOVIDE_CHDIR", chdir.to_string_lossy().to_string()) };
         }
     }
 

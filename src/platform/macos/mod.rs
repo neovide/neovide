@@ -151,7 +151,7 @@ impl Drop for FocusSuppressionGuard {
 }
 
 #[link(name = "Quartz", kind = "framework")]
-extern "C" {}
+unsafe extern "C" {}
 
 pub enum TouchpadStage {
     Soft,
@@ -749,23 +749,24 @@ impl MacosWindowFeature {
                 handler.removeFromSuperview();
             }
             self.ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
-            if let Some(tab_group) = self.ns_window.tabGroup() {
-                if tab_group.isTabBarVisible() {
-                    self.ns_window.toggleTabBar(None);
-                }
+            if let Some(tab_group) = self.ns_window.tabGroup()
+                && tab_group.isTabBarVisible()
+            {
+                self.ns_window.toggleTabBar(None);
             }
         } else {
             self.ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
             Self::configure_native_tabbing(&self.ns_window);
-            if self.has_transparent_titlebar && self.titlebar_click_handler.is_none() {
-                if let Some(mtm) = MainThreadMarker::new() {
-                    self.titlebar_click_handler = Self::install_titlebar_click_handler(
-                        &self.ns_window,
-                        self.system_titlebar_height,
-                        self.ns_window.backingScaleFactor(),
-                        mtm,
-                    );
-                }
+            if self.has_transparent_titlebar
+                && self.titlebar_click_handler.is_none()
+                && let Some(mtm) = MainThreadMarker::new()
+            {
+                self.titlebar_click_handler = Self::install_titlebar_click_handler(
+                    &self.ns_window,
+                    self.system_titlebar_height,
+                    self.ns_window.backingScaleFactor(),
+                    mtm,
+                );
             }
 
             if should_show_native_tab_bar() {
@@ -854,8 +855,9 @@ impl MacosWindowFeature {
         indicator_view.setString(&ns_text);
 
         let font_size = (rect.size.height * 0.85).max(1.0);
-        let font =
-            NSFont::monospacedSystemFontOfSize_weight(CGFloat::from(font_size), NSFontWeightLight);
+        let font = unsafe {
+            NSFont::monospacedSystemFontOfSize_weight(CGFloat::from(font_size), NSFontWeightLight)
+        };
 
         indicator_view.setFont(Some(font.as_ref()));
         indicator_view.setTextColor(Some(NSColor::textColor().as_ref()));
@@ -937,9 +939,10 @@ impl MacosWindowFeature {
             .or_else(|| NSFont::fontWithName_size(&font_name, font_size))
             .unwrap_or_else(|| default_font.clone());
 
-        let attributes = NSDictionary::from_slices(&[NSFontAttributeName], &[font.as_ref()]);
+        let font_attribute_name = unsafe { NSFontAttributeName };
+        let attributes = NSDictionary::from_slices(&[font_attribute_name], &[font.as_ref()]);
         let attr_text = NSString::from_str(text);
-        NSAttributedString::new_with_attributes(&attr_text, attributes.as_ref())
+        unsafe { NSAttributedString::new_with_attributes(&attr_text, attributes.as_ref()) }
     }
 
     unsafe fn definition_point(&self, point: Point2<Pixel<f32>>) -> NSPoint {
@@ -1362,14 +1365,15 @@ impl TabOverviewNotificationHandler {
             "Scheduling detach timer for window ptr = {:?}",
             window_identifier(window.as_ref())
         );
-        let _: Retained<NSTimer> =
+        let _: Retained<NSTimer> = unsafe {
             NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
                 0.0,
                 self,
                 sel!(neovidePerformDetach:),
                 Some(window.as_ref()),
                 false,
-            );
+            )
+        };
     }
 }
 
@@ -1417,14 +1421,15 @@ impl WindowMenuDelegate {
     }
 
     unsafe fn schedule_deferred_prune(&self, menu: &NSMenu) {
-        let _: Retained<NSTimer> =
+        let _: Retained<NSTimer> = unsafe {
             NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
                 0.0,
                 self,
                 sel!(neovidePruneWindowMenu:),
                 Some(menu),
                 false,
-            );
+            )
+        };
     }
 }
 
@@ -1505,14 +1510,15 @@ impl WindowMenuNotificationHandler {
     }
 
     unsafe fn schedule_refresh(&self) {
-        let _: Retained<NSTimer> =
+        let _: Retained<NSTimer> = unsafe {
             NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
                 0.0,
                 self,
                 sel!(neovideRefreshWindowMenu:),
                 None,
                 false,
-            );
+            )
+        };
     }
 }
 #[derive(Debug)]
@@ -1759,14 +1765,15 @@ pub fn trigger_tab_overview() {
 
     if let Some(mtm) = MainThreadMarker::new() {
         let app = NSApplication::sharedApplication(mtm);
+        if let Some(window) = app.keyWindow()
+            && let Some(tab_group) = window.tabGroup()
+            && tab_group.isOverviewVisible()
+        {
+            reset_tab_overview_state();
+            window.toggleTabOverview(None);
+            return;
+        }
         if let Some(window) = app.keyWindow() {
-            if let Some(tab_group) = window.tabGroup() {
-                if tab_group.isOverviewVisible() {
-                    reset_tab_overview_state();
-                    window.toggleTabOverview(None);
-                    return;
-                }
-            }
             MacosWindowFeature::begin_tab_overview(&window);
         }
     }
@@ -1802,8 +1809,10 @@ pub fn register_file_handler() {
         let menu = NSMenu::new(mtm);
         let create_new_window = NSMenuItem::new(mtm);
         create_new_window.setTitle(ns_string!("New Window"));
-        create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
-        create_new_window.setTarget(Some(this));
+        unsafe {
+            create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
+            create_new_window.setTarget(Some(this));
+        }
         menu.addItem(&create_new_window);
         Retained::autorelease_return(menu)
     }
