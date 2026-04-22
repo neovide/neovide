@@ -10,19 +10,19 @@ use winit::{
 use crate::{CmdLineSettings, settings::Settings};
 
 #[derive(Clone, Copy)]
-pub(crate) enum TabNavigationAction {
+pub enum TabNavigationAction {
     Next,
     Previous,
 }
 
 #[derive(Clone)]
-pub(crate) struct TabNavigationHotkeys {
+pub struct TabNavigationHotkeys {
     next: Option<KeyCombo>,
     prev: Option<KeyCombo>,
 }
 
 impl TabNavigationHotkeys {
-    pub(crate) fn new(settings: &Settings) -> Self {
+    pub fn new(settings: &Settings) -> Self {
         let cmdline = settings.get::<CmdLineSettings>();
         Self {
             next: KeyCombo::parse(&cmdline.system_tab_next_hotkey),
@@ -30,7 +30,7 @@ impl TabNavigationHotkeys {
         }
     }
 
-    pub(crate) fn action_for(
+    pub fn action_for(
         &self,
         event: &KeyEvent,
         modifiers: &Modifiers,
@@ -49,7 +49,7 @@ impl TabNavigationHotkeys {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct KeyCombo {
+pub struct KeyCombo {
     command: bool,
     control: bool,
     option: bool,
@@ -58,7 +58,7 @@ pub(crate) struct KeyCombo {
 }
 
 impl KeyCombo {
-    pub(crate) fn parse(raw: &str) -> Option<Self> {
+    pub fn parse(raw: &str) -> Option<Self> {
         let trimmed = raw.trim();
         if trimmed.is_empty() || is_disabled_keyword(trimmed) {
             return None;
@@ -75,7 +75,7 @@ impl KeyCombo {
             .build(raw)
     }
 
-    pub(crate) fn to_modifiers(self) -> NSEventModifierFlags {
+    pub fn to_modifiers(self) -> NSEventModifierFlags {
         let mut flags = NSEventModifierFlags::empty();
 
         if self.command {
@@ -99,7 +99,7 @@ impl KeyCombo {
 
     /// Constructs an `NSString` representing the key component of this combo, if it's a character
     /// key. Named keys will return `None`.
-    pub(crate) fn to_key(self) -> Option<Retained<NSString>> {
+    pub fn to_key(self) -> Option<Retained<NSString>> {
         match self.key {
             KeyMatch::Char(character) => Some(NSString::from_str(&character.to_string())),
             KeyMatch::Named(_named) => {
