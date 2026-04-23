@@ -132,6 +132,10 @@ pub struct RouteWindow {
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<Rc<RefCell<Box<MacosWindowFeature>>>>,
     pub title: String,
+    #[cfg(target_os = "macos")]
+    pub document_path: String,
+    #[cfg(target_os = "macos")]
+    pub document_modified: bool,
     pub last_applied_window_size: dpi::PhysicalSize<u32>,
     pub last_synced_grid_size: Option<GridSize<u32>>,
 }
@@ -202,6 +206,10 @@ struct RouteCore {
     neovim_handler: NeovimHandler,
     cwd: Option<PathBuf>,
     title: String,
+    #[cfg(target_os = "macos")]
+    document_path: String,
+    #[cfg(target_os = "macos")]
+    document_modified: bool,
     mouse_enabled: bool,
     pending_initial_window_size: Option<WindowSize>,
     last_synced_grid_size: Option<GridSize<u32>>,
@@ -343,6 +351,10 @@ impl WinitWindowWrapper {
                 neovim_handler,
                 cwd: None,
                 title: String::from("Neovide"),
+                #[cfg(target_os = "macos")]
+                document_path: String::new(),
+                #[cfg(target_os = "macos")]
+                document_modified: false,
                 mouse_enabled: true,
                 pending_initial_window_size,
                 last_synced_grid_size: None,
@@ -466,6 +478,21 @@ impl WinitWindowWrapper {
         window.set_ime_allowed(ime_enabled);
     }
 
+    #[cfg(target_os = "macos")]
+    fn apply_document_state(&self, window_id: WindowId) {
+        let Some(route) = self.routes.get(&window_id) else {
+            return;
+        };
+
+        let Some(feature) = self.macos_feature_for_window(window_id) else {
+            return;
+        };
+
+        feature
+            .borrow()
+            .set_document_state(&route.window.document_path, route.window.document_modified);
+    }
+
     pub fn handle_window_command(&mut self, target: EventTarget, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
         if let EventTarget::Route(route_id) = target
@@ -500,6 +527,14 @@ impl WinitWindowWrapper {
                 if let Some(feature) = self.macos_feature_for_window(target_window_id) {
                     feature.borrow().activate_application();
                 }
+            }
+            #[cfg(target_os = "macos")]
+            WindowCommand::DocumentStateChanged { path, modified } => {
+                if let Some(route) = self.routes.get_mut(&target_window_id) {
+                    route.window.document_path = path;
+                    route.window.document_modified = modified;
+                }
+                self.apply_document_state(target_window_id);
             }
             #[cfg(target_os = "macos")]
             WindowCommand::TouchpadPressure { col, row, entity, guifont, kind } => {
@@ -589,6 +624,11 @@ impl WinitWindowWrapper {
         match command {
             WindowCommand::TitleChanged(new_title) => {
                 route_core.title = new_title;
+            }
+            #[cfg(target_os = "macos")]
+            WindowCommand::DocumentStateChanged { path, modified } => {
+                route_core.document_path = path;
+                route_core.document_modified = modified;
             }
             WindowCommand::SetMouseEnabled(mouse_enabled) => {
                 route_core.mouse_enabled = mouse_enabled;
@@ -1493,6 +1533,10 @@ impl WinitWindowWrapper {
         let window_config = create_window(event_loop, maximized, "Neovide", &self.settings, theme);
         let window = Rc::new(window_config.window.clone());
         let mut route_title = String::from("Neovide");
+        #[cfg(target_os = "macos")]
+        let mut route_document_path = String::new();
+        #[cfg(target_os = "macos")]
+        let mut route_document_modified = false;
         let mut route_last_synced_grid_size = None;
         let mut route_inferred_theme = None;
         let mut route_mouse_enabled = true;
@@ -1534,6 +1578,11 @@ impl WinitWindowWrapper {
                 };
                 debug_assert_eq!(route_core.route_id, route_id);
                 route_title = route_core.title;
+                #[cfg(target_os = "macos")]
+                {
+                    route_document_path = route_core.document_path;
+                    route_document_modified = route_core.document_modified;
+                }
                 route_last_synced_grid_size = route_core.last_synced_grid_size;
                 route_inferred_theme = route_core.inferred_theme;
                 route_mouse_enabled = route_core.mouse_enabled;
@@ -1752,6 +1801,10 @@ impl WinitWindowWrapper {
                 #[cfg(target_os = "macos")]
                 macos_feature: Some(Rc::new(RefCell::new(Box::new(macos_feature)))),
                 title: route_title,
+                #[cfg(target_os = "macos")]
+                document_path: route_document_path,
+                #[cfg(target_os = "macos")]
+                document_modified: route_document_modified,
                 last_applied_window_size: saved_inner_size,
                 last_synced_grid_size: route_last_synced_grid_size,
             },
@@ -1764,6 +1817,8 @@ impl WinitWindowWrapper {
             neovim_args: route_launch_config.neovim_args,
         };
         self.routes.insert(window.id(), route);
+        #[cfg(target_os = "macos")]
+        self.apply_document_state(window.id());
         self.apply_theme_for_window(window.id());
         set_active_route_handler(route_id);
         #[cfg(target_os = "macos")]

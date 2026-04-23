@@ -236,6 +236,52 @@ vim.api.nvim_create_autocmd({ "VimEnter" }, {
     end,
 })
 
+if vim.fn.has("macunix") == 1 then
+    local document_state_group = vim.api.nvim_create_augroup("NeovideDocumentState", { clear = true })
+    local function notify_document_state()
+        local bufnr = vim.api.nvim_get_current_buf()
+        local path = vim.api.nvim_buf_get_name(bufnr)
+        local modified = vim.api.nvim_get_option_value("modified", { buf = bufnr })
+        pcall(rpcnotify, "neovide.document_state", path, modified)
+    end
+
+    local function enable_document_state()
+        vim.api.nvim_create_autocmd({
+            "BufEnter",
+            "BufFilePost",
+            "BufModifiedSet",
+            "BufWritePost",
+        }, {
+            group = document_state_group,
+            callback = notify_document_state,
+        })
+
+        vim.api.nvim_create_autocmd("VimEnter", {
+            group = document_state_group,
+            once = true,
+            nested = true,
+            callback = notify_document_state,
+        })
+
+        if vim.v.vim_did_enter == 1 then
+            notify_document_state()
+        end
+    end
+
+    local function update_document_state()
+        vim.api.nvim_clear_autocmds({ group = document_state_group })
+
+        if vim.g.neovide_proxy_icon then
+            enable_document_state()
+        else
+            pcall(rpcnotify, "neovide.document_state", "", false)
+        end
+    end
+
+    vim.fn.WatchGlobal("neovide_proxy_icon", update_document_state)
+    update_document_state()
+end
+
 -- Create auto command for retrieving exit code from neovim on quit.
 vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
     pattern = "*",
