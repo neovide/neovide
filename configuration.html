@@ -661,6 +661,17 @@ and the flickering does not bother as much.</p>
 <p><strong>Available since 0.16.0.</strong></p>
 <p>When enabled, Neovide highlights the matching pair using the system find indicator. The
 default is <code>false</code>.</p>
+<h4 id="window-proxy-icon-macos-only"><a class="header" href="#window-proxy-icon-macos-only">Window Proxy Icon (macOS only)</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_proxy_icon = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_proxy_icon = true
+</code></pre>
+<p>When set to <code>true</code> Neovide exposes the current file as a native macOS window proxy icon in the
+title bar and reflects the current buffer's modified state through the standard document-edited
+indicator.</p>
+<p>Note: recommended setup is <code>--frame full</code> with titles enabled for a cleaner look.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
 <h4 id="macos-option-key-is-meta"><a class="header" href="#macos-option-key-is-meta">macOS Option Key is Meta</a></h4>
 <p>Possible values are <code>both</code>, <code>only_left</code>, <code>only_right</code>, <code>none</code>. Set to <code>none</code> by default.</p>
