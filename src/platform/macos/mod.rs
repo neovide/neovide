@@ -780,6 +780,10 @@ impl MacosWindowFeature {
         self.simple_fullscreen
     }
 
+    pub fn is_native_fullscreen_enabled(&self) -> bool {
+        self.is_fullscreen
+    }
+
     pub fn show_definition_at_point(
         &self,
         text: &str,

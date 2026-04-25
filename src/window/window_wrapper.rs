@@ -1563,6 +1563,9 @@ impl WinitWindowWrapper {
             ..
         } = self.settings.get::<WindowSettings>();
 
+        #[cfg(target_os = "macos")]
+        let fullscreen = self.fullscreen_for_new_window(creating_initial_window, fullscreen);
+
         // Capture per-route launch config before args is consumed into OpenMode.
         // For the initial window (args is None, uses OpenMode::Startup), pull from
         // CmdLineSettings so "New Window" can clone the initial invocation's config.
@@ -2355,6 +2358,45 @@ impl WinitWindowWrapper {
             .or_else(|| {
                 self.route_cores.get(&route_id).map(|route_core| route_core.neovim_handler.clone())
             })
+    }
+
+    #[cfg(target_os = "macos")]
+    fn fullscreen_for_new_window(&self, creating_initial_window: bool, fullscreen: bool) -> bool {
+        if !self.should_handle_tabbed_fullscreen(creating_initial_window, fullscreen) {
+            return fullscreen;
+        }
+
+        // cmd-n creates another top-level NSWindow. if system tabs are enabled,
+        // AppKit then merges that new window into the focused fullscreen
+        // window's tab group. If we also apply the global fullscreen
+        // setting to the newly created window, AppKit tries to perform a
+        // second fullscreen transition for a window that is about to become a
+        // tab in the existing fullscreen group, which triggers
+        // NSWindowStackController assertions. So, we keep the host window fullscreen,
+        // but skip the initial fullscreen transition on the new window to avoid that.
+        let opening_fullscreen_tab = self
+            .get_focused_route()
+            .and_then(|window_id| self.macos_feature_for_window(window_id))
+            .is_some_and(|feature| feature.borrow().is_native_fullscreen_enabled());
+
+        if opening_fullscreen_tab {
+            log::info!("Skipping initial fullscreen for new tab window from fullscreen host");
+            return false;
+        }
+
+        fullscreen
+    }
+
+    #[cfg(target_os = "macos")]
+    fn should_handle_tabbed_fullscreen(
+        &self,
+        creating_initial_window: bool,
+        fullscreen: bool,
+    ) -> bool {
+        !creating_initial_window
+            && fullscreen
+            && native_tab_bar_enabled()
+            && self.settings.get::<CmdLineSettings>().system_native_tabs
     }
 
     #[cfg(target_os = "macos")]
