@@ -81,7 +81,7 @@ pub struct Config {
     pub grid: Option<String>,
     pub idle: Option<bool>,
     pub maximized: Option<bool>,
-    pub neovim_bin: Option<PathBuf>,
+    pub neovim_bin: Option<StringOrArray>,
     pub no_multigrid: Option<bool>,
     pub srgb: Option<bool>,
     pub tabs: Option<bool>,
@@ -119,6 +119,35 @@ pub struct Config {
     pub wayland_app_id: Option<String>,
     pub x11_wm_class: Option<String>,
     pub x11_wm_class_instance: Option<String>,
+}
+
+/// Accepts an array of strings, or a scalar string (equivalent to a single-element array).
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum StringOrArray {
+    Single(String),
+    Array(Vec<String>),
+}
+
+impl From<StringOrArray> for Vec<String> {
+    fn from(value: StringOrArray) -> Self {
+        match value {
+            StringOrArray::Single(value) => vec![value],
+            StringOrArray::Array(value) => value,
+        }
+    }
+}
+
+impl From<String> for StringOrArray {
+    fn from(value: String) -> Self {
+        StringOrArray::Single(value)
+    }
+}
+
+impl From<Vec<String>> for StringOrArray {
+    fn from(value: Vec<String>) -> Self {
+        StringOrArray::Array(value)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -163,6 +192,10 @@ impl Config {
         std::thread::spawn(move || watcher_thread(init_config, event_loop_proxy));
     }
 
+    /// Modifies the local environment to match the values in the config file.
+    ///
+    /// The values set in the config file override the values in the execution environment. This
+    /// method is responsible for that behavior.
     fn write_to_env(&self) {
         if let Some(server) = &self.server {
             unsafe { env::set_var("NEOVIDE_SERVER", server) };
@@ -200,8 +233,11 @@ impl Config {
         if let Some(grid) = &self.grid {
             unsafe { env::set_var("NEOVIDE_GRID", grid) };
         }
-        if let Some(neovim_bin) = &self.neovim_bin {
-            unsafe { env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string()) };
+        if self.neovim_bin.is_some() {
+            // We can't just set NEOVIM_BIN to a string, because it needs to be treated as an array.
+            // Instead, we just clear any NEOVIM_BIN environment variable if there is a value set in
+            // the config file, and then handle it separately in handle_command_line_arguments.
+            unsafe { env::remove_var("NEOVIM_BIN") };
         }
         if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
             unsafe { env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon) };

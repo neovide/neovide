@@ -1,7 +1,10 @@
 use std::{iter, process::ExitStatus};
 
 use crate::{
-    bridge::create_blocking_nvim_command, dimensions::Dimensions, frame::Frame, settings::*,
+    bridge::create_blocking_nvim_command,
+    dimensions::Dimensions,
+    frame::Frame,
+    settings::{Config, *},
     version::BUILD_VERSION,
 };
 
@@ -319,7 +322,11 @@ impl Default for CmdLineSettings {
     }
 }
 
-pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> Result<()> {
+pub fn handle_command_line_arguments(
+    args: Vec<String>,
+    settings: &Settings,
+    config: &Config,
+) -> Result<()> {
     let mut cmdline = CmdLineSettings::try_parse_from(args)?;
 
     if cmdline._no_tabs {
@@ -341,6 +348,24 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
 
     if cmdline._no_vsync {
         cmdline.vsync = false;
+    }
+
+    // If --neovim-bin (or $NEOVIM_BIN) is absent, the `neovim-bin` config
+    // key takes effect: its first element becomes the bin, and any
+    // remaining elements are prepended to neovim_args.
+    if cmdline.neovim_bin.is_none()
+        && let Some(bin_parts) = config.neovim_bin.clone()
+    {
+        let mut parts: Vec<String> = bin_parts.into();
+        if !parts.is_empty() {
+            let bin = parts.remove(0);
+            cmdline.neovim_bin = Some(bin);
+            // Prepend config's extra args so the user's trailing
+            // `-- ...` args stay last in argv.
+            let mut combined = parts;
+            combined.extend(std::mem::take(&mut cmdline.neovim_args));
+            cmdline.neovim_args = combined;
+        }
     }
 
     settings.set::<CmdLineSettings>(&cmdline);
@@ -408,7 +433,8 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--no-tabs", "--", "--clean"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().neovim_args, vec!["--clean"]);
     }
 
@@ -420,7 +446,8 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt", "./bar.md"]);
         assert!(settings.get::<CmdLineSettings>().neovim_args.is_empty());
     }
@@ -441,7 +468,8 @@ mod tests {
         .map(|s| s.to_string())
         .collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(
             settings.get::<CmdLineSettings>().files_to_open,
             vec![
@@ -461,7 +489,8 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().neovim_args, vec!["--clean"]);
         assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt", "./bar.md"]);
     }
@@ -474,7 +503,8 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().neovim_args.is_empty());
         assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt", "./bar.md"]);
 
@@ -491,7 +521,8 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--reuse-instance", "./foo.txt"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().reuse_instance);
         assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt"]);
     }
@@ -505,7 +536,8 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().reuse_instance);
         assert!(settings.get::<CmdLineSettings>().new_window);
         assert_eq!(settings.get::<CmdLineSettings>().files_to_open, vec!["./foo.txt"]);
@@ -518,7 +550,7 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--new-window", "./foo.txt"].iter().map(|s| s.to_string()).collect();
 
-        assert!(handle_command_line_arguments(args, &settings).is_err());
+        assert!(handle_command_line_arguments(args, &settings, &Config::default()).is_err());
     }
 
     #[test]
@@ -607,7 +639,8 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--grid=420x240"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.grid,
             Some(Some(Dimensions { width: 420, height: 240 })),
@@ -620,7 +653,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_GRID", "420x240");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.grid,
             Some(Some(Dimensions { width: 420, height: 240 })),
@@ -633,7 +667,8 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--size=420x240"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.size,
             Some(Dimensions { width: 420, height: 240 }),
@@ -646,7 +681,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SIZE", "420x240");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(
             settings.get::<CmdLineSettings>().geometry.size,
             Some(Dimensions { width: 420, height: 240 }),
@@ -691,7 +727,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SERVER", "127.0.0.1:7777");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().server, Some("127.0.0.1:7777".to_string()));
     }
 
@@ -700,7 +737,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide", "--log"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().log_to_file);
     }
 
@@ -719,7 +757,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide", "--frame=full"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().frame, Frame::Full);
     }
 
@@ -729,7 +768,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_FRAME", "none");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().frame, Frame::None);
     }
 
@@ -739,7 +779,8 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--neovim-bin", "foo"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().neovim_bin, Some("foo".to_owned()));
     }
 
@@ -749,7 +790,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIM_BIN", "foo");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().neovim_bin, Some("foo".to_owned()));
     }
 
@@ -758,7 +800,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         #[cfg(target_os = "windows")]
         let default_value = true;
         #[cfg(not(target_os = "windows"))]
@@ -771,7 +814,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide", "--srgb"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().srgb, true);
     }
 
@@ -780,7 +824,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide", "--no-srgb"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().srgb, false);
     }
 
@@ -790,7 +835,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SRGB", "0");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().srgb, false);
     }
 
@@ -800,7 +846,8 @@ mod tests {
         let args: Vec<String> = ["neovide", "--no-srgb"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SRGB", "1");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().srgb, false);
     }
 
@@ -810,7 +857,8 @@ mod tests {
         let args: Vec<String> = ["neovide", "--srgb"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SRGB", "0");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().srgb, true,);
     }
 
@@ -819,7 +867,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, true);
     }
 
@@ -828,7 +877,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide", "--vsync"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, true);
     }
 
@@ -837,7 +887,8 @@ mod tests {
         let settings = Settings::new();
         let args: Vec<String> = ["neovide", "--no-vsync"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, false);
     }
 
@@ -847,7 +898,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, false);
     }
 
@@ -857,7 +909,8 @@ mod tests {
         let args: Vec<String> = ["neovide", "--no-vsync"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_VSYNC", "1");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, false);
     }
 
@@ -867,7 +920,8 @@ mod tests {
         let args: Vec<String> = ["neovide", "--vsync"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, true,);
     }
     #[cfg(target_os = "macos")]
@@ -877,7 +931,8 @@ mod tests {
         let args: Vec<String> =
             ["neovide", "--system-native-tabs"].iter().map(|s| s.to_string()).collect();
 
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().system_native_tabs);
     }
 
@@ -888,7 +943,8 @@ mod tests {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SYSTEM_NATIVE_TABS", "1");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(settings.get::<CmdLineSettings>().system_native_tabs);
     }
 
@@ -900,7 +956,8 @@ mod tests {
             ["neovide", "--no-system-native-tabs"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SYSTEM_NATIVE_TABS", "1");
-        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        handle_command_line_arguments(args, &settings, &Config::default())
+            .expect("Could not parse arguments");
         assert!(!settings.get::<CmdLineSettings>().system_native_tabs);
     }
 }

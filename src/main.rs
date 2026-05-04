@@ -117,7 +117,7 @@ fn main() -> ExitCode {
 
     let settings = Arc::new(Settings::new());
     let config = Config::init();
-    if let Err(err) = preflight(&settings) {
+    if let Err(err) = preflight(&settings, &config) {
         return report_startup_error(err, StartupErrorOutput::Stderr);
     }
 
@@ -172,9 +172,9 @@ fn main() -> ExitCode {
     }
 }
 
-fn preflight(settings: &Settings) -> Result<()> {
+fn preflight(settings: &Settings, config: &Config) -> Result<()> {
     // will exit if -h or -v
-    cmd_line::handle_command_line_arguments(args().collect(), settings)?;
+    cmd_line::handle_command_line_arguments(args().collect(), settings, config)?;
 
     {
         let cmdline_settings = settings.get::<CmdLineSettings>();
