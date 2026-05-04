@@ -31,7 +31,7 @@ pub use handler::NeovimHandler;
 use itertools::Itertools;
 use log::info;
 use mundy::{Interest, Preferences};
-use nvim_rs::{Neovim, UiAttachOptions, Value, error::CallError};
+use nvim_rs::{Neovim, UiAttachOptions, Value, call_args, error::CallError, rpc::model::IntoVal};
 use rmpv::Utf8String;
 use session::{NeovimInstance, NeovimSession};
 use setup::{get_api_information, setup_neovide_specific_state};
@@ -56,6 +56,12 @@ pub use ui_commands::{
 };
 
 const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 10, 0);
+
+fn supports_startup_message_capture(version: &api_info::ApiVersion) -> bool {
+    // It's needed to keep the built-in message UI on nvim 0.10/0.11. since its external cmdline
+    // startup prompts can block before we have a rendered window.
+    version.has_version(0, 12, 0, None) || version.has_version(0, 12, 0, Some(0))
+}
 
 macro_rules! nvim_dict {
     ( $( $key:expr => $value:expr ),* $(,)? ) => {
@@ -137,7 +143,31 @@ pub async fn show_error_message(
             Value::String(error_msg_highlight.clone()),
         ]),
     );
-    nvim.echo(prepared_lines, true, nvim_dict! {}).await
+
+    let opts: Vec<(Value, Value)> = nvim_dict! {};
+    nvim.call("nvim_echo", call_args![prepared_lines, true, opts]).await??;
+
+    Ok(())
+}
+
+pub async fn show_startup_message(
+    nvim: &Neovim<NeovimWriter>,
+    message: &StartupMessage,
+) -> Result<(), Box<CallError>> {
+    let mut chunk = vec![Value::String(message.content.clone().add("\n").into())];
+    if let Some(highlight_group) = message.kind.highlight_group() {
+        chunk.push(Value::String(highlight_group.into()));
+    }
+
+    let mut opts: Vec<(Value, Value)> = nvim_dict! {};
+    if message.kind.is_error() {
+        opts.push((Value::from("err"), Value::from(true)));
+    }
+
+    // show the captured message without duplicating nvim message history.
+    nvim.call("nvim_echo", call_args![vec![Value::Array(chunk)], false, opts]).await??;
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -194,10 +224,28 @@ async fn create_neovim_session(
     settings.read_initial_values(&session.neovim).await?;
     set_background_if_allowed(background, &session.neovim).await;
 
+    let capture_startup_messages = supports_startup_message_capture(&api_information.version);
+    if capture_startup_messages {
+        let pre_attach_cmdheight = session
+            .neovim
+            .get_option("cmdheight")
+            .await
+            .context("Read pre-attach cmdheight failed")?;
+        handler.set_pre_attach_cmdheight(pre_attach_cmdheight);
+        handler.send_redraw_event(RedrawEvent::NeovimSessionStarted);
+    }
+
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
     options.set_multigrid_external(!cmdline_settings.no_multi_grid);
     options.set_rgb(true);
+    if capture_startup_messages {
+        // Temporarily externalize messages so startup errors before the first grid update are not
+        // lost behind a hit-enter prompt. After the first rendered batch, we restore nvim's
+        // message/cmdline screen space and replay the captured messages.
+        // See https://github.com/neovide/neovide/issues/3499
+        options.set_messages_externa(true);
+    }
     #[cfg(target_os = "macos")]
     options.set_hlstate_external(true);
     // We can close the handle here, as Neovim already owns it
