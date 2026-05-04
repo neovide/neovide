@@ -2771,7 +2771,7 @@ impl WinitWindowWrapper {
         #[cfg(target_os = "macos")]
         let macos_feature = self.macos_feature_for_window(window_id);
 
-        let Some(route) = self.routes.get(&window_id) else {
+        let Some(route) = self.routes.get_mut(&window_id) else {
             return;
         };
         let mut renderer = route.window.renderer.borrow_mut();
@@ -2784,6 +2784,7 @@ impl WinitWindowWrapper {
         }
         renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
+        route.state.font_changed_last_frame = true;
     }
 
     #[cfg(windows)]
