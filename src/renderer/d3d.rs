@@ -3,8 +3,9 @@ use std::{rc::Rc, sync::Arc};
 use skia_safe::{
     Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
     gpu::{
-        BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
+        DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu, backend_render_targets,
         d3d::{BackendContext, TextureResourceInfo},
+        direct_contexts,
         surfaces::wrap_backend_render_target,
     },
     surface::BackendSurfaceAccess,
@@ -236,7 +237,8 @@ impl D3DSkiaRenderer {
         };
         let gr_context = unsafe {
             tracy_zone!("create skia context");
-            DirectContext::new_d3d(&backend_context, None).expect("Failed to create Skia context")
+            direct_contexts::make_d3d(&backend_context, None)
+                .expect("Failed to create Skia context")
         };
 
         let mut ret = Self {
@@ -348,7 +350,7 @@ impl D3DSkiaRenderer {
 
             let surface = wrap_backend_render_target(
                 &mut self.gr_context,
-                &BackendRenderTarget::new_d3d(size, &info),
+                &backend_render_targets::make_d3d(size, &info),
                 SurfaceOrigin::TopLeft,
                 ColorType::RGBA8888,
                 ColorSpace::new_srgb(),
