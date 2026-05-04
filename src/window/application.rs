@@ -368,8 +368,8 @@ impl Application {
         self.render_states.values().map(|state| self.get_event_deadline_for(state)).min()
     }
 
-    fn next_control_flow(&self, now: Instant) -> ControlFlow {
-        next_control_flow_for(self.get_event_deadline(), !self.error_windows.is_empty(), now)
+    fn next_control_flow(&self) -> ControlFlow {
+        next_control_flow_for(self.get_event_deadline())
     }
 
     fn schedule_next_event(&mut self, event_loop: &ActiveEventLoop) {
@@ -379,7 +379,7 @@ impl Application {
         if self.create_window_allowed && self.window_wrapper.has_pending_window_creation() {
             self.window_wrapper.try_create_window(event_loop, &self.proxy, None, None);
         }
-        event_loop.set_control_flow(self.next_control_flow(Instant::now()));
+        event_loop.set_control_flow(self.next_control_flow());
     }
 
     fn handle_error_window_event(
@@ -907,14 +907,9 @@ impl Drop for Application {
     }
 }
 
-fn next_control_flow_for(
-    deadline: Option<Instant>,
-    has_error_windows: bool,
-    now: Instant,
-) -> ControlFlow {
+fn next_control_flow_for(deadline: Option<Instant>) -> ControlFlow {
     match deadline {
         Some(deadline) => ControlFlow::WaitUntil(deadline),
-        None if has_error_windows => ControlFlow::Wait,
-        None => ControlFlow::WaitUntil(now),
+        None => ControlFlow::Wait,
     }
 }
