@@ -71,7 +71,7 @@ pub struct GridLineCell {
 
 pub type StyledContent = Vec<(u64, String)>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageKind {
     Unknown,
     Confirm,
@@ -106,6 +106,33 @@ impl MessageKind {
             _ => MessageKind::Unknown,
         }
     }
+
+    pub fn is_error(self) -> bool {
+        matches!(
+            self,
+            MessageKind::Error
+                | MessageKind::EchoError
+                | MessageKind::LuaError
+                | MessageKind::RpcError
+        )
+    }
+
+    pub fn highlight_group(self) -> Option<&'static str> {
+        match self {
+            MessageKind::Warning => Some("WarningMsg"),
+            MessageKind::Error
+            | MessageKind::EchoError
+            | MessageKind::LuaError
+            | MessageKind::RpcError => Some("ErrorMsg"),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StartupMessage {
+    pub kind: MessageKind,
+    pub content: String,
 }
 
 #[allow(unused)]
@@ -417,6 +444,7 @@ pub enum RedrawEvent {
         kind: MessageKind,
         content: StyledContent,
         replace_last: bool,
+        append: bool,
     },
     MessageClear,
     #[allow(unused)]
@@ -436,6 +464,8 @@ pub enum RedrawEvent {
         entries: Vec<(MessageKind, StyledContent)>,
     },
     Suspend,
+    NeovimSessionStarted,
+    StartupMessageUiRestored,
     NeovideSetRedraw(bool),
     NeovideIntroBannerAllowed(bool),
 }
@@ -476,7 +506,7 @@ fn extract_values_with_optional<const REQ: usize, const OPT: usize>(
         for (index, value) in values.into_iter().enumerate() {
             if index < REQ {
                 required_values[index] = value;
-            } else {
+            } else if index - REQ < OPT {
                 optional_values[index - REQ] = Some(value);
             }
         }
@@ -992,12 +1022,14 @@ fn parse_cmdline_block_append(cmdline_block_append_arguments: Vec<Value>) -> Res
 }
 
 fn parse_msg_show(msg_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [kind, content, replace_last] = extract_values(msg_show_arguments)?;
+    let ([kind, content, replace_last], [_history, append, _id, _trigger]) =
+        extract_values_with_optional(msg_show_arguments)?;
 
     Ok(RedrawEvent::MessageShow {
         kind: MessageKind::parse(&parse_string(kind)?),
         content: parse_styled_content(content)?,
         replace_last: parse_bool(replace_last)?,
+        append: append.map(parse_bool).transpose()?.unwrap_or(false),
     })
 }
 
@@ -1121,4 +1153,62 @@ pub fn parse_progress_bar_event(value: Option<&Value>) -> Option<UserEvent> {
         .unwrap_or(0.0) as f32;
 
     Some(UserEvent::ShowProgressBar { percent })
+}
+
+#[cfg(test)]
+mod tests {
+    use rmpv::Value;
+
+    use super::{MessageKind, RedrawEvent, parse_msg_show};
+
+    #[test]
+    fn message_kind_marks_error_variants() {
+        assert!(MessageKind::Error.is_error());
+        assert!(MessageKind::EchoError.is_error());
+        assert!(MessageKind::LuaError.is_error());
+        assert!(MessageKind::RpcError.is_error());
+
+        assert!(!MessageKind::Echo.is_error());
+        assert!(!MessageKind::EchoMessage.is_error());
+        assert!(!MessageKind::Warning.is_error());
+    }
+
+    #[test]
+    fn message_kind_preserves_severity_highlights() {
+        assert_eq!(MessageKind::Error.highlight_group(), Some("ErrorMsg"));
+        assert_eq!(MessageKind::EchoError.highlight_group(), Some("ErrorMsg"));
+        assert_eq!(MessageKind::Warning.highlight_group(), Some("WarningMsg"));
+        assert_eq!(MessageKind::Echo.highlight_group(), None);
+    }
+
+    #[test]
+    fn msg_show_defaults_append_to_false_for_older_payloads() {
+        let event =
+            parse_msg_show(vec![Value::from("echo"), Value::Array(vec![]), Value::from(false)])
+                .unwrap();
+
+        match event {
+            RedrawEvent::MessageShow { append, .. } => assert!(!append),
+            event => panic!("expected MessageShow, got {event:?}"),
+        }
+    }
+
+    #[test]
+    fn msg_show_parses_append_from_newer_payloads() {
+        let event = parse_msg_show(vec![
+            Value::from("echo"),
+            Value::Array(vec![]),
+            Value::from(false),
+            Value::from(true),
+            Value::from(true),
+            Value::Nil,
+            Value::from(""),
+        ])
+        .unwrap();
+
+        match event {
+            RedrawEvent::MessageShow { append, .. } => assert!(append),
+            event => panic!("expected MessageShow, got {event:?}"),
+        }
+    }
 }

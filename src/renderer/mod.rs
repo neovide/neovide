@@ -35,7 +35,7 @@ use winit::{
 
 use crate::{
     WindowSettings,
-    bridge::EditorMode,
+    bridge::{EditorMode, StartupMessage},
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style, WindowType},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
@@ -70,6 +70,7 @@ pub use vsync::VSync;
 use self::fonts::font_options::FontOptions;
 
 const MESSAGE_SELECTION_ALPHA: f32 = 0.35;
+const STARTUP_MESSAGE_LIMIT: usize = 4;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct MessageSelection {
@@ -151,8 +152,18 @@ pub enum DrawCommand {
     LineSpaceChanged(f32),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
+    StartupMessage { message: StartupMessage, replace_last: bool, append: bool },
+    ClearStartupMessages,
+    StartupPrompt,
+    ReplayStartupMessages,
     UIReady,
     Window { grid_id: u64, command: WindowDrawCommand },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StartupMessageFlush {
+    RestoreMessageUi,
+    Replay,
 }
 
 pub struct Renderer {
@@ -171,12 +182,16 @@ pub struct Renderer {
 
     settings: Arc<Settings>,
     message_selection: Option<MessageSelection>,
+    startup_messages: Vec<StartupMessage>,
+    startup_message_ui_restored: bool,
 }
 
 /// Results of processing the draw commands from the command channel.
 pub struct DrawCommandResult {
     pub font_changed: bool,
     pub should_show: bool,
+    pub startup_message_flush: Option<StartupMessageFlush>,
+    pub startup_messages: Vec<StartupMessage>,
 }
 
 impl Renderer {
@@ -213,6 +228,8 @@ impl Renderer {
             user_scale_factor,
             settings,
             message_selection: None,
+            startup_messages: Vec::new(),
+            startup_message_ui_restored: false,
         }
     }
 
@@ -500,12 +517,26 @@ impl Renderer {
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
         let settings = self.settings.get::<RendererSettings>();
-        let mut result = DrawCommandResult { font_changed: false, should_show: false };
+        let mut result = DrawCommandResult {
+            font_changed: false,
+            should_show: false,
+            startup_message_flush: None,
+            startup_messages: vec![],
+        };
 
         for draw_command in batch {
             self.handle_draw_command(draw_command, &mut result);
             tracy_named_frame!("neovim draw batch processed");
         }
+
+        if self.should_auto_replay_startup_messages(&result) {
+            result.startup_message_flush = Some(StartupMessageFlush::Replay);
+        }
+
+        if result.startup_message_flush.is_some() {
+            result.startup_messages = self.take_startup_messages();
+        }
+
         self.flush(&settings);
 
         result
@@ -585,10 +616,65 @@ impl Renderer {
             DrawCommand::ModeChanged(new_mode) => {
                 self.current_mode = new_mode;
             }
+            DrawCommand::StartupMessage { message, replace_last, append } => {
+                self.push_startup_message(message, replace_last, append);
+            }
+            DrawCommand::ClearStartupMessages => {
+                self.startup_messages.pop();
+            }
+            DrawCommand::StartupPrompt => {
+                result.should_show = true;
+                result.startup_message_flush = Some(StartupMessageFlush::RestoreMessageUi);
+            }
+            DrawCommand::ReplayStartupMessages => {
+                self.startup_message_ui_restored = true;
+                result.startup_message_flush = Some(StartupMessageFlush::Replay);
+            }
             DrawCommand::UIReady => {
                 result.should_show = true;
+                result.startup_message_flush = Some(StartupMessageFlush::RestoreMessageUi);
             }
         }
+    }
+
+    fn should_auto_replay_startup_messages(&self, result: &DrawCommandResult) -> bool {
+        self.startup_message_ui_restored
+            && result.startup_message_flush.is_none()
+            && !self.startup_messages.is_empty()
+    }
+
+    fn push_startup_message(&mut self, message: StartupMessage, replace_last: bool, append: bool) {
+        match (append, replace_last, self.startup_messages.last_mut()) {
+            (true, _, Some(last_message)) => last_message.content.push_str(&message.content),
+            (_, true, Some(last_message)) => *last_message = message,
+            _ => {
+                self.startup_messages.push(message);
+                self.trim_startup_messages();
+            }
+        }
+    }
+
+    fn trim_startup_messages(&mut self) {
+        let overflow = self.startup_messages.len().saturating_sub(STARTUP_MESSAGE_LIMIT);
+        if overflow > 0 {
+            self.startup_messages.drain(..overflow);
+        }
+    }
+
+    fn take_startup_messages(&mut self) -> Vec<StartupMessage> {
+        std::mem::take(&mut self.startup_messages)
+            .into_iter()
+            .flat_map(|message| {
+                let kind = message.kind;
+                message
+                    .content
+                    .lines()
+                    .map(str::trim_end)
+                    .filter(|line| !line.is_empty())
+                    .map(move |line| StartupMessage { kind, content: line.to_string() })
+                    .collect_vec()
+            })
+            .collect()
     }
 
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
@@ -602,6 +688,8 @@ impl Renderer {
         self.progress_bar = ProgressBar::new();
         self.current_mode = EditorMode::Unknown(String::new());
         self.message_selection = None;
+        self.startup_messages.clear();
+        self.startup_message_ui_restored = false;
     }
 
     pub fn get_cursor_destination(&self) -> PixelPos<f32> {
@@ -733,11 +821,17 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+    use crate::bridge::MessageKind;
 
     fn create_renderer() -> Renderer {
         let settings = Arc::new(Settings::new());
         settings.register::<WindowSettings>();
+        settings.register::<RendererSettings>();
         Renderer::new(2.0, Config::default(), settings)
+    }
+
+    fn startup_message(content: &str) -> StartupMessage {
+        StartupMessage { kind: MessageKind::Error, content: content.to_string() }
     }
 
     #[test]
@@ -767,5 +861,210 @@ mod tests {
 
         assert_eq!(renderer.user_scale_factor, 1.5);
         assert_eq!(renderer.grid_renderer.shaper.current_size(), initial_size * 1.5);
+    }
+
+    #[test]
+    fn startup_messages_are_kept_until_ui_ready() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![DrawCommand::StartupMessage {
+            message: startup_message("boom"),
+            replace_last: false,
+            append: false,
+        }]);
+
+        assert!(!result.should_show);
+        assert_eq!(result.startup_message_flush, None);
+        assert!(result.startup_messages.is_empty());
+
+        let result = renderer.handle_draw_commands(vec![DrawCommand::UIReady]);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(result.startup_messages, vec![startup_message("boom")]);
+    }
+
+    #[test]
+    fn startup_messages_after_ui_ready_in_same_batch_are_included() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![
+            DrawCommand::UIReady,
+            DrawCommand::StartupMessage {
+                message: startup_message("boom"),
+                replace_last: false,
+                append: false,
+            },
+        ]);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(result.startup_messages, vec![startup_message("boom")]);
+    }
+
+    #[test]
+    fn startup_prompt_flushes_startup_messages() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![
+            DrawCommand::StartupMessage {
+                message: startup_message("boom"),
+                replace_last: false,
+                append: false,
+            },
+            DrawCommand::StartupPrompt,
+        ]);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(result.startup_messages, vec![startup_message("boom")]);
+    }
+
+    #[test]
+    fn startup_message_clear_drops_only_latest_message() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![
+            DrawCommand::StartupMessage {
+                message: startup_message("boom"),
+                replace_last: false,
+                append: false,
+            },
+            DrawCommand::StartupMessage {
+                message: startup_message("progress"),
+                replace_last: false,
+                append: false,
+            },
+            DrawCommand::ClearStartupMessages,
+            DrawCommand::UIReady,
+        ]);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(result.startup_messages, vec![startup_message("boom")]);
+    }
+
+    #[test]
+    fn startup_messages_can_replay_after_message_ui_restore() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![
+            DrawCommand::StartupMessage {
+                message: startup_message("boom"),
+                replace_last: false,
+                append: false,
+            },
+            DrawCommand::ReplayStartupMessages,
+        ]);
+
+        assert!(!result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::Replay));
+        assert_eq!(result.startup_messages, vec![startup_message("boom")]);
+    }
+
+    #[test]
+    fn startup_messages_auto_replay_after_message_ui_restore() {
+        let mut renderer = create_renderer();
+
+        renderer.handle_draw_commands(vec![DrawCommand::ReplayStartupMessages]);
+        let result = renderer.handle_draw_commands(vec![DrawCommand::StartupMessage {
+            message: startup_message("boom"),
+            replace_last: false,
+            append: false,
+        }]);
+
+        assert!(!result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::Replay));
+        assert_eq!(result.startup_messages, vec![startup_message("boom")]);
+    }
+
+    #[test]
+    fn startup_message_replay_state_is_reset_on_clear() {
+        let mut renderer = create_renderer();
+
+        renderer.handle_draw_commands(vec![DrawCommand::ReplayStartupMessages]);
+        renderer.clear();
+        let result = renderer.handle_draw_commands(vec![DrawCommand::StartupMessage {
+            message: startup_message("boom"),
+            replace_last: false,
+            append: false,
+        }]);
+
+        assert!(!result.should_show);
+        assert_eq!(result.startup_message_flush, None);
+        assert!(result.startup_messages.is_empty());
+    }
+
+    #[test]
+    fn startup_messages_can_replace_last_message() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![
+            DrawCommand::StartupMessage {
+                message: startup_message("old"),
+                replace_last: false,
+                append: false,
+            },
+            DrawCommand::StartupMessage {
+                message: startup_message("new"),
+                replace_last: true,
+                append: false,
+            },
+            DrawCommand::UIReady,
+        ]);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(result.startup_messages, vec![startup_message("new")]);
+    }
+
+    #[test]
+    fn startup_messages_can_append_to_previous_message() {
+        let mut renderer = create_renderer();
+
+        let result = renderer.handle_draw_commands(vec![
+            DrawCommand::StartupMessage {
+                message: startup_message("hello"),
+                replace_last: false,
+                append: false,
+            },
+            DrawCommand::StartupMessage {
+                message: startup_message(" world"),
+                replace_last: false,
+                append: true,
+            },
+            DrawCommand::UIReady,
+        ]);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(result.startup_messages, vec![startup_message("hello world")]);
+    }
+
+    #[test]
+    fn startup_messages_keep_only_recent_entries() {
+        let mut renderer = create_renderer();
+        let mut commands = (0..(STARTUP_MESSAGE_LIMIT + 2))
+            .map(|i| DrawCommand::StartupMessage {
+                message: startup_message(&format!("message {i}")),
+                replace_last: false,
+                append: false,
+            })
+            .collect_vec();
+        commands.push(DrawCommand::UIReady);
+
+        let result = renderer.handle_draw_commands(commands);
+
+        assert!(result.should_show);
+        assert_eq!(result.startup_message_flush, Some(StartupMessageFlush::RestoreMessageUi));
+        assert_eq!(
+            result.startup_messages,
+            vec![
+                startup_message("message 2"),
+                startup_message("message 3"),
+                startup_message("message 4"),
+                startup_message("message 5")
+            ]
+        );
     }
 }

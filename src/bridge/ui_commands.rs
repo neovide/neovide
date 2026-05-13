@@ -14,7 +14,10 @@ use rmpv::Value;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{NeovimHandler, Settings, set_background_if_allowed, show_error_message};
+use super::{
+    NeovimHandler, RedrawEvent, Settings, StartupMessage, set_background_if_allowed,
+    show_error_message, show_startup_message,
+};
 use crate::{
     bridge::{NeovimWriter, nvim_dict},
     cmd_line::CmdLineSettings,
@@ -22,6 +25,10 @@ use crate::{
     utils::handle_wslpaths,
     window::RouteId,
 };
+
+// nvim_get_option_info2 reports this when an option
+// was last set through an API client, which is how ui_attach applies ext_messages.
+const SID_API_CLIENT: i64 = -9;
 
 /// Active handler pointer for places that do not carry a RouteId
 /// like global menu callbacks and a few legacy paths
@@ -267,6 +274,8 @@ pub enum ParallelCommand {
     DisplayAvailableFonts(Vec<String>),
     ShowError { lines: Vec<String> },
     SetBackground { background: String },
+    FlushStartupMessages { messages: Vec<StartupMessage> },
+    ReplayStartupMessages { messages: Vec<StartupMessage> },
 }
 
 async fn display_available_fonts(
@@ -312,8 +321,87 @@ async fn display_available_fonts(
     Ok(())
 }
 
+async fn disable_ui_option(nvim: &Neovim<NeovimWriter>, option: &'static str) -> Result<()> {
+    nvim.ui_set_option(option, Value::from(false))
+        .await
+        .with_context(|| format!("Disable {option} failed"))
+}
+
+fn cmdheight_to_restore(
+    pre_attach_cmdheight: Option<&Value>,
+    externalized_cmdheight: &Value,
+    last_set_sid: i64,
+) -> Option<Value> {
+    if externalized_cmdheight.as_u64() == Some(0) && !cmdheight_zero_was_user_set(last_set_sid) {
+        pre_attach_cmdheight.cloned()
+    } else {
+        Some(externalized_cmdheight.clone())
+    }
+}
+
+fn cmdheight_zero_was_user_set(last_set_sid: i64) -> bool {
+    // ext_messages sets cmdheight through the ui api during attach.
+    // older nvim versions may leave that source unset, so both sources are treated as a
+    // neovide temporary value.
+    !matches!(last_set_sid, 0 | SID_API_CLIENT)
+}
+
+async fn cmdheight_last_set_sid(nvim: &Neovim<NeovimWriter>) -> Result<i64> {
+    nvim.exec_lua(
+        "return vim.api.nvim_get_option_info2('cmdheight', {}).last_set_sid",
+        call_args![],
+    )
+    .await?
+    .as_i64()
+    .context("Read cmdheight option source failed")
+}
+
+async fn restore_builtin_message_ui(
+    nvim: &Neovim<NeovimWriter>,
+    pre_attach_cmdheight: Option<Value>,
+) -> Result<()> {
+    let cmdheight = nvim.get_option("cmdheight").await.context("Read cmdheight failed")?;
+    let last_set_sid = cmdheight_last_set_sid(nvim).await?;
+    let restored_cmdheight =
+        cmdheight_to_restore(pre_attach_cmdheight.as_ref(), &cmdheight, last_set_sid);
+    disable_ui_option(nvim, "ext_messages").await?;
+    disable_ui_option(nvim, "ext_cmdline").await?;
+    if let Some(cmdheight) = restored_cmdheight {
+        nvim.set_option("cmdheight", cmdheight).await.context("Restore cmdheight failed")?;
+    }
+
+    Ok(())
+}
+
+async fn replay_startup_messages(
+    nvim: &Neovim<NeovimWriter>,
+    messages: Vec<StartupMessage>,
+) -> Result<()> {
+    for message in messages {
+        show_startup_message(nvim, &message).await.context("Show startup message failed")?;
+    }
+
+    Ok(())
+}
+
+async fn flush_startup_messages(
+    nvim: &Neovim<NeovimWriter>,
+    handler: &NeovimHandler,
+    messages: Vec<StartupMessage>,
+) -> Result<()> {
+    restore_builtin_message_ui(nvim, handler.pre_attach_cmdheight()).await?;
+    let result = replay_startup_messages(nvim, messages).await;
+    handler.send_redraw_event(RedrawEvent::StartupMessageUiRestored);
+    result
+}
+
 impl ParallelCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>, settings: &Settings) {
+    async fn execute(
+        self,
+        nvim: &Neovim<NeovimWriter>,
+        settings: &Settings,
+        handler: &NeovimHandler,
+    ) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -367,6 +455,12 @@ impl ParallelCommand {
             ParallelCommand::SetBackground { background } => {
                 set_background_if_allowed(&background, nvim).await;
                 Ok(())
+            }
+            ParallelCommand::FlushStartupMessages { messages } => {
+                flush_startup_messages(nvim, handler, messages).await
+            }
+            ParallelCommand::ReplayStartupMessages { messages } => {
+                replay_startup_messages(nvim, messages).await
             }
         };
 
@@ -437,7 +531,9 @@ pub fn start_ui_command_handler(
                     let settings = settings_for_parallel.clone();
                     tokio::spawn(async move {
                         if let Some(ui_command_nvim) = handler_for_command.clone_current_neovim() {
-                            parallel_command.execute(&ui_command_nvim, settings.as_ref()).await;
+                            parallel_command
+                                .execute(&ui_command_nvim, settings.as_ref(), &handler_for_command)
+                                .await;
                         } else {
                             log::warn!("Parallel command received without an active Neovim handle");
                         }
@@ -501,5 +597,56 @@ pub fn unregister_route_handler(route_id: RouteId) {
         active.replace(handler);
     } else {
         active.take();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cmdheight_to_restore;
+    use rmpv::Value;
+
+    #[test]
+    fn cmdheight_restore_uses_pre_attach_value_for_ext_messages_zero() {
+        assert_eq!(
+            cmdheight_to_restore(Some(&Value::from(1)), &Value::from(0), super::SID_API_CLIENT),
+            Some(Value::from(1))
+        );
+    }
+
+    #[test]
+    fn cmdheight_restore_uses_pre_attach_value_for_unset_zero_source() {
+        assert_eq!(
+            cmdheight_to_restore(Some(&Value::from(1)), &Value::from(0), 0),
+            Some(Value::from(1))
+        );
+    }
+
+    #[test]
+    fn cmdheight_restore_preserves_user_zero_value() {
+        assert_eq!(
+            cmdheight_to_restore(Some(&Value::from(1)), &Value::from(0), 42),
+            Some(Value::from(0))
+        );
+    }
+
+    #[test]
+    fn cmdheight_restore_preserves_startup_nonzero_value() {
+        assert_eq!(
+            cmdheight_to_restore(Some(&Value::from(1)), &Value::from(2), super::SID_API_CLIENT),
+            Some(Value::from(2))
+        );
+    }
+
+    #[test]
+    fn cmdheight_restore_preserves_pre_attach_zero() {
+        assert_eq!(
+            cmdheight_to_restore(Some(&Value::from(0)), &Value::from(0), super::SID_API_CLIENT),
+            Some(Value::from(0))
+        );
+    }
+
+    #[test]
+    fn cmdheight_restore_skips_zero_without_pre_attach_value() {
+        assert_eq!(cmdheight_to_restore(None, &Value::from(0), super::SID_API_CLIENT), None);
     }
 }

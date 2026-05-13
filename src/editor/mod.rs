@@ -20,7 +20,10 @@ use winit::event_loop::EventLoopProxy;
 use winit::window::Theme;
 
 use crate::{
-    bridge::{EditorMode, GridLineCell, GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
+    bridge::{
+        EditorMode, GridLineCell, GuiOption, MessageKind, NeovimHandler, RedrawEvent,
+        StartupMessage, StyledContent, WindowAnchor,
+    },
     clipboard::ClipboardHandle,
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand, rendered_window::BASE_GRID_ID},
@@ -37,6 +40,31 @@ pub use window::*;
 
 use intro::{IntroMessageExtender, IntroProcessing};
 pub const MSG_ZINDEX: u64 = 200; // See the documenation for nvim_open_win
+
+fn styled_content_to_plain_text(content: StyledContent) -> String {
+    content.into_iter().map(|(_, text)| text).collect()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StartupMessageCapture {
+    BeforeFirstGrid,
+    UntilFirstFlush(StartupFlushReason),
+    RestoringMessageUi,
+    MessageUiRestored,
+    Finished,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StartupFlushReason {
+    Prompt,
+    FirstGrid,
+}
+
+impl StartupMessageCapture {
+    fn is_active(self) -> bool {
+        self != Self::Finished
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SortOrder {
@@ -116,6 +144,7 @@ pub struct Editor {
     pub current_mode_index: Option<u64>,
     current_mode: EditorMode,
     pub ui_ready: bool,
+    startup_message_capture: StartupMessageCapture,
     event_loop_proxy: EventLoopProxy<EventPayload>,
     route_id: RouteId,
     #[allow(dead_code)]
@@ -159,6 +188,7 @@ impl Editor {
             current_mode_index: None,
             current_mode: EditorMode::Normal,
             ui_ready: false,
+            startup_message_capture: StartupMessageCapture::BeforeFirstGrid,
             settings,
             event_loop_proxy,
             route_id,
@@ -228,6 +258,7 @@ impl Editor {
                 trace!("Image flushed");
                 tracy_named_frame!("neovim draw command flush");
                 self.send_cursor_info();
+                self.advance_startup_capture_on_flush();
 
                 {
                     trace!("send_batch");
@@ -390,6 +421,29 @@ impl Editor {
             } => {
                 tracy_zone!("EditorMessageSetPosition");
                 self.set_message_position(grid, row, scrolled, z_index, comp_index)
+            }
+            RedrawEvent::MessageShow { kind, content, replace_last, append } => {
+                tracy_zone!("EditorMessageShow");
+                self.handle_startup_message(kind, content, replace_last, append);
+            }
+            RedrawEvent::CommandLineShow { .. } | RedrawEvent::CommandLineBlockShow { .. } => {
+                tracy_zone!("EditorCommandLineShow");
+                self.finish_startup_capture_on_prompt();
+            }
+            RedrawEvent::MessageClear => {
+                tracy_zone!("EditorMessageClear");
+                self.clear_startup_messages();
+            }
+            RedrawEvent::NeovimSessionStarted => {
+                tracy_zone!("EditorNeovimSessionStarted");
+                self.reset_startup_message_capture();
+            }
+            RedrawEvent::StartupMessageUiRestored => {
+                tracy_zone!("EditorStartupMessageUiRestored");
+                self.replay_startup_messages();
+                if self.startup_message_capture == StartupMessageCapture::RestoringMessageUi {
+                    self.startup_message_capture = StartupMessageCapture::MessageUiRestored;
+                }
             }
             RedrawEvent::WindowViewport {
                 grid,
@@ -1193,8 +1247,74 @@ impl Editor {
     fn set_ui_ready(&mut self) {
         if !self.ui_ready {
             self.ui_ready = true;
-            self.draw_command_batcher.queue(DrawCommand::UIReady);
+            self.startup_message_capture =
+                StartupMessageCapture::UntilFirstFlush(StartupFlushReason::FirstGrid);
         }
+    }
+
+    fn reset_startup_message_capture(&mut self) {
+        self.ui_ready = false;
+        self.startup_message_capture = StartupMessageCapture::BeforeFirstGrid;
+    }
+
+    fn handle_startup_message(
+        &mut self,
+        kind: MessageKind,
+        content: StyledContent,
+        replace_last: bool,
+        append: bool,
+    ) {
+        if !self.startup_message_capture.is_active() {
+            return;
+        }
+
+        if kind == MessageKind::ReturnPrompt {
+            self.finish_startup_capture_on_prompt();
+        }
+
+        let content = styled_content_to_plain_text(content);
+        if content.is_empty() {
+            return;
+        }
+
+        self.draw_command_batcher.queue(DrawCommand::StartupMessage {
+            message: StartupMessage { kind, content },
+            replace_last,
+            append,
+        });
+    }
+
+    fn clear_startup_messages(&mut self) {
+        if self.startup_message_capture.is_active() {
+            self.draw_command_batcher.queue(DrawCommand::ClearStartupMessages);
+        }
+    }
+
+    fn advance_startup_capture_on_flush(&mut self) {
+        if let StartupMessageCapture::UntilFirstFlush(reason) = self.startup_message_capture {
+            let command = match reason {
+                StartupFlushReason::Prompt => DrawCommand::StartupPrompt,
+                StartupFlushReason::FirstGrid => DrawCommand::UIReady,
+            };
+            self.draw_command_batcher.queue(command);
+            self.startup_message_capture = StartupMessageCapture::RestoringMessageUi;
+        } else if self.startup_message_capture == StartupMessageCapture::MessageUiRestored {
+            self.draw_command_batcher.queue(DrawCommand::ReplayStartupMessages);
+            self.startup_message_capture = StartupMessageCapture::Finished;
+        }
+    }
+
+    fn finish_startup_capture_on_prompt(&mut self) {
+        if self.startup_message_capture == StartupMessageCapture::BeforeFirstGrid {
+            self.startup_message_capture =
+                StartupMessageCapture::UntilFirstFlush(StartupFlushReason::Prompt);
+        }
+    }
+
+    fn replay_startup_messages(&self) {
+        let batch = vec![DrawCommand::ReplayStartupMessages];
+        let payload = EventPayload::for_route(batch.into(), self.route_id);
+        let _ = self.event_loop_proxy.send_event(payload);
     }
 }
 

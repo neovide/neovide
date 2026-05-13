@@ -73,6 +73,7 @@ where
 struct NeovimState {
     nvim: Option<Neovim<NeovimWriter>>,
     can_support_ime_api: bool,
+    pre_attach_cmdheight: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -151,6 +152,20 @@ impl NeovimHandler {
 
     pub fn mark_ui_command_started(&self) -> bool {
         self.ui_command_started.swap(true, Ordering::SeqCst)
+    }
+
+    pub fn set_pre_attach_cmdheight(&self, cmdheight: Value) {
+        if let Ok(mut guard) = self.current_neovim.write() {
+            guard.pre_attach_cmdheight = Some(cmdheight);
+        }
+    }
+
+    pub fn pre_attach_cmdheight(&self) -> Option<Value> {
+        self.current_neovim.read().ok().and_then(|guard| guard.pre_attach_cmdheight.clone())
+    }
+
+    pub fn send_redraw_event(&self, event: RedrawEvent) {
+        let _ = self.redraw_event_sender.send(event);
     }
 }
 
