@@ -3,6 +3,8 @@
 
 #[cfg(debug_assertions)]
 use core::fmt;
+#[cfg(target_os = "windows")]
+use std::process::Child;
 use std::{
     io::{Error, Result},
     process::Stdio,
@@ -10,10 +12,12 @@ use std::{
 
 use anyhow::Context;
 use nvim_rs::{Handler, error::LoopError, neovim::Neovim};
+#[cfg(not(target_os = "windows"))]
+use tokio::process::Child;
 use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader, split},
     net::TcpStream,
-    process::{Child, Command},
+    process::Command,
     spawn,
     task::JoinHandle,
 };
@@ -123,17 +127,59 @@ impl NeovimInstance {
     }
 
     async fn spawn_process(
-        mut cmd: Command,
+        #[cfg(not(target_os = "windows"))] mut cmd: Command,
+        #[cfg(target_os = "windows")] cmd: Command,
     ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
         log::debug!("Starting neovim with: {cmd:?}");
+
+        // On Windows, the stdio pipes we get for a spawned child are overlapped
+        // handles. if we pass those handles through tokio's process wrapper, it
+        // turns them into Blocking<ArcFile>, which can eventually call
+        // std::sys::pal::windows::handle::Handle::synchronous_read.
+        //
+        // Rust intentionally aborts on that path when an overlapped operation is
+        // still pending instead of completing synchronously.
+        //
+        // See https://github.com/rust-lang/rust/issues/81357
+        //
+        // We avoid that path by using std::process::Command directly on
+        // Windows, taking the raw pipe handles, and wrapping them in
+        // NamedPipeServer, which supports overlapped pipe I/O.
+        #[cfg(target_os = "windows")]
+        let mut cmd = cmd.into_std();
+
         let mut child =
             cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
-        let reader =
-            Box::new(child.stdout.take().ok_or_else(|| Error::other("Can't open stdout"))?);
-        let writer = Box::new(child.stdin.take().ok_or_else(|| Error::other("Can't open stdin"))?);
+        let reader_inner = child.stdout.take().ok_or_else(|| Error::other("Can't open stdout"))?;
+        let writer_inner = child.stdin.take().ok_or_else(|| Error::other("Can't open stdin"))?;
+        let stderr_reader_inner =
+            child.stderr.take().ok_or_else(|| Error::other("Can't open stderr"))?;
 
-        let stderr_reader =
-            Box::new(child.stderr.take().ok_or_else(|| Error::other("Can't open stderr"))?);
+        let reader: BoxedReader;
+        let writer: BoxedWriter;
+        let stderr_reader: BoxedReader;
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            reader = Box::new(reader_inner);
+            writer = Box::new(writer_inner);
+            stderr_reader = Box::new(stderr_reader_inner);
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::io::IntoRawHandle;
+            use tokio::net::windows::named_pipe::NamedPipeServer;
+            reader = Box::new(unsafe {
+                NamedPipeServer::from_raw_handle(reader_inner.into_raw_handle())
+            }?);
+            writer = Box::new(unsafe {
+                NamedPipeServer::from_raw_handle(writer_inner.into_raw_handle())
+            }?);
+            stderr_reader = Box::new(unsafe {
+                NamedPipeServer::from_raw_handle(stderr_reader_inner.into_raw_handle())
+            }?);
+        }
 
         Ok((reader, writer, Some(stderr_reader), Some(child)))
     }
