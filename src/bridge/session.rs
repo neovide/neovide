@@ -132,17 +132,19 @@ impl NeovimInstance {
     ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
         log::debug!("Starting neovim with: {cmd:?}");
 
-        // On Windows, `std::process::Command` creates the parent-side pipe handles
-        // as overlapped. When this is wrapped in `tokio::process::Command`, the
-        // handles are wrapped in `Blocking<ArcFile>`, which results in
-        // `std::sys::pal::windows::handle::Handle::synchronous_read`, being calld
-        // on them. This can cause an abort by design if the read doesn't complete
-        // synchronously.
-        // See [File implementation on Windows has unsound methods](https://github.com/rust-lang/rust/issues/81357).
+        // On Windows, the stdio pipes we get for a spawned child are overlapped
+        // handles. if we pass those handles through tokio's process wrapper, it
+        // turns them into Blocking<ArcFile>, which can eventually call
+        // std::sys::pal::windows::handle::Handle::synchronous_read.
         //
-        // Instead, use `std::process::Command` directly to get raw handles, and
-        // wrap them in `NamedPipeServer`, which is designed to work with
-        // overlapped handles.
+        // Rust intentionally aborts on that path when an overlapped operation is
+        // still pending instead of completing synchronously.
+        //
+        // See https://github.com/rust-lang/rust/issues/81357
+        //
+        // We avoid that path by using std::process::Command directly on
+        // Windows, taking the raw pipe handles, and wrapping them in
+        // NamedPipeServer, which supports overlapped pipe I/O.
         #[cfg(target_os = "windows")]
         let mut cmd = cmd.into_std();
 
