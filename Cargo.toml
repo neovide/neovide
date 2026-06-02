@@ -66,10 +66,14 @@ indoc = "2.0.5"
 itertools = "0.14.0"
 log = "0.4.22"
 lru = "0.16.3"
-mundy = { version = "0.2.2", default-features = false, features = [
-  "color-scheme",
-  "tokio",
-] }
+mundy = {
+  version = "0.2.2",
+  default-features = false,
+  features = [
+    "color-scheme",
+    "tokio",
+  ]
+}
 neovide-derive = { path = "neovide-derive", version = "0.1.5" }
 notify-debouncer-full = "0.6.0"
 num = "0.4.3"
@@ -89,13 +93,18 @@ time = { version = "0.3.47", features = ["formatting", "macros"] }
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-util = { version = "0.7.18", features = ["compat"] }
 toml = "0.9.5"
-tracy-client-sys = { version = "0.28.0", default-features = false, features = [
-  "broadcast",
-  "delayed-init",
-  "enable",
-  "fibers",
-  "manual-lifetime",
-], optional = true }
+tracy-client-sys = {
+  version = "0.28.0",
+  default-features = false,
+  features = [
+    "broadcast",
+    "delayed-init",
+    "enable",
+    "fibers",
+    "manual-lifetime",
+  ],
+  optional = true
+}
 unicode-segmentation = "1.12.0"
 which = "7.0.1"
 winit = { version = "=0.30.13", features = ["serde"] }
@@ -110,7 +119,7 @@ csscolorparser = "0.7.0"
 shlex = "1.3.0"
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.97.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.97.2", features = ["gl", "textlayout"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 fork = "0.4.0"
@@ -118,86 +127,117 @@ rustix = { version = "1.0.8", features = ["fs", "process"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.1"
-objc2-app-kit = { version = "0.3.1", default-features = false, features = [
-  "NSApplication",
-  "NSColor",
-  "NSColorSpace",
-  "NSEvent",
-  "NSFont",
-  "NSFontDescriptor",
-  "NSGraphics",
-  "NSImage",
-  "NSLayoutConstraint",
-  "NSMenu",
-  "NSMenuItem",
-  "NSResponder",
-  "NSScreen",
-  "NSView",
-  "NSWindow",
-  "NSWindowTabGroup",
-  "NSWorkspace",
-  "block2",
-  "objc2-core-foundation",
-  "objc2-quartz-core",
-  "std",
-] }
-objc2-core-foundation = { version = "0.3.1", default-features = false, features = [
-  "CFCGTypes",
-] }
-objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
-  "CGColor",
-  "CGDirectDisplay",
-] }
-objc2-core-video = { version = "0.3.1", default-features = false, features = [
-  "CVBase",
-  "CVDisplayLink",
-  "CVReturn",
-  "objc2-core-graphics",
-] }
-objc2-foundation = { version = "0.3.1", default-features = false, features = [
-  "NSArray",
-  "NSAttributedString",
-  "NSDictionary",
-  "NSProcessInfo",
-  "NSString",
-  "NSTimer",
-  "NSURL",
-  "NSUserDefaults",
-  "std",
-] }
-objc2-metal = { version = "0.3.1", default-features = false, features = [
-  "MTLCommandBuffer",
-  "MTLCommandQueue",
-  "std",
-] }
-objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
-  "CALayer",
-  "CAMetalLayer",
-  "CATransaction",
-  "objc2-core-foundation",
-  "objc2-core-graphics",
-  "objc2-metal",
-  "std",
-] }
-skia-safe = { version = "0.97.0", features = ["gl", "metal", "textlayout"] }
+objc2-app-kit = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "NSApplication",
+    "NSColor",
+    "NSColorSpace",
+    "NSEvent",
+    "NSFont",
+    "NSFontDescriptor",
+    "NSGraphics",
+    "NSImage",
+    "NSLayoutConstraint",
+    "NSMenu",
+    "NSMenuItem",
+    "NSResponder",
+    "NSScreen",
+    "NSView",
+    "NSWindow",
+    "NSWindowTabGroup",
+    "NSWorkspace",
+    "block2",
+    "objc2-core-foundation",
+    "objc2-quartz-core",
+    "std",
+  ]
+}
+objc2-core-foundation = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "CFCGTypes",
+  ]
+}
+objc2-core-graphics = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "CGColor",
+    "CGDirectDisplay",
+  ]
+}
+objc2-core-video = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "CVBase",
+    "CVDisplayLink",
+    "CVReturn",
+    "objc2-core-graphics",
+  ]
+}
+objc2-foundation = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "NSArray",
+    "NSAttributedString",
+    "NSDictionary",
+    "NSProcessInfo",
+    "NSString",
+    "NSTimer",
+    "NSURL",
+    "NSUserDefaults",
+    "std",
+  ]
+}
+objc2-metal = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "MTLCommandBuffer",
+    "MTLCommandQueue",
+    "std",
+  ]
+}
+objc2-quartz-core = {
+  version = "0.3.1",
+  default-features = false,
+  features = [
+    "CALayer",
+    "CAMetalLayer",
+    "CATransaction",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-metal",
+    "std",
+  ]
+}
+skia-safe = { version = "0.97.2", features = ["gl", "metal", "textlayout"] }
 uzers = "0.12.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-skia-safe = { version = "0.97.0", features = ["d3d", "gl", "textlayout"] }
+skia-safe = { version = "0.97.2", features = ["d3d", "gl", "textlayout"] }
 # This needs to match the version used by skia
-windows = { version = "0.62.0", features = [
-  "Win32_Graphics_Direct3D",
-  "Win32_Graphics_Direct3D12",
-  "Win32_Graphics_DirectComposition",
-  "Win32_Graphics_Dwm",
-  "Win32_Graphics_Dxgi",
-  "Win32_Graphics_Dxgi_Common",
-  "Win32_Security",
-  "Win32_System_Console",
-  "Win32_System_Performance",
-  "Win32_System_Threading",
-  "Win32_UI_HiDpi",
-] }
+windows = {
+  version = "0.62.0",
+  features = [
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_DirectComposition",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Security",
+    "Win32_System_Console",
+    "Win32_System_Performance",
+    "Win32_System_Threading",
+    "Win32_UI_HiDpi",
+  ]
+}
 windows-registry = "0.6.1"
 wslpath-rs = "0.2"
 
