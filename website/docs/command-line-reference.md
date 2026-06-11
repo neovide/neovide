@@ -338,7 +338,25 @@ Runs neovim from inside wsl rather than as a normal executable.
 
 Sets where to find neovim's executable. If unset, neovide will try to find `nvim` on the `PATH`
 environment variable instead. If you're running a Unix-alike, be sure that binary has the executable
-permission bit set.
+permission bit set. This argument needs to be a single binary name (not a shell script), but you can
+pass additional arguments to Neovide with an invocation like `neovide --neovim-bin=ssh -- myhost
+nvim`.
+
+In the config file, `neovim-bin` may be an array of strings instead of a single string. In this
+case, the first element is the binary to execute, and the remaining elements are prepended onto the
+invocation's arguments. Passing `--neovim-bin` resets the entire neovim command (i.e. it also clears
+additional arguments set in the config file).
+
+**Example:**
+
+> ```toml
+> # Use a specific version of nvim
+> neovim-bin = "/opt/nvim"
+> # Set up the nvim RPC address
+> neovim-bin = [ "nvim", "--listen", "neovide" ]
+> # Source ~/.bash_profile before starting nvim
+> neovim-bin = [ "bash", "-c", 'source ~/.bash_profile; exec nvim "$@"', "" ]
+> ```
 
 ### Wayland / X11
 
