@@ -146,6 +146,7 @@ pub enum HotReloadConfigs {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppHotReloadConfigs {
     Idle(bool),
+    AllowedUrlPatterns(Vec<String>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -434,6 +435,15 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                     error_msg!("While reloading config file: invalid geometry: {err}");
                 }
             }
+        }
+        if config.remote.allowed_url_patterns != previous_config.remote.allowed_url_patterns {
+            event_loop_proxy
+                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                    HotReloadConfigs::App(AppHotReloadConfigs::AllowedUrlPatterns(
+                        config.remote.allowed_url_patterns.clone(),
+                    )),
+                ))))
+                .unwrap();
         }
         previous_config = config;
     }
