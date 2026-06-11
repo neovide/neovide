@@ -91,7 +91,7 @@ pub struct NeovimHandler {
     #[allow(dead_code)]
     settings: Arc<Settings>,
     clipboard: ClipboardHandle,
-    allowed_url_patterns: Option<Vec<String>>,
+    allowed_url_patterns: Arc<parking_lot::RwLock<Option<Vec<String>>>>,
 }
 
 impl std::fmt::Debug for NeovimHandler {
@@ -124,7 +124,7 @@ impl NeovimHandler {
             route_id,
             settings,
             clipboard,
-            allowed_url_patterns,
+            allowed_url_patterns: Arc::new(parking_lot::RwLock::new(allowed_url_patterns)),
         }
     }
 
@@ -156,6 +156,10 @@ impl NeovimHandler {
 
     pub fn mark_ui_command_started(&self) -> bool {
         self.ui_command_started.swap(true, Ordering::SeqCst)
+    }
+
+    pub fn update_allowed_url_patterns(&self, patterns: Option<Vec<String>>) {
+        *self.allowed_url_patterns.write() = patterns;
     }
 
     pub fn set_pre_attach_cmdheight(&self, cmdheight: Value) {
@@ -202,7 +206,7 @@ impl Handler for NeovimHandler {
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| Value::from("neovide.open: missing path argument"))?;
 
-                if !is_url_allowed(path, &self.allowed_url_patterns) {
+                if !is_url_allowed(path, &self.allowed_url_patterns.read()) {
                     return Err(Value::from(format!("URL rejected by allowlist: {path}")));
                 }
 
