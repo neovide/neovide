@@ -439,9 +439,11 @@ impl WinitWindowWrapper {
         let window = route.window.winit_window.clone();
 
         #[cfg(target_os = "windows")]
-        window.set_system_backdrop(
-            if blur { BackdropType::TransientWindow } else { BackdropType::Auto },
-        );
+        window.set_system_backdrop(if blur {
+            BackdropType::TransientWindow
+        } else {
+            BackdropType::Auto
+        });
 
         #[cfg(not(target_os = "windows"))]
         window.set_blur(blur);
