@@ -211,6 +211,19 @@ tabs to avoid confusing new users. `--no-tabs` disables this behavior.
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
 
+### Startup Message Capture
+
+```sh
+--no-startup-message-capture, --startup-message-capture or $NEOVIDE_STARTUP_MESSAGE_CAPTURE=0|1
+```
+
+**Nightly.**
+
+By default, Neovide temporarily captures startup messages on supported Neovim versions so errors can
+be shown before the first grid render. `--no-startup-message-capture` disables that temporary
+external message UI path for plugins that need to initialize without another UI client advertising
+`ext_messages` or `ext_cmdline`
+
 ### Reuse Existing Instance (macOS Only)
 
 ```sh
