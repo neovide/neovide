@@ -75,6 +75,9 @@ mode = "font-glyph"
 
 [box-drawing.sizes]
 default = [2, 4]  # Thin and thick values respectively, for all sizes
+
+[remote]
+allowed-url-patterns = ["https://*", "http://*"]  # deny all if unset
 ```
 
 Refer to [Command Line Reference](command-line-reference.md) for details about the config settings
@@ -259,3 +262,39 @@ The default location is the following:
 | Linux    | `$XDG_DATA_HOME or $HOME/.local/share/neovide` | `/home/alice/.local/share/neovide`                 |
 | macOS    | `$HOME/Library/Application Support/neovide`    | `/Users/Alice/Library/Application Support/neovide` |
 | Windows  | `{FOLDERID_LocalAppData}\neovide`              | `C:\Users\Alice\AppData\Local\neovide`             |
+
+#### Remote
+
+Controls behavior when Neovide connects to a remote Neovim instance (`--server` or `--wsl`).
+
+##### `allowed-url-patterns`
+
+```toml
+[remote]
+allowed-url-patterns = [
+    "https://*",
+    "http://*",
+]
+```
+
+When running in remote mode, Neovide overrides `vim.ui.open` to open URLs and files on the host
+system. Patterns use simple wildcard matching where `*` matches any sequence of characters (including
+`/`). Everything else is matched literally. For example:
+
+| Pattern | Matches |
+|---------|--------|
+| `https://*` | Any HTTPS URL |
+| `http://example.com/*` | Any HTTP URL on the domain `example.com` |
+| `*` | Dangerous! All URLs, including app deep links (e.g. `zoommtg://zoom.us/join?confno=`) |
+
+**Note:** Because `*` matches all characters, overly broad patterns can match unintended URLs. For
+example, `https://*.mydomain.com/*` also matches `https://phishing-domain.com/?.mydomain.com/`. It
+is recommended to always start your URL patterns with `https://` at a minimum.
+
+If `allowed-url-patterns` is not set or is empty, remote open will reject all URLs. When a URL is
+rejected, you will see this error:
+
+> `neovide.open failed: URL rejected by allowlist: URL`
+
+You can disable the remote open functionality entirely by using `vim.g.neovide_no_remote_open` in
+your [Vim Configuration](configuration.md).

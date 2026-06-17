@@ -2119,6 +2119,12 @@ impl WinitWindowWrapper {
         route.state.font_changed_last_frame = true;
     }
 
+    pub fn handle_allowed_url_patterns_changed(&self, patterns: Option<Vec<String>>) {
+        for route in self.routes.values() {
+            route.window.neovim_handler.update_allowed_url_patterns(patterns.clone());
+        }
+    }
+
     fn handle_config_title_hidden_changed(&mut self, title_hidden: Option<bool>) {
         let title_hidden = title_hidden.unwrap_or(false);
         let mut cmd_line_settings = self.settings.get::<CmdLineSettings>();

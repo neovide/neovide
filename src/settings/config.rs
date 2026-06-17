@@ -21,6 +21,12 @@ use std::path::{Path, PathBuf};
 
 use super::font::FontSettings;
 
+#[derive(Debug, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct RemoteConfig {
+    pub allowed_url_patterns: Option<Vec<String>>,
+}
+
 const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
@@ -120,6 +126,7 @@ pub struct Config {
     pub wayland_app_id: Option<String>,
     pub x11_wm_class: Option<String>,
     pub x11_wm_class_instance: Option<String>,
+    pub remote: Option<RemoteConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -133,6 +140,7 @@ pub enum HotReloadConfigs {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppHotReloadConfigs {
     Idle(bool),
+    AllowedUrlPatterns(Option<Vec<String>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -400,6 +408,18 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                     error_msg!("While reloading config file: invalid geometry: {err}");
                 }
             }
+        }
+        let current_patterns = config.remote.as_ref().and_then(|r| r.allowed_url_patterns.clone());
+        let previous_patterns =
+            previous_config.remote.as_ref().and_then(|r| r.allowed_url_patterns.clone());
+        if current_patterns != previous_patterns {
+            event_loop_proxy
+                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                    HotReloadConfigs::App(AppHotReloadConfigs::AllowedUrlPatterns(
+                        current_patterns,
+                    )),
+                ))))
+                .unwrap();
         }
         previous_config = config;
     }

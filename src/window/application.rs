@@ -301,6 +301,9 @@ impl Application {
                 self.idle = idle;
                 self.mark_should_render_all();
             }
+            AppHotReloadConfigs::AllowedUrlPatterns(patterns) => {
+                self.window_wrapper.handle_allowed_url_patterns_changed(patterns);
+            }
         }
     }
 
