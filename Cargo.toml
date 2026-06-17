@@ -42,6 +42,16 @@ This is a simple graphical user interface for Neovim. Where possible there are s
 """
 osx_minimum_system_version = "10.11"
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/{ version }/Neovide-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/{ version }/neovide.exe.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "zip"
+
 [workspace]
 members = ["neovide-derive"]
 
