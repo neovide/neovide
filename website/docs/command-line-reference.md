@@ -343,6 +343,15 @@ Connects to the named pipe or socket at ADDRESS.
 
 Runs neovim from inside wsl rather than as a normal executable.
 
+### Force registering neovide clipboard provider
+
+```sh
+--force-register-clipboard <true|false>
+```
+
+Skip the heuristics on whether or not neovide should register its custom clipboard provider, and
+always/never enable it (based on the value provided).
+
 ### Neovim Binary
 
 ```sh
