@@ -84,6 +84,7 @@ pub struct Config {
     pub neovim_bin: Option<PathBuf>,
     pub no_multigrid: Option<bool>,
     pub srgb: Option<bool>,
+    pub startup_message_capture: Option<bool>,
     pub tabs: Option<bool>,
     pub system_native_tabs: Option<bool>,
     pub mouse_cursor_icon: Option<String>,
@@ -181,6 +182,11 @@ impl Config {
         }
         if let Some(srgb) = self.srgb {
             unsafe { env::set_var("NEOVIDE_SRGB", srgb.to_string()) };
+        }
+        if let Some(startup_message_capture) = self.startup_message_capture {
+            unsafe {
+                env::set_var("NEOVIDE_STARTUP_MESSAGE_CAPTURE", startup_message_capture.to_string())
+            };
         }
         if let Some(fork) = self.fork {
             unsafe { env::set_var("NEOVIDE_FORK", fork.to_string()) };

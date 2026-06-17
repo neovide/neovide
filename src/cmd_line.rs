@@ -217,6 +217,14 @@ pub struct CmdLineSettings {
     #[arg(long = "no-vsync", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_vsync: bool,
 
+    /// Temporarily capture startup messages before the first grid render [DEFAULT]
+    #[arg(long = "startup-message-capture", env = "NEOVIDE_STARTUP_MESSAGE_CAPTURE", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    pub startup_message_capture: bool,
+
+    /// Do not temporarily capture startup messages before the first grid render
+    #[arg(long = "no-startup-message-capture", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_startup_message_capture: bool,
+
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
     pub neovim_bin: Option<String>,
@@ -341,6 +349,10 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
 
     if cmdline._no_vsync {
         cmdline.vsync = false;
+    }
+
+    if cmdline._no_startup_message_capture {
+        cmdline.startup_message_capture = false;
     }
 
     settings.set::<CmdLineSettings>(&cmdline);

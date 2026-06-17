@@ -188,7 +188,7 @@ impl Editor {
             current_mode_index: None,
             current_mode: EditorMode::Normal,
             ui_ready: false,
-            startup_message_capture: StartupMessageCapture::BeforeFirstGrid,
+            startup_message_capture: StartupMessageCapture::Finished,
             settings,
             event_loop_proxy,
             route_id,

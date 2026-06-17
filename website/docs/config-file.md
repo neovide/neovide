@@ -44,6 +44,7 @@ no-multigrid = false
 opengl = false # macOS/Windows only
 # server = "/tmp/nvim.sock" # or "127.0.0.1:7777"
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
+startup-message-capture = true
 tabs = true
 system-native-tabs = false # macOS only
 system-pinned-hotkey = "cmd+ctrl+z" # macOS only
