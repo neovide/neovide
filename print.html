@@ -1527,6 +1527,14 @@ for more details.</p>
 tabs to avoid confusing new users. <code>--no-tabs</code> disables this behavior.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
+<h3 id="startup-message-capture"><a class="header" href="#startup-message-capture">Startup Message Capture</a></h3>
+<pre><code class="language-sh">--no-startup-message-capture, --startup-message-capture or $NEOVIDE_STARTUP_MESSAGE_CAPTURE=0|1
+</code></pre>
+<p><strong>Nightly.</strong></p>
+<p>By default, Neovide temporarily captures startup messages on supported Neovim versions so errors can
+be shown before the first grid render. <code>--no-startup-message-capture</code> disables that temporary
+external message UI path for plugins that need to initialize without another UI client advertising
+<code>ext_messages</code> or <code>ext_cmdline</code></p>
 <h3 id="reuse-existing-instance-macos-only"><a class="header" href="#reuse-existing-instance-macos-only">Reuse Existing Instance (macOS Only)</a></h3>
 <pre><code class="language-sh">--reuse-instance
 </code></pre>
@@ -1658,6 +1666,7 @@ no-multigrid = false
 opengl = false # macOS/Windows only
 # server = &quot;/tmp/nvim.sock&quot; # or &quot;127.0.0.1:7777&quot;
 srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
+startup-message-capture = true
 tabs = true
 system-native-tabs = false # macOS only
 system-pinned-hotkey = &quot;cmd+ctrl+z&quot; # macOS only
