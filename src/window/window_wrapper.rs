@@ -431,6 +431,24 @@ impl WinitWindowWrapper {
         }
     }
 
+    pub fn set_blur(&mut self, window_id: WindowId, blur: bool) {
+        let Some(route) = self.routes.get(&window_id) else {
+            return;
+        };
+
+        let window = route.window.winit_window.clone();
+
+        #[cfg(target_os = "windows")]
+        window.set_system_backdrop(if blur {
+            BackdropType::TransientWindow
+        } else {
+            BackdropType::Auto
+        });
+
+        #[cfg(not(target_os = "windows"))]
+        window.set_blur(blur);
+    }
+
     #[cfg(target_os = "windows")]
     fn set_corner_preference(&self, window_id: WindowId, option: CornerPreference) {
         let Some(route) = self.routes.get(&window_id) else {
@@ -730,10 +748,7 @@ impl WinitWindowWrapper {
                 let WindowSettings { opacity, .. } = self.settings.get::<WindowSettings>();
                 let transparent = opacity < 1.0;
                 for window_id in window_ids.iter() {
-                    if let Some(route) = self.routes.get(window_id) {
-                        let window = route.window.winit_window.clone();
-                        window.set_blur(blur && transparent);
-                    }
+                    self.set_blur(*window_id, blur && transparent);
                 }
             }
             WindowSettingsChanged::MessageAreaDragSelection(enabled) if !enabled => {
@@ -1755,12 +1770,7 @@ impl WinitWindowWrapper {
             renderer.borrow().grid_renderer.grid_scale
         );
 
-        window.set_blur(window_blurred && opacity.min(normal_opacity) < 1.0);
-
-        #[cfg(target_os = "windows")]
-        if window_blurred {
-            window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
-        }
+        self.set_blur(window.id(), window_blurred && opacity.min(normal_opacity) < 1.0);
 
         if fullscreen {
             let handle = window.current_monitor();
