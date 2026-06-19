@@ -48,7 +48,7 @@ startup-message-capture = true
 tabs = true
 system-native-tabs = false # macOS only
 system-pinned-hotkey = "cmd+ctrl+z" # macOS only
-system-switcher-hotkey = "cmd+ctrl+n" # macOS only, requires system-native-tabs = true
+system-switcher-hotkey = "cmd+ctrl+n" # macOS only
 system-new-window-hotkey = "cmd+n" # macOS only
 system-hide-hotkey = "cmd+h" # macOS only
 system-hide-others-hotkey = "cmd+alt+h" # macOS only

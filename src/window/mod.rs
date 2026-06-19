@@ -163,6 +163,8 @@ pub enum UserEvent {
     #[cfg(target_os = "macos")]
     CreateWindow,
     #[cfg(target_os = "macos")]
+    ActivateWindow(winit::window::WindowId),
+    #[cfg(target_os = "macos")]
     MacShortcut(MacShortcutCommand),
 }
 

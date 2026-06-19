@@ -1,5 +1,11 @@
 pub mod settings;
-use std::cell::Cell;
+mod switcher;
+
+pub use switcher::{
+    EditorSwitcherRow, close_editor_switcher_if_open, editor_switcher_key_event_matches,
+    show_editor_switcher_panel,
+};
+
 use std::sync::{
     OnceLock,
     atomic::{AtomicBool, Ordering},
@@ -8,7 +14,7 @@ use std::{cell::RefCell, ffi::CString, os::raw::c_void, path::Path, ptr, str, sy
 
 use glamour::Point2;
 use objc2::{
-    AnyThread, MainThreadOnly, Message, class, define_class, msg_send,
+    AnyThread, MainThreadOnly, class, define_class, msg_send,
     rc::Retained,
     runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
     sel,
@@ -38,22 +44,20 @@ use crate::settings::Settings;
 use crate::utils::expand_tilde;
 use crate::window::macos::tab_navigation::KeyCombo;
 use crate::{cmd_line::CmdLineSettings, frame::Frame};
-use winit::{event_loop::EventLoopProxy, window::Window};
+use winit::{
+    event_loop::EventLoopProxy,
+    window::{Window, WindowId},
+};
 
 use crate::units::{Pixel, PixelRect};
 use crate::window::macos::hotkey::GlobalHotkeys;
 use crate::window::{
-    EventPayload, ForceClickKind, UserEvent, WindowSettings, WindowSettingsChanged,
+    EventPayload, ForceClickKind, MacShortcutCommand, UserEvent, WindowSettings,
+    WindowSettingsChanged,
 };
 
 thread_local! {
     static APP_MENU: RefCell<Option<Menu>> = const { RefCell::new(None) };
-    static TAB_OVERVIEW_ACTIVE: Cell<bool> = const { Cell::new(false) };
-    static PENDING_DETACH_WINDOW: Cell<usize> = const { Cell::new(0) };
-    static SUPPRESS_FOCUS_EVENTS: Cell<bool> = const { Cell::new(false) };
-    static ACTIVE_HOST_WINDOW: Cell<usize> = const { Cell::new(0) };
-    static SUPPRESS_UNTIL_NEXT_KEY_EVENT: Cell<bool> = const { Cell::new(false) };
-    static LAST_HOST_WINDOW: Cell<usize> = const { Cell::new(0) };
     static QUICKLOOK_PREVIEW_ITEM: RefCell<Option<Retained<NSURL>>> = const { RefCell::new(None) };
     static QUICKLOOK_CONTROLLER: RefCell<Option<Retained<QuickLookPreviewController>>> =
         const { RefCell::new(None) };
@@ -79,13 +83,6 @@ fn should_show_native_tab_bar() -> bool {
     native_tabs_enabled() && SHOW_NATIVE_TAB_BAR.load(Ordering::Relaxed)
 }
 
-fn reset_tab_overview_state() {
-    TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
-    SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.set(false));
-    PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
-    ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
-}
-
 fn store_event_loop_proxy(proxy: EventLoopProxy<EventPayload>) {
     let _ = EVENT_LOOP_PROXY.set(proxy);
 }
@@ -98,6 +95,29 @@ fn request_new_window() {
 
     if let Err(error) = proxy.send_event(EventPayload::all(UserEvent::CreateWindow)) {
         log::error!("Failed to request a new window: {:?}", error);
+    }
+}
+
+fn request_editor_switcher() {
+    let Some(proxy) = EVENT_LOOP_PROXY.get() else {
+        log::warn!("Editor switcher requested before event loop proxy became available");
+        return;
+    };
+
+    let event = UserEvent::MacShortcut(MacShortcutCommand::ShowEditorSwitcher);
+    if let Err(error) = proxy.send_event(EventPayload::all(event)) {
+        log::error!("Failed to request editor switcher: {:?}", error);
+    }
+}
+
+pub fn request_activate_window(window_id: WindowId) {
+    let Some(proxy) = EVENT_LOOP_PROXY.get() else {
+        log::warn!("Window activation requested before event loop proxy became available");
+        return;
+    };
+
+    if let Err(error) = proxy.send_event(EventPayload::all(UserEvent::ActivateWindow(window_id))) {
+        log::error!("Failed to request window activation: {:?}", error);
     }
 }
 
@@ -128,25 +148,6 @@ fn merge_all_windows_if_native_tabs(ns_window: &NSWindow) {
     if should_show_native_tab_bar() {
         ns_window.mergeAllWindows(None);
         MacosWindowFeature::apply_tab_bar_preference(ns_window);
-    }
-}
-
-pub fn is_focus_suppressed() -> bool {
-    SUPPRESS_FOCUS_EVENTS.with(|cell| cell.get())
-        || SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.get())
-}
-
-struct FocusSuppressionGuard;
-impl FocusSuppressionGuard {
-    fn new() -> Self {
-        SUPPRESS_FOCUS_EVENTS.with(|flag| flag.set(true));
-        FocusSuppressionGuard
-    }
-}
-
-impl Drop for FocusSuppressionGuard {
-    fn drop(&mut self) {
-        SUPPRESS_FOCUS_EVENTS.with(|flag| flag.set(false));
     }
 }
 
@@ -298,7 +299,7 @@ fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
     }
 }
 
-fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
+pub fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
     custom_icon_path
         .and_then(|path| {
             let expanded = expand_tilde(path);
@@ -422,7 +423,7 @@ impl MacosWindowFeature {
         let is_fullscreen = ns_window.styleMask().contains(NSWindowStyleMask::FullScreen);
 
         store_event_loop_proxy(proxy.clone());
-        let activation_hotkey = GlobalHotkeys::register(proxy, show_native_tabs);
+        let activation_hotkey = GlobalHotkeys::register(proxy, true);
 
         let macos_window_feature = MacosWindowFeature {
             ns_window,
@@ -460,104 +461,6 @@ impl MacosWindowFeature {
             if tab_group.isTabBarVisible() != should_show {
                 ns_window.toggleTabBar(None);
             }
-        }
-    }
-
-    fn begin_tab_overview(ns_window: &NSWindow) {
-        if ns_window.tabbingMode() == NSWindowTabbingMode::Disallowed {
-            return;
-        }
-        if Self::merge_windows_for_overview(ns_window) {
-            TAB_OVERVIEW_ACTIVE.with(|active| active.set(true));
-            ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
-            SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.set(true));
-            ns_window.toggleTabOverview(None);
-        }
-    }
-
-    fn merge_windows_for_overview(ns_window: &NSWindow) -> bool {
-        ns_window.mergeAllWindows(None);
-
-        if let Some(tab_group) = ns_window.tabGroup() {
-            let windows = tab_group.windows();
-            if windows.len() <= 1 {
-                return false;
-            }
-            tab_group.setSelectedWindow(Some(ns_window));
-            true
-        } else {
-            false
-        }
-    }
-
-    fn detach_tabs_after_overview(ns_window: &NSWindow) {
-        let should_detach = TAB_OVERVIEW_ACTIVE.with(|active| active.get());
-        if !should_detach {
-            return;
-        }
-
-        if should_show_native_tab_bar() {
-            TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
-            PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
-            ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
-            ns_window.makeKeyAndOrderFront(None);
-            ns_window.orderFrontRegardless();
-            record_host_window(ns_window);
-            Self::apply_tab_bar_preference(ns_window);
-            if let Some(mtm) = MainThreadMarker::new() {
-                let app = NSApplication::sharedApplication(mtm);
-                app.setWindowsNeedUpdate(true);
-            }
-            return;
-        }
-
-        let Some(tab_group) = ns_window.tabGroup() else {
-            TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
-            return;
-        };
-
-        TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
-        PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
-        ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
-        let _focus_guard = FocusSuppressionGuard::new();
-        PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
-
-        if tab_group.isOverviewVisible() {
-            return;
-        }
-
-        let windows_array = tab_group.windows();
-        if windows_array.len() <= 1 {
-            TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
-            return;
-        }
-
-        let retained_windows: Vec<Retained<NSWindow>> =
-            windows_array.iter().map(|window| window.retain()).collect();
-
-        for window in &retained_windows {
-            let window_ref: &NSWindow = window.as_ref();
-            if ptr::eq(window_ref, ns_window) {
-                continue;
-            }
-
-            window_ref.moveTabToNewWindow(None);
-            window_ref.orderBack(None);
-            log::trace!(
-                "Detached tab window ptr={:?} from host={:?}",
-                window_identifier(window_ref),
-                window_identifier(ns_window)
-            );
-            Self::apply_tab_bar_preference(window_ref);
-        }
-
-        ns_window.makeKeyAndOrderFront(None);
-        ns_window.orderFrontRegardless();
-        record_host_window(ns_window);
-        Self::apply_tab_bar_preference(ns_window);
-        if let Some(mtm) = MainThreadMarker::new() {
-            let app = NSApplication::sharedApplication(mtm);
-            app.setWindowsNeedUpdate(true);
         }
     }
 
@@ -774,10 +677,6 @@ impl MacosWindowFeature {
                 Self::apply_tab_bar_preference(&self.ns_window);
             }
         }
-    }
-
-    pub fn is_simple_fullscreen_enabled(&self) -> bool {
-        self.simple_fullscreen
     }
 
     pub fn is_native_fullscreen_enabled(&self) -> bool {
@@ -1224,167 +1123,26 @@ impl NewWindowHandler {
 }
 
 #[derive(Clone, Debug)]
-struct TabOverviewHandlerIvars {}
+struct EditorSwitcherMenuHandlerIvars {}
 
 define_class!(
     #[derive(Debug)]
     #[unsafe(super = NSObject)]
     #[thread_kind = MainThreadOnly]
-    #[ivars = TabOverviewHandlerIvars]
-    struct TabOverviewHandler;
+    #[ivars = EditorSwitcherMenuHandlerIvars]
+    struct EditorSwitcherMenuHandler;
 
-    impl TabOverviewHandler {
-        #[unsafe(method(neovideShowAllTabs:))]
-        fn show_all_tabs(&self, _sender: Option<&AnyObject>) {
-            trigger_tab_overview();
+    impl EditorSwitcherMenuHandler {
+        #[unsafe(method(neovideShowEditorSwitcher:))]
+        fn show_editor_switcher(&self, _sender: Option<&AnyObject>) {
+            request_editor_switcher();
         }
     }
 );
 
-impl TabOverviewHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<TabOverviewHandler> {
+impl EditorSwitcherMenuHandler {
+    fn new(mtm: MainThreadMarker) -> Retained<EditorSwitcherMenuHandler> {
         unsafe { msg_send![Self::alloc(mtm), init] }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct TabOverviewNotificationHandlerIvars {}
-
-define_class!(
-    #[derive(Debug)]
-    #[unsafe(super = NSObject)]
-    #[thread_kind = MainThreadOnly]
-    #[ivars = TabOverviewNotificationHandlerIvars]
-    struct TabOverviewNotificationHandler;
-
-    impl TabOverviewNotificationHandler {
-        #[unsafe(method(neovideWindowDidBecomeKey:))]
-        fn window_did_become_key(&self, notification: &NSNotification) {
-            if !TAB_OVERVIEW_ACTIVE.with(|active| active.get()) {
-                return;
-            }
-
-            let Some(object) = notification.object() else {
-                return;
-            };
-
-            let window: Retained<NSWindow> = object
-                .downcast()
-                .expect("notification object was not an NSWindow");
-
-            let window_ref: &NSWindow = window.as_ref();
-
-            let identifier = window_ref.tabbingIdentifier();
-            let identifier_ref: &NSString = identifier.as_ref();
-            if identifier_ref != ns_string!(NEOVIDE_TABBING_IDENTIFIER) {
-                log::trace!(
-                    "WindowDidBecomeKey ignored (tab id = {})",
-                    identifier_ref
-                );
-                return;
-            }
-
-            SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.set(false));
-
-            let ptr_value = window_identifier(window_ref);
-            let previous_host = ACTIVE_HOST_WINDOW.with(|cell| {
-                let previous = cell.get();
-                cell.set(ptr_value);
-                previous
-            });
-
-            if previous_host != 0 && previous_host != ptr_value {
-                log::trace!(
-                    "WindowDidBecomeKey host switched from {:?} to {:?}",
-                    previous_host as *const (),
-                    window_identifier(window_ref)
-                );
-            }
-
-            let already_pending = PENDING_DETACH_WINDOW.with(|ptr| ptr.get() == ptr_value);
-            if already_pending {
-                log::trace!(
-                    "WindowDidBecomeKey skipping duplicate scheduling (window ptr = {:?})",
-                    window_identifier(window_ref)
-                );
-                return;
-            }
-
-            PENDING_DETACH_WINDOW.with(|ptr| ptr.set(ptr_value));
-
-            log::trace!(
-                "WindowDidBecomeKey scheduling detach (window ptr = {:?})",
-                window_identifier(window_ref)
-            );
-
-            unsafe {
-                self.schedule_detach(window);
-            }
-        }
-
-        #[unsafe(method(neovidePerformDetach:))]
-        fn perform_detach(&self, timer: &NSTimer) {
-            let Some(user_info) = timer.userInfo() else {
-                return;
-            };
-
-            let window: Retained<NSWindow> = user_info
-                .downcast()
-                .expect("timer userInfo was not an NSWindow");
-            let ptr_value = window_identifier(window.as_ref());
-            let host_ptr = ACTIVE_HOST_WINDOW.with(|cell| cell.get());
-            if host_ptr != 0 && host_ptr != ptr_value {
-                log::trace!(
-                    "Detach timer ignoring stale window ptr = {:?} (active host = {:?})",
-                    window_identifier(window.as_ref()),
-                    host_ptr
-                );
-                return;
-            }
-
-            PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
-            log::trace!(
-                "Detach timer fired for window ptr = {:?}",
-                window_identifier(window.as_ref())
-            );
-
-            MacosWindowFeature::detach_tabs_after_overview(window.as_ref());
-        }
-    }
-);
-
-impl TabOverviewNotificationHandler {
-    fn register(mtm: MainThreadMarker) -> Retained<TabOverviewNotificationHandler> {
-        let handler: Retained<TabOverviewNotificationHandler> =
-            unsafe { msg_send![mtm.alloc(), init] };
-        let center = NSNotificationCenter::defaultCenter();
-        unsafe {
-            center.addObserver_selector_name_object(
-                &handler,
-                sel!(neovideWindowDidBecomeKey:),
-                Some(NSWindowDidBecomeKeyNotification),
-                None,
-            );
-        }
-
-        log::trace!("Registered NSWindowDidBecomeKey observer");
-        handler
-    }
-
-    unsafe fn schedule_detach(&self, window: Retained<NSWindow>) {
-        log::trace!(
-            "Scheduling detach timer for window ptr = {:?}",
-            window_identifier(window.as_ref())
-        );
-        let _: Retained<NSTimer> = unsafe {
-            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
-                0.0,
-                self,
-                sel!(neovidePerformDetach:),
-                Some(window.as_ref()),
-                false,
-            )
-        };
     }
 }
 
@@ -1537,8 +1295,7 @@ struct Menu {
     quit_handler: Retained<QuitHandler>,
     help_menu_handler: Retained<HelpMenuHandler>,
     new_window_handler: Retained<NewWindowHandler>,
-    tab_overview_handler: Retained<TabOverviewHandler>,
-    _tab_overview_observer: Retained<TabOverviewNotificationHandler>,
+    editor_switcher_menu_handler: Retained<EditorSwitcherMenuHandler>,
     _window_menu_observer: Retained<WindowMenuNotificationHandler>,
     window_menu_delegate: Retained<WindowMenuDelegate>,
 }
@@ -1549,8 +1306,7 @@ impl Menu {
             quit_handler: QuitHandler::new(mtm),
             help_menu_handler: HelpMenuHandler::new(mtm),
             new_window_handler: NewWindowHandler::new(mtm),
-            tab_overview_handler: TabOverviewHandler::new(mtm),
-            _tab_overview_observer: TabOverviewNotificationHandler::register(mtm),
+            editor_switcher_menu_handler: EditorSwitcherMenuHandler::new(mtm),
             _window_menu_observer: WindowMenuNotificationHandler::register(mtm),
             window_menu_delegate: WindowMenuDelegate::new(mtm),
         };
@@ -1674,18 +1430,16 @@ impl Menu {
             create_new_window.setTarget(Some(&self.new_window_handler));
             menu.addItem(&create_new_window);
 
-            if should_show_native_tab_bar() {
-                let show_all_tabs_item = NSMenuItem::new(mtm);
-                show_all_tabs_item.setTitle(ns_string!("Editors"));
-                apply_menu_item_hotkey(
-                    &show_all_tabs_item,
-                    &settings.system_show_all_tabs_hotkey,
-                    "system_show_all_tabs_hotkey",
-                );
-                show_all_tabs_item.setAction(Some(sel!(neovideShowAllTabs:)));
-                show_all_tabs_item.setTarget(Some(&self.tab_overview_handler));
-                menu.addItem(&show_all_tabs_item);
-            }
+            let show_all_tabs_item = NSMenuItem::new(mtm);
+            show_all_tabs_item.setTitle(ns_string!("Editors"));
+            apply_menu_item_hotkey(
+                &show_all_tabs_item,
+                &settings.system_show_all_tabs_hotkey,
+                "system_show_all_tabs_hotkey",
+            );
+            show_all_tabs_item.setAction(Some(sel!(neovideShowEditorSwitcher:)));
+            show_all_tabs_item.setTarget(Some(&self.editor_switcher_menu_handler));
+            menu.addItem(&show_all_tabs_item);
 
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
@@ -1753,7 +1507,7 @@ impl Menu {
             let is_show_all_tabs_title = title_ref == ns_string!("Show All Tabs");
 
             let is_neovide_show_all_tabs_action =
-                action.is_some_and(|sel| sel == sel!(neovideShowAllTabs:));
+                action.is_some_and(|sel| sel == sel!(neovideShowEditorSwitcher:));
 
             let should_remove_system_show_all_tabs =
                 is_show_all_tabs_title && !is_neovide_show_all_tabs_action;
@@ -1767,31 +1521,6 @@ impl Menu {
             menu.removeItemAtIndex(idx);
         }
     }
-}
-
-pub fn trigger_tab_overview() {
-    if !should_show_native_tab_bar() {
-        return;
-    }
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let app = NSApplication::sharedApplication(mtm);
-        if let Some(window) = app.keyWindow()
-            && let Some(tab_group) = window.tabGroup()
-            && tab_group.isOverviewVisible()
-        {
-            reset_tab_overview_state();
-            window.toggleTabOverview(None);
-            return;
-        }
-        if let Some(window) = app.keyWindow() {
-            MacosWindowFeature::begin_tab_overview(&window);
-        }
-    }
-}
-
-pub fn is_tab_overview_active() -> bool {
-    TAB_OVERVIEW_ACTIVE.with(|active| active.get())
 }
 
 pub fn register_file_handler() {
@@ -1884,18 +1613,6 @@ pub fn register_file_handler() {
         NSUserDefaults::standardUserDefaults().registerDefaults(&dict);
     }
 }
-pub fn window_identifier(window: &NSWindow) -> usize {
-    window as *const _ as usize
-}
-
-pub fn record_host_window(window: &NSWindow) {
-    LAST_HOST_WINDOW.with(|cell| cell.set(window_identifier(window)));
-}
-
-pub fn get_last_host_window() -> usize {
-    LAST_HOST_WINDOW.with(|cell| cell.get())
-}
-
 pub fn hide_application() {
     match MainThreadMarker::new() {
         Some(mtm) => {

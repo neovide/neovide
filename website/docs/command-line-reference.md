@@ -272,10 +272,9 @@ as with `--reuse-instance` works.
 --no-system-native-tabs, --system-native-tabs or $NEOVIDE_SYSTEM_NATIVE_TABS=0|1
 ```
 
-Neovide merges macOS windows into a single host window automatically and hides the native tab bar by
-default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
-shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
-and the Editors menu entry.
+Neovide can merge macOS windows into a single native tab group. Enable this option to keep the tab
+bar visible when multiple Neovide windows are grouped as tabs or leave it disabled to keep separate
+windows.
 
 ### Menu Shortcuts
 
@@ -293,6 +292,9 @@ Remaps the macOS menu shortcuts used by Neovide. The defaults are `cmd+h`, `cmd+
 `cmd+n`, `cmd+m`, `cmd+ctrl+f`, and `cmd+shift+e` for Hide, Hide Others, Quit, New Window,
 Minimize, Enter Full Screen, and Editors respectively. Set any of them to `false` or leave them
 empty to remove the shortcut while keeping the menu item available.
+
+`--system-show-all-tabs-hotkey` remaps Window > Editors. The menu item opens the Editors
+switcher with either separate windows or native tabs.
 
 ### System Tab Navigation
 

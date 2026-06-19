@@ -15,14 +15,13 @@ use crate::window::{EventPayload, MacShortcutCommand, UserEvent};
 
 const PINNED_ENV_VAR: &str = "NEOVIDE_SYSTEM_PINNED_HOTKEY";
 const SWITCHER_ENV_VAR: &str = "NEOVIDE_SYSTEM_SWITCHER_HOTKEY";
-const LEGACY_ENV_VAR: &str = "NEOVIDE_MACOS_ACTIVATION_HOTKEY";
 
 const PINNED_DEFAULT: &str = "cmd+ctrl+z";
 const SWITCHER_DEFAULT: &str = "cmd+ctrl+n";
 
 const HOTKEY_SIGNATURE: u32 = u32::from_be_bytes(*b"NEOV");
 const EVENT_CLASS_KEYBOARD: u32 = u32::from_be_bytes(*b"keyb");
-const EVENT_KIND_HOT_KEY_PRESSED: u32 = 6;
+const EVENT_KIND_HOT_KEY_PRESSED: u32 = 5;
 const EVENT_PARAM_DIRECT_OBJECT: u32 = u32::from_be_bytes(*b"----");
 const TYPE_EVENT_HOT_KEY_ID: u32 = u32::from_be_bytes(*b"hkid");
 const NO_ERR: OSStatus = 0;
@@ -94,7 +93,7 @@ const HOTKEY_DEFINITIONS: &[HotkeyDefinition] = &[
     },
     HotkeyDefinition {
         action: ShortcutAction::ShowEditorSwitcher,
-        env_vars: &[SWITCHER_ENV_VAR, LEGACY_ENV_VAR],
+        env_vars: &[SWITCHER_ENV_VAR],
         default: SWITCHER_DEFAULT,
     },
 ];

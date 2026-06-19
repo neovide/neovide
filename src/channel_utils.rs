@@ -30,7 +30,7 @@ where
 
     pub fn send(&self, message: T) -> Result<(), TokioSendError<T>> {
         tracy_dynamic_zone!(&format!("{}::{}", self.channel_name, message.as_ref()));
-        trace!("{} {:?}", self.channel_name, &message);
+        trace!("{} {:?}", self.channel_name, message);
         self.tx.send(message)
     }
 }
@@ -57,7 +57,7 @@ where
         match rx.recv().await {
             Some(message) => {
                 tracy_dynamic_zone!(&format!("{}::{}", self.channel_name, message.as_ref()));
-                trace!("{} {:?}", self.channel_name, &message);
+                trace!("{} {:?}", self.channel_name, message);
                 Some(message)
             }
             None => None,
@@ -69,7 +69,7 @@ where
         match rx.try_recv() {
             Ok(message) => {
                 tracy_dynamic_zone!(&format!("{}::{}", self.channel_name, message.as_ref()));
-                trace!("{} {:?}", self.channel_name, &message);
+                trace!("{} {:?}", self.channel_name, message);
                 Ok(message)
             }
             Err(e) => Err(e),

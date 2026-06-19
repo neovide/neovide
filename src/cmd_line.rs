@@ -172,7 +172,7 @@ pub struct CmdLineSettings {
     )]
     pub system_fullscreen_hotkey: String,
 
-    /// Set the Window > Editors shortcut when native tabs are visible
+    /// Set the Window > Editors shortcut
     #[cfg(target_os = "macos")]
     #[arg(
         long = "system-show-all-tabs-hotkey",

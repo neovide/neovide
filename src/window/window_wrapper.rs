@@ -32,8 +32,9 @@ use {
     crate::window::MacShortcutCommand,
     crate::window::macos::tab_navigation::{TabNavigationAction, TabNavigationHotkeys},
     crate::window::macos::{
-        MacosWindowFeature, TouchpadStage, hide_application, is_focus_suppressed,
-        is_tab_overview_active, native_tab_bar_enabled, trigger_tab_overview,
+        EditorSwitcherRow, MacosWindowFeature, TouchpadStage, close_editor_switcher_if_open,
+        editor_switcher_key_event_matches, hide_application, native_tab_bar_enabled,
+        show_editor_switcher_panel,
     },
     crate::{error_msg, window::settings},
     glamour::Point2,
@@ -335,7 +336,6 @@ impl WinitWindowWrapper {
             WindowSize::Grid(_) | WindowSize::NeovimGrid => Some(desired_window_size),
             WindowSize::Maximized | WindowSize::Size(_) => None,
         };
-
         let config = Config::init();
         let renderer = Rc::new(RefCell::new(Box::new(Renderer::new(
             1.0,
@@ -911,6 +911,15 @@ impl WinitWindowWrapper {
         window_id: WindowId,
         event: &WindowEvent,
     ) -> Option<OverlayEvent> {
+        #[cfg(target_os = "macos")]
+        if let WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } = event {
+            let modifiers = self.keyboard_manager.current_modifiers();
+            if editor_switcher_key_event_matches(key_event, &modifiers) {
+                self.show_editor_switcher();
+                return Some(OverlayEvent::Unchanged);
+            }
+        }
+
         let route = self.routes.get_mut(&window_id)?;
         let neovim_handler = &route.window.neovim_handler;
 
@@ -1080,28 +1089,6 @@ impl WinitWindowWrapper {
         should_render |= message_selection_needs_render;
 
         if let Some(focus) = pending_focus_event {
-            #[cfg(target_os = "macos")]
-            {
-                if is_focus_suppressed() {
-                    log::trace!("Suppressing focus event during tab detach (focus = {})", focus);
-                    return self.ui_state >= UIState::FirstFrame && should_render;
-                }
-                if focus && let Some(route) = self.routes.get(&window_id) {
-                    let ns_window =
-                        crate::window::macos::get_ns_window(route.window.winit_window.as_ref());
-                    let host_ptr = crate::window::macos::get_last_host_window();
-                    let window_ptr = crate::window::macos::window_identifier(ns_window.as_ref());
-                    if host_ptr != 0 && window_ptr != host_ptr {
-                        log::trace!(
-                            "Focus gained for non-host window; refocusing host {:?}",
-                            host_ptr
-                        );
-                        ns_window.makeKeyAndOrderFront(None);
-                        ns_window.orderFrontRegardless();
-                    }
-                }
-            }
-
             if focus {
                 self.handle_focus_gained(window_id);
             } else {
@@ -1308,6 +1295,52 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(target_os = "macos")]
+    fn editor_switcher_rows(&mut self) -> Vec<EditorSwitcherRow> {
+        let focused_route = self.get_focused_route();
+        self.cleanup_window_mru();
+
+        let mut ordered_windows: Vec<WindowId> = self.window_mru.iter().copied().collect();
+        for window_id in self.routes.keys().copied() {
+            if !ordered_windows.contains(&window_id) {
+                ordered_windows.push(window_id);
+            }
+        }
+
+        ordered_windows
+            .into_iter()
+            .filter_map(|window_id| {
+                let route = self.routes.get(&window_id)?;
+                let title = if route.window.title.is_empty() {
+                    "Untitled".to_string()
+                } else {
+                    route.window.title.clone()
+                };
+
+                let subtitle = Self::editor_switcher_subtitle(route);
+
+                Some(EditorSwitcherRow {
+                    window_id,
+                    title,
+                    subtitle,
+                    modified: route.window.document_modified,
+                    is_current: focused_route == Some(window_id),
+                })
+            })
+            .collect()
+    }
+
+    #[cfg(target_os = "macos")]
+    fn editor_switcher_subtitle(route: &Route) -> String {
+        if !route.window.document_path.is_empty() {
+            route.window.document_path.clone()
+        } else if let Some(cwd) = &route.cwd {
+            cwd.to_string_lossy().into_owned()
+        } else {
+            String::new()
+        }
+    }
+
+    #[cfg(target_os = "macos")]
     fn capture_focus_target(&mut self, pinned_id: WindowId) {
         let current = self.get_focused_route();
         if current != Some(pinned_id) {
@@ -1385,45 +1418,17 @@ impl WinitWindowWrapper {
 
     #[cfg(target_os = "macos")]
     fn show_editor_switcher(&mut self) {
-        if is_tab_overview_active() {
-            trigger_tab_overview();
+        if self.routes.is_empty() {
             return;
         }
 
-        let window_count = self.routes.len();
-        if window_count == 0 {
+        if close_editor_switcher_if_open() {
             return;
         }
 
-        if window_count == 1 {
-            self.toggle_pinned_window();
-            return;
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            let mut opened_overview = false;
-            if let Some(window_id) = self.pinned_candidate()
-                && let Some(feature_rc) = self.macos_feature_for_window(window_id)
-            {
-                {
-                    let feature = feature_rc.borrow();
-                    if feature.is_simple_fullscreen_enabled() {
-                        drop(feature);
-                        self.toggle_pinned_window();
-                        return;
-                    }
-                }
-                feature_rc.borrow().activate_application();
-                opened_overview = true;
-            }
-
-            if opened_overview {
-                trigger_tab_overview();
-            } else {
-                self.toggle_pinned_window();
-            }
-        }
+        let rows = self.editor_switcher_rows();
+        let icon = self.settings.get::<CmdLineSettings>().icon;
+        show_editor_switcher_panel(rows, icon.as_ref());
     }
 
     pub fn draw_frame(&mut self, window_id: WindowId, dt: f32) {

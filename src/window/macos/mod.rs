@@ -2,7 +2,7 @@ pub mod hotkey;
 pub mod tab_navigation;
 
 pub use crate::platform::macos::{
-    MacosWindowFeature, TouchpadStage, get_last_host_window, get_ns_window, hide_application,
-    is_focus_suppressed, is_tab_overview_active, native_tab_bar_enabled, register_file_handler,
-    trigger_tab_overview, window_identifier,
+    EditorSwitcherRow, MacosWindowFeature, TouchpadStage, close_editor_switcher_if_open,
+    editor_switcher_key_event_matches, hide_application, native_tab_bar_enabled,
+    register_file_handler, show_editor_switcher_panel,
 };

@@ -834,6 +834,10 @@ impl ApplicationHandler<EventPayload> for Application {
                 self.mark_should_render_all();
             }
             #[cfg(target_os = "macos")]
+            UserEvent::ActivateWindow(window_id) => {
+                self.window_wrapper.activate_and_focus_window(window_id);
+            }
+            #[cfg(target_os = "macos")]
             UserEvent::MacShortcut(command) => {
                 self.window_wrapper.handle_mac_shortcut(command);
                 self.mark_should_render_all();

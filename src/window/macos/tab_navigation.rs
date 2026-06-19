@@ -1,6 +1,6 @@
 use log::warn;
 use objc2::rc::Retained;
-use objc2_app_kit::NSEventModifierFlags;
+use objc2_app_kit::{NSEvent, NSEventModifierFlags};
 use objc2_foundation::NSString;
 use winit::{
     event::{ElementState, KeyEvent, Modifiers},
@@ -125,10 +125,38 @@ impl KeyCombo {
         }
     }
 
+    pub fn matches_key_event(&self, event: &KeyEvent, modifiers: &Modifiers) -> bool {
+        self.matches(event, modifiers)
+    }
+
+    pub fn matches_nsevent(&self, event: &NSEvent) -> bool {
+        if !self.nsevent_modifiers_match(event.modifierFlags()) {
+            return false;
+        }
+
+        match self.key {
+            KeyMatch::Char(expected) => event
+                .charactersIgnoringModifiers()
+                .and_then(|characters| characters.to_string().chars().next())
+                .is_some_and(|pressed| expected.eq_ignore_ascii_case(&pressed)),
+            KeyMatch::Named(_) => false,
+        }
+    }
+
     fn modifiers_match(&self, modifiers: &Modifiers) -> bool {
         let state = modifiers.state();
         (self.command, self.control, self.option, self.shift)
             == (state.super_key(), state.control_key(), state.alt_key(), state.shift_key())
+    }
+
+    fn nsevent_modifiers_match(&self, flags: NSEventModifierFlags) -> bool {
+        (self.command, self.control, self.option, self.shift)
+            == (
+                flags.contains(NSEventModifierFlags::Command),
+                flags.contains(NSEventModifierFlags::Control),
+                flags.contains(NSEventModifierFlags::Option),
+                flags.contains(NSEventModifierFlags::Shift),
+            )
     }
 }
 

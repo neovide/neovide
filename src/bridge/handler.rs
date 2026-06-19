@@ -179,7 +179,7 @@ impl Handler for NeovimHandler {
         arguments: Vec<Value>,
         _neovim: Neovim<Self::Writer>,
     ) -> Result<Value, Value> {
-        trace!("Neovim request: {:?}", &event_name);
+        trace!("Neovim request: {:?}", event_name);
 
         match event_name.as_ref() {
             "neovide.get_clipboard" => handle_clipboard_request(&self.clipboard, |clipboard| {
@@ -208,7 +208,7 @@ impl Handler for NeovimHandler {
         arguments: Vec<Value>,
         neovim: Neovim<Self::Writer>,
     ) {
-        trace!("Neovim notification: {:?}", &event_name);
+        trace!("Neovim notification: {:?}", event_name);
 
         match event_name.as_ref() {
             "redraw" => {

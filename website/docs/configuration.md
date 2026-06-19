@@ -941,8 +941,9 @@ until more than one tab exists to keep a clean single-window look.
 Use Window > New Window (default: `cmd+n`) or the Dock menu to open another Neovide window. If
 native tabs are enabled, new windows become tabs in the host window.
 
-If you have native tabs enabled, the Window menu shows an Editors entry and the Editors hotkey
-becomes available. You can also remap the in-app tab cycling shortcuts.
+The Window menu includes an Editors entry that opens Neovide's editor switcher for both separate
+windows or native tabs. If you use native tabs, you can also remap the in-app tab cycling
+shortcuts.
 
 #### macOS Global Activation Shortcuts
 
@@ -951,10 +952,9 @@ Neovide registers system-wide shortcuts on macOS:
 - **Pinned** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd> toggles the most recently used Neovide
   window. If that window is already active, the shortcut hides it; otherwise it brings the window
   to the front.
-- **Editors** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
-  you can pick another Neovide window. This shortcut is only available when
-  `system-native-tabs = true` and if only one window exists, it behaves the same as the pinned
-  shortcut.
+- **Editors** <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors switcher so you can
+  search and pick another Neovide window or tab. The switcher is available with either separate
+  windows or native tabs.
 
 Customize them by setting the environment variables:
 
@@ -991,6 +991,8 @@ system-show-all-tabs-hotkey = "cmd+shift+e"
 
 Set any of them to `false` (or an empty value) to remove the menu shortcut while keeping the menu
 item.
+
+`system-show-all-tabs-hotkey` remaps Window > Editors.
 
 When `system-native-tabs` is enabled, you can also customize the in-app tab navigation shortcuts:
 
