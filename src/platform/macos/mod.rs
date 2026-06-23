@@ -298,13 +298,22 @@ fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
     }
 }
 
+fn is_running_from_app_bundle() -> bool {
+    std::env::current_exe().is_ok_and(|exe| {
+        exe.ancestors().any(|path| path.extension().is_some_and(|extension| extension == "app"))
+    })
+}
+
 fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
-    custom_icon_path
-        .and_then(|path| {
+    if let Some(path) = custom_icon_path {
+        return {
             let expanded = expand_tilde(path);
             load_icon_from_custom_path(&expanded)
-        })
-        .or_else(load_icon_from_default_bytes)
+        };
+    }
+
+    // Bundled apps should keep the icon resolved by macOS, including user-customized icons.
+    (!is_running_from_app_bundle()).then(load_icon_from_default_bytes).flatten()
 }
 
 fn open_external_url(url: &str) {
