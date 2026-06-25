@@ -157,6 +157,8 @@ fn tokio_command_from_spec(spec: CommandSpec) -> TokioCommand {
     } = spec;
     let mut result = TokioCommand::new(program);
     result.args(&args);
+    result.env("TERM_PROGRAM", "Neovide");
+    result.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
     #[cfg(target_os = "windows")]
     if let Some(flags) = creation_flags {
         result.creation_flags(flags);
@@ -173,6 +175,8 @@ fn std_command_from_spec(spec: CommandSpec) -> StdCommand {
     } = spec;
     let mut result = StdCommand::new(program);
     result.args(&args);
+    result.env("TERM_PROGRAM", "Neovide");
+    result.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
     #[cfg(target_os = "windows")]
     if let Some(flags) = creation_flags {
         result.creation_flags(flags);
