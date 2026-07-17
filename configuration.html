@@ -733,18 +733,18 @@ single host window.</p>
 until more than one tab exists to keep a clean single-window look.</p>
 <p>Use Window &gt; New Window (default: <code>cmd+n</code>) or the Dock menu to open another Neovide window. If
 native tabs are enabled, new windows become tabs in the host window.</p>
-<p>If you have native tabs enabled, the Window menu shows an Editors entry and the Editors hotkey
-becomes available. You can also remap the in-app tab cycling shortcuts.</p>
+<p>The Window menu includes an Editors entry that opens Neovide's editor switcher for both separate
+windows or native tabs. If you use native tabs, you can also remap the in-app tab cycling
+shortcuts.</p>
 <h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
 <p>Neovide registers system-wide shortcuts on macOS:</p>
 <ul>
 <li><strong>Pinned</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd> toggles the most recently used Neovide
 window. If that window is already active, the shortcut hides it; otherwise it brings the window
 to the front.</li>
-<li><strong>Editors</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors (tab overview) view so
-you can pick another Neovide window. This shortcut is only available when
-<code>system-native-tabs = true</code> and if only one window exists, it behaves the same as the pinned
-shortcut.</li>
+<li><strong>Editors</strong> <kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd> opens the Editors switcher so you can
+search and pick another Neovide window or tab. The switcher is available with either separate
+windows or native tabs.</li>
 </ul>
 <p>Customize them by setting the environment variables:</p>
 <pre><code class="language-bash">launchctl setenv NEOVIDE_SYSTEM_PINNED_HOTKEY &quot;ctrl+shift+z&quot;
@@ -769,6 +769,7 @@ system-show-all-tabs-hotkey = &quot;cmd+shift+e&quot;
 </code></pre>
 <p>Set any of them to <code>false</code> (or an empty value) to remove the menu shortcut while keeping the menu
 item.</p>
+<p><code>system-show-all-tabs-hotkey</code> remaps Window &gt; Editors.</p>
 <p>When <code>system-native-tabs</code> is enabled, you can also customize the in-app tab navigation shortcuts:</p>
 <pre><code class="language-toml">system-tab-prev-hotkey = &quot;cmd+shift+[&quot;
 system-tab-next-hotkey = &quot;cmd+shift+]&quot;
