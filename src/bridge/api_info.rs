@@ -151,6 +151,7 @@ impl ApiParameterType {
 pub struct ApiParameter {
     pub name: String,
     pub parameter_type: ApiParameterType,
+    pub optional: Option<bool>,
 }
 
 #[allow(unused)]
@@ -304,13 +305,22 @@ fn parse_parameter_type(
 
 fn parse_parameter(value: ValueRef) -> std::result::Result<ApiParameter, ApiInfoParseError> {
     let info: Vec<ValueRef> = value.try_into()?;
-    if let Some((t, n)) = info.into_iter().collect_tuple() {
+    let mut info_iter = info.into_iter();
+
+    let name = info_iter.next();
+    let parameter = info_iter.next();
+    let optional = info_iter
+        .next()
+        .and_then(|value| if let ValueRef::Boolean(b) = value { Some(b) } else { None });
+
+    if let (Some(t), Some(n)) = (name, parameter) {
         let name: Utf8StringRef = n.try_into()?;
         let name = name.as_str();
         let parameter_type = parse_parameter_type(t)?;
         Ok(ApiParameter {
             name: name.map_or(Err("name field is missing"), |v| Ok(v.to_owned()))?,
             parameter_type,
+            optional,
         })
     } else {
         Err("Invalid parameter".into())
