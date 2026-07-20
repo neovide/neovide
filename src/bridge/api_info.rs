@@ -118,7 +118,7 @@ impl ApiParameterType {
             Some("Float") => ApiParameterType::Float,
             Some("String") => ApiParameterType::String,
             Some("Array") => ApiParameterType::Array,
-            Some("Dictionary") => ApiParameterType::Dictionary,
+            Some("Dict") | Some("Dictionary") => ApiParameterType::Dictionary,
             Some("Object") => ApiParameterType::Object,
             Some("Buffer") => ApiParameterType::Buffer,
             Some("Window") => ApiParameterType::Window,
@@ -305,25 +305,25 @@ fn parse_parameter_type(
 
 fn parse_parameter(value: ValueRef) -> std::result::Result<ApiParameter, ApiInfoParseError> {
     let info: Vec<ValueRef> = value.try_into()?;
-    let mut info_iter = info.into_iter();
 
-    let name = info_iter.next();
-    let parameter = info_iter.next();
-    let optional = info_iter
-        .next()
-        .and_then(|value| if let ValueRef::Boolean(b) = value { Some(b) } else { None });
+    match info.as_slice() {
+        [parameter_type, name, optional @ ..] => {
+            let optional = match optional {
+                [] => None,
+                [ValueRef::Boolean(optional)] => Some(*optional),
+                _ => return Err("unexpected optional field".into()),
+            };
 
-    if let (Some(t), Some(n)) = (name, parameter) {
-        let name: Utf8StringRef = n.try_into()?;
-        let name = name.as_str();
-        let parameter_type = parse_parameter_type(t)?;
-        Ok(ApiParameter {
-            name: name.map_or(Err("name field is missing"), |v| Ok(v.to_owned()))?,
-            parameter_type,
-            optional,
-        })
-    } else {
-        Err("Invalid parameter".into())
+            let name: Utf8StringRef = name.clone().try_into()?;
+            let parameter_type = parse_parameter_type(parameter_type.clone())?;
+
+            Ok(ApiParameter {
+                name: name.as_str().ok_or("name field is missing")?.to_owned(),
+                parameter_type,
+                optional,
+            })
+        }
+        _ => Err("Invalid parameter".into()),
     }
 }
 
