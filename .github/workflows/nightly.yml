@@ -300,7 +300,7 @@ jobs:
           curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
           chmod +x linuxdeploy-plugin-appimage
           export LDAI_OUTPUT=neovide.AppImage
-          export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
+          export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|nightly|neovide.AppImage.zsync"
           ./linuxdeploy \
             --executable=neovide \
             --desktop-file=../../assets/neovide.desktop \
@@ -311,6 +311,8 @@ jobs:
           echo "ARTIFACT_PATH=target/release/neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
           echo "ARTIFACT_NAME_APPIMAGE=neovide.AppImage" >> $GITHUB_ENV
           echo "ARTIFACT_PATH_APPIMAGE=target/release/neovide.AppImage" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_APPIMAGE_ZSYNC=neovide.AppImage.zsync" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_APPIMAGE_ZSYNC=target/release/neovide.AppImage.zsync" >> $GITHUB_ENV
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -364,6 +366,17 @@ jobs:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: ${{ env.ARTIFACT_PATH_APPIMAGE }}
           asset_name: ${{ env.ARTIFACT_NAME_APPIMAGE }}
+          asset_content_type: application/octet-stream
+
+      - if: env.ARTIFACT_NAME_APPIMAGE_ZSYNC
+        name: Upload Release Asset (Linux AppImage zsync)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_APPIMAGE_ZSYNC }}
+          asset_name: ${{ env.ARTIFACT_NAME_APPIMAGE_ZSYNC }}
           asset_content_type: application/octet-stream
 
       - if: env.ARTIFACT_NAME_WINDOWS_ZIP
