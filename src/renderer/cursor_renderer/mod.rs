@@ -160,7 +160,7 @@ impl Corner {
         settings: &CursorSettings,
         destination: PixelPos<f32>,
         cursor_dimensions: GridScale,
-        rank: usize,
+        alignment: f32,
     ) {
         let corner_destination = self.get_destination(destination, cursor_dimensions);
         let jump_vec = (corner_destination - self.previous_destination) / cursor_dimensions;
@@ -173,15 +173,7 @@ impl Corner {
         } else {
             let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
             let trailing = settings.animation_length;
-            match rank {
-                // The leading edge runs faster than the trailing edge, with a trail size of one
-                // it jumps to the destination
-                2..=3 => leading,
-                // One of the corner runs between the trailing corner and the leading edge, creating a triangular effect
-                1 => (leading + trailing) / 2.0,
-                0 => trailing,
-                _ => panic!("Invalid rank"),
-            }
+            lerp(trailing, leading, alignment)
         }
     }
 
@@ -209,7 +201,7 @@ impl Corner {
         //(center_destination- corner.current_position).length()
         let corner_direction = self.relative_position.as_vector().normalize().cast();
         let travel_direction = {
-            let d = corner_destination - self.current_position;
+            let d = corner_destination - self.previous_destination;
             d.normalize()
         };
         travel_direction.dot(corner_direction)
@@ -332,31 +324,48 @@ impl CursorRenderer {
     ) {
         let cursor_grid_position = GridPos::<u64>::from(self.cursor.grid_position);
         let cursor_grid_position_f = cursor_grid_position.try_cast().unwrap();
+        let previous_destination = self.destination;
+        let mut scroll_delta = PixelVec::ZERO;
         let new_cursor_pos = if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            let mut grid = cursor_grid_position_f + window.grid_current_position.to_vector();
-            grid.y -= window.scroll_animation.position;
+            let destination_at = |scroll: f32| {
+                let mut grid = cursor_grid_position_f + window.grid_current_position.to_vector();
+                grid.y -= scroll;
 
-            let top_border = window.viewport_margins.top as f32;
-            let bottom_border = window.viewport_margins.bottom as f32;
+                let top_border = window.viewport_margins.top as f32;
+                let bottom_border = window.viewport_margins.bottom as f32;
 
-            // Prevent the cursor from targeting a position outside its current window. Since only
-            // the vertical direction is effected by scrolling, we only have to clamp the vertical
-            // grid position.
-            grid.y = grid.y.max(window.grid_current_position.y + top_border).min(
-                window.grid_current_position.y + window.grid_size.height as f32
-                    - 1.0
-                    - bottom_border,
-            );
+                // Prevent the cursor from targeting a position outside its current window. Since only
+                // the vertical direction is effected by scrolling, we only have to clamp the vertical
+                // grid position.
+                grid.y = grid.y.max(window.grid_current_position.y + top_border).min(
+                    window.grid_current_position.y + window.grid_size.height as f32
+                        - 1.0
+                        - bottom_border,
+                );
 
-            self.destination = grid * grid_scale;
+                grid * grid_scale
+            };
+
+            let scroll = window.scroll_animation.position;
+            self.destination = destination_at(scroll);
+            scroll_delta =
+                self.destination - destination_at(scroll - window.scroll_animation_delta);
             Some((window.id, cursor_grid_position))
         } else {
             self.destination = cursor_grid_position_f * grid_scale;
             Some((0, cursor_grid_position))
         };
+
+        for corner in self.corners.iter_mut() {
+            corner.current_position += scroll_delta;
+            corner.previous_destination += scroll_delta;
+        }
+
+        let motion = self.destination - previous_destination - scroll_delta;
+        self.jumped |= motion.x.abs() > 0.01 || motion.y.abs() > 0.01;
+
         if new_cursor_pos != self.previous_cursor_position {
             self.previous_cursor_position = new_cursor_pos;
-            self.jumped = true;
             for vfx in self.cursor_vfxs.iter_mut() {
                 vfx.cursor_jumped(self.destination);
             }
@@ -492,9 +501,7 @@ impl CursorRenderer {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && changed_to_from_cmdline;
             if self.jumped {
-                // Caclculate the direction alignment for each corner and generate a sorted list
-                // This way we know which corner is the front and which is the back
-                let corner_ranks = self
+                let alignments = self
                     .corners
                     .iter()
                     .map(|corner| {
@@ -503,24 +510,16 @@ impl CursorRenderer {
                             center_destination,
                         )
                     })
-                    .enumerate()
-                    .sorted_by(|a, b| {
-                        a.1.partial_cmp(&b.1)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                            .then(a.0.cmp(&b.0))
-                    })
-                    .enumerate()
-                    .sorted_by_key(|(_, (id, _))| *id)
-                    .map(|(rank, (_, _))| rank)
                     .collect_array::<4>()
                     .unwrap();
+                let min = alignments.iter().copied().fold(f32::INFINITY, f32::min);
+                let max = alignments.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+                let range = max - min;
                 for (id, corner) in self.corners.iter_mut().enumerate() {
-                    corner.jump(
-                        &settings,
-                        center_destination,
-                        cursor_dimensions.into(),
-                        corner_ranks[id],
-                    )
+                    let alignment = (alignments[id] - min) / range;
+                    let alignment =
+                        if alignment.is_finite() { alignment.clamp(0.0, 1.0) } else { 1.0 };
+                    corner.jump(&settings, center_destination, cursor_dimensions.into(), alignment)
                 }
             }
             for corner in self.corners.iter_mut() {
@@ -566,15 +565,20 @@ impl CursorRenderer {
         animating
     }
 
+    fn snapped_corner(&self, index: usize) -> skia_safe::Point {
+        let fract = self.destination.fract().to_vector();
+        to_skia_point((self.corners[index].current_position - fract).round() + fract)
+    }
+
     fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
         // The cursor is made up of four points, so I create a path with each of the four
         // corners.
         let mut builder = PathBuilder::new();
         builder
-            .move_to(to_skia_point(self.corners[0].current_position.round()))
-            .line_to(to_skia_point(self.corners[1].current_position.round()))
-            .line_to(to_skia_point(self.corners[2].current_position.round()))
-            .line_to(to_skia_point(self.corners[3].current_position.round()))
+            .move_to(self.snapped_corner(0))
+            .line_to(self.snapped_corner(1))
+            .line_to(self.snapped_corner(2))
+            .line_to(self.snapped_corner(3))
             .close();
 
         let path = builder.detach();
@@ -585,10 +589,10 @@ impl CursorRenderer {
     fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
         let mut rectangle_builder = PathBuilder::new();
         rectangle_builder
-            .move_to(to_skia_point(self.corners[0].current_position.round()))
-            .line_to(to_skia_point(self.corners[1].current_position.round()))
-            .line_to(to_skia_point(self.corners[2].current_position.round()))
-            .line_to(to_skia_point(self.corners[3].current_position.round()))
+            .move_to(self.snapped_corner(0))
+            .line_to(self.snapped_corner(1))
+            .line_to(self.snapped_corner(2))
+            .line_to(self.snapped_corner(3))
             .close();
         let rectangle = rectangle_builder.detach();
 
