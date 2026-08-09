@@ -104,6 +104,7 @@ pub struct RenderedWindow {
     position_t: f32,
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
+    pub scroll_animation_delta: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -144,6 +145,7 @@ impl RenderedWindow {
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
+            scroll_animation_delta: 0.0,
         }
     }
 
@@ -232,7 +234,9 @@ impl RenderedWindow {
         );
         animating |= self.grid_current_position != prev_position;
 
+        let scroll_before = self.scroll_animation.position;
         let scrolling = self.scroll_animation.update(dt, settings.scroll_animation_length);
+        self.scroll_animation_delta = self.scroll_animation.position - scroll_before;
 
         animating |= scrolling;
 
