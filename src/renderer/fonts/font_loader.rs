@@ -222,4 +222,28 @@ mod tests {
         assert!(loader.get_or_load(&missing_font).is_none());
         assert_eq!(loader.failed_fonts.len(), 1);
     }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn renders_colrv1_glyphs() {
+        use skia_safe::{Color, Paint, Point, surfaces};
+
+        let data = Data::new_copy(font_test_data::COLRV0V1);
+        let typeface = FontMgr::new().new_from_data(&data, 0).unwrap();
+        let font = Font::from_typeface(typeface, 96.0);
+        let mut surface = surfaces::raster_n32_premul((128, 128)).unwrap();
+        let canvas = surface.canvas();
+        canvas.clear(Color::TRANSPARENT);
+        canvas.draw_str("\u{f0100}", Point::new(8.0, 96.0), &font, &Paint::default());
+
+        let pixmap = surface.peek_pixels().unwrap();
+        let has_colored_pixel = (0..pixmap.height()).any(|y| {
+            (0..pixmap.width()).any(|x| {
+                let color = pixmap.get_color((x, y));
+                color.a() > 0 && (color.r() > 0 || color.g() > 0 || color.b() > 0)
+            })
+        });
+
+        assert!(has_colored_pixel, "Skia did not render the COLRv1 glyph in color");
+    }
 }
