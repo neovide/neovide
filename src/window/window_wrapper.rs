@@ -23,7 +23,8 @@ use approx::AbsDiffEq;
 use super::settings::CornerPreference;
 use super::{
     EventPayload, EventTarget, KeyboardManager, MessageSelectionEvent, MouseManager, OverlayEvent,
-    RouteId, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
+    ProgressBarUpdate, RouteId, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    WindowSize,
 };
 
 #[cfg(target_os = "macos")]
@@ -1243,8 +1244,8 @@ impl WinitWindowWrapper {
             UserEvent::MacShortcut(command) => {
                 self.handle_mac_shortcut(command);
             }
-            UserEvent::ShowProgressBar { percent, .. } => {
-                self.handle_progress_bar(target, percent);
+            UserEvent::ShowProgressBar { update } => {
+                self.handle_progress_bar(target, update);
             }
             _ => {}
         }
@@ -2246,13 +2247,23 @@ impl WinitWindowWrapper {
         }
     }
 
-    fn handle_progress_bar(&mut self, target: EventTarget, percent: f32) {
+    fn handle_progress_bar(&mut self, target: EventTarget, update: ProgressBarUpdate) {
         tracy_zone!("handle_progress_bar");
+        if update.is_neovim_bufwrite() {
+            return;
+        }
+
         let window_ids = self.window_ids_for_target(target);
         for window_id in window_ids {
             if let Some(route) = self.routes.get(&window_id) {
                 let mut renderer = route.window.renderer.borrow_mut();
-                renderer.progress_bar.start(percent);
+                match update.percent {
+                    Some(percent) if percent >= 100.0 => {
+                        renderer.progress_bar.finish(update.id.as_deref());
+                    }
+                    Some(percent) => renderer.progress_bar.start(update.id.as_deref(), percent),
+                    None => renderer.progress_bar.finish(update.id.as_deref()),
+                }
             }
         }
     }
