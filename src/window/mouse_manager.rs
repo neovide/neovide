@@ -220,6 +220,19 @@ impl MouseManager {
         Self::get_relative_position_at(self.window_position, window_details, editor_state)
     }
 
+    /// Move the cached pointer position without sending anything to Neovim.
+    ///
+    /// `handle_pointer_motion` also emits drag and mouse move commands, which is not wanted
+    /// when the position only needs to be established to pick a target window.
+    fn set_pointer_position(&mut self, position: PixelPos<f32>, editor_state: &EditorState) {
+        self.window_position = position;
+
+        if let Some(window_details) = self.get_window_details_under_mouse(editor_state) {
+            self.grid_position =
+                Self::get_relative_position_at(position, window_details, editor_state);
+        }
+    }
+
     pub fn clear_message_selection(&mut self) -> bool {
         let had_selection = self.message_selection.take().is_some();
         if had_selection {
@@ -557,6 +570,9 @@ impl MouseManager {
             }
             TouchPhase::Moved => {
                 let mut dragging_just_now = false;
+                // Anchor point and distance of a scroll gesture, collected while the trace is
+                // borrowed and applied once that borrow ends.
+                let mut scroll: Option<(PixelPos<f32>, PixelVec<f32>)> = None;
 
                 if let Some(trace) = self.touch_position.get_mut(&finger_id) {
                     if !trace.left_deadzone_once {
@@ -595,8 +611,17 @@ impl MouseManager {
                         // starting point
                         trace.last = location;
 
-                        self.handle_pixel_scroll(delta, editor_state, neovim_handler);
+                        scroll = Some((trace.start, delta));
                     }
+                }
+
+                // A scroll gesture stays with the window the finger first touched, the same way a
+                // drag stays with the window it started on. Touch input never reaches
+                // handle_pointer_motion, so without anchoring here the target would be picked from
+                // whatever window_position was left over from the last mouse move or tap.
+                if let Some((anchor, delta)) = scroll {
+                    self.set_pointer_position(anchor, editor_state);
+                    self.handle_pixel_scroll(delta, editor_state, neovim_handler);
                 }
 
                 if dragging_just_now {
