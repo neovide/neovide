@@ -178,12 +178,21 @@ impl MouseManager {
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
         let position = self.window_position;
+        // Always check the rendered window regions first so floating windows
+        // (e.g. the minimap, rendered at font_scale < 1) are hit-tested
+        // correctly. Only fall back to the full region (main grid) when the
+        // mouse is over the root window area with no float on top.
+        if let Some(details) = editor_state
+            .window_regions
+            .iter()
+            .rfind(|details| details.region.contains(&position))
+        {
+            return Some(details);
+        }
         if self.settings.get::<WindowSettings>().has_mouse_grid_detection {
             Some(&editor_state.full_region)
         } else {
-            // the rendered window regions are sorted by draw order, so the earlier windows in the
-            // list are drawn under the later ones
-            editor_state.window_regions.iter().rfind(|details| details.region.contains(&position))
+            None
         }
     }
 
@@ -201,7 +210,16 @@ impl MouseManager {
         editor_state: &EditorState,
     ) -> GridPos<u32> {
         let relative_position = (window_position - window_details.region.min).to_point();
-        (relative_position / *editor_state.grid_scale)
+        // Minimap windows render at font_scale (<1): the mouse pixel position
+        // is relative to the SHRUNK region, so divide by the shrunk cell size
+        // = grid_scale * font_scale. Using the full-size grid_scale would
+        // mis-map clicks (clicking the 85th logical row lands on row ~30).
+        let fs = window_details.font_scale;
+        let effective_scale = GridScale::new(PixelSize::new(
+            editor_state.grid_scale.width() * fs,
+            editor_state.grid_scale.height() * fs,
+        ));
+        (relative_position / effective_scale)
             .floor()
             .max((0.0, 0.0).into())
             .try_cast()
@@ -412,6 +430,13 @@ impl MouseManager {
                 } else {
                     self.get_relative_position(details, editor_state)
                 };
+
+                log::debug!(
+                    "mouse {} {} grid={} pos={:?} fs={}",
+                    button_text, action,
+                    details.event_grid_id(&self.settings),
+                    position, details.font_scale,
+                );
 
                 send_ui(
                     SerialCommand::MouseButton {
@@ -660,6 +685,7 @@ impl MouseManager {
             region: renderer.window_regions.first().map_or(PixelRect::ZERO, |v| v.region),
             grid_size: renderer.window_regions.first().map_or(GridSize::ZERO, |v| v.grid_size),
             window_type: crate::editor::WindowType::Editor,
+            font_scale: 1.0,
         };
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,
