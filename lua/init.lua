@@ -458,4 +458,17 @@ M.commit_handler = function(commit_raw_text, commit_formatted_text)
     vim.api.nvim_input(commit_formatted_text)
 end
 
+--- Set the font scale for a window (for minimap support).
+--- Neovide reads the window-local variable `neovide_font_scale` every time the
+--- window is positioned as a FLOATING window (win_float_pos). The variable is
+--- ignored on non-floating windows (splits get no layout compensation). Call
+--- this in the same tick as nvim_open_win so the first win_float_pos flush
+--- already carries it, or reposition the float afterwards to force a refresh.
+--- Plain nvim / upstream Neovide ignore this variable.
+--- @param winid integer Window id from nvim_win_getid() / nvim_open_win()
+--- @param scale number Font scale factor (clamped to [0.1, 1.0] on the Rust side)
+function M.set_window_font_scale(winid, scale)
+    vim.api.nvim_win_set_var(winid, "neovide_font_scale", scale)
+end
+
 _G["neovide"] = M

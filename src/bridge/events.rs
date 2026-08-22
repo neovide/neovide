@@ -1,7 +1,10 @@
 use std::{
+    collections::HashMap,
     convert::TryInto,
     error,
     fmt::{self, Debug},
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
 };
 
 use log::{debug, warn};
@@ -14,6 +17,53 @@ use crate::{
     editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle},
     window::{ProgressBarUpdate, UserEvent},
 };
+
+/// Last font scale query per window handle. `scale: None` = variable unset
+/// (normal windows); those are re-checked at a limited rate in case the
+/// variable gets set later (e.g. a plugin sets it right after nvim_open_win,
+/// which can race the first win_float_pos event).
+pub struct CachedFontScale {
+    pub scale: Option<f64>,
+    pub last_checked: Instant,
+}
+
+const FONT_SCALE_RECHECK_INTERVAL: Duration = Duration::from_secs(1);
+
+pub static WINDOW_FONT_SCALE_CACHE: OnceLock<Mutex<HashMap<u64, CachedFontScale>>> =
+    OnceLock::new();
+
+pub fn window_font_scale_cache() -> &'static Mutex<HashMap<u64, CachedFontScale>> {
+    WINDOW_FONT_SCALE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Returns true if the font scale for this handle should be (re)queried.
+pub fn should_query_font_scale(window_handle: u64) -> bool {
+    let now = Instant::now();
+    window_font_scale_cache().lock().ok().map_or(true, |cache| match cache.get(&window_handle) {
+        None => true,
+        Some(entry) => {
+            entry.scale.is_some()
+                || now.duration_since(entry.last_checked) >= FONT_SCALE_RECHECK_INTERVAL
+        }
+    })
+}
+
+/// Store a queried font scale; returns true if it differs from the last value
+/// pushed to the renderer (i.e. a SetGridFontScale event should be sent).
+pub fn update_font_scale_cache(window_handle: u64, scale: Option<f64>) -> bool {
+    let now = Instant::now();
+    match window_font_scale_cache().lock() {
+        Ok(mut cache) => {
+            let changed = match cache.get(&window_handle) {
+                Some(entry) => entry.scale != scale,
+                None => true,
+            } && scale.is_some();
+            cache.insert(window_handle, CachedFontScale { scale, last_checked: now });
+            changed
+        }
+        Err(_) => true,
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -311,6 +361,8 @@ pub enum RedrawEvent {
     /// previously hidden, it should now be shown again.
     WindowPosition {
         grid: u64,
+        #[allow(unused)]
+        window: u64,
         start_row: u64,
         start_column: u64,
         width: u64,
@@ -324,6 +376,7 @@ pub enum RedrawEvent {
     /// [nvim_open_win]: https://neovim.io/doc/user/api.html#nvim_open_win()
     WindowFloatPosition {
         grid: u64,
+        window: u64,
         anchor: WindowAnchor,
         anchor_grid: u64,
         anchor_row: f64,
@@ -858,12 +911,33 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
     })
 }
 
+/// Neovim UI events encode `handle` values (win ids) as msgpack Ext type 1,
+/// with the actual integer nested inside as a msgpack-encoded value.
+/// e.g. handle 1000 arrives as Ext(1, [0xCD, 0x03, 0xE8]) (uint16 1000).
+fn parse_handle(value: &Value) -> Option<u64> {
+    match value {
+        Value::Integer(i) => i.as_u64(),
+        Value::Ext(_, bytes) => {
+            rmpv::decode::read_value(&mut bytes.as_slice()).ok().and_then(|v| match v {
+                Value::Integer(i) => i.as_u64(),
+                _ => None,
+            })
+        }
+        _ => None,
+    }
+}
+
 fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid, _window, start_row, start_column, width, height] =
-        extract_values(win_pos_arguments)?;
+    let [grid, window, start_row, start_column, width, height] = extract_values(win_pos_arguments)?;
+
+    let grid_id = parse_u64(grid)?;
+    let window_handle = parse_handle(&window).ok_or_else(|| {
+        ParseError::Format(format!("invalid window handle in win_pos: {window:?}"))
+    })?;
 
     Ok(RedrawEvent::WindowPosition {
-        grid: parse_u64(grid)?,
+        grid: grid_id,
+        window: window_handle,
         start_row: parse_u64(start_row)?,
         start_column: parse_u64(start_column)?,
         width: parse_u64(width)?,
@@ -884,12 +958,18 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
 
 fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let (
-        [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, mouse_enabled, z_index],
+        [grid, window, anchor, anchor_grid, anchor_row, anchor_column, mouse_enabled, z_index],
         [comp_index, screen_row, screen_col],
     ) = extract_values_with_optional(win_float_pos_arguments)?;
 
+    let grid_id = parse_u64(grid)?;
+    let window_handle = parse_handle(&window).ok_or_else(|| {
+        ParseError::Format(format!("invalid window handle in win_float_pos: {window:?}"))
+    })?;
+
     Ok(RedrawEvent::WindowFloatPosition {
-        grid: parse_u64(grid)?,
+        grid: grid_id,
+        window: window_handle,
         anchor: parse_window_anchor(anchor)?,
         anchor_grid: parse_u64(anchor_grid)?,
         anchor_row: parse_f64(anchor_row)?,

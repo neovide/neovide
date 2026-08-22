@@ -54,7 +54,7 @@ use crate::{
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         DrawCommand, DrawCommandResult, MessageSelection, Renderer, RendererSettingsChanged,
-        SkiaRenderer, StartupMessageFlush, VSync, create_skia_renderer,
+        SkiaRenderer, StartupMessageFlush, VSync, WindowDrawCommand, create_skia_renderer,
     },
     running_tracker::RunningTracker,
     settings::{
@@ -1246,6 +1246,16 @@ impl WinitWindowWrapper {
             }
             UserEvent::ShowProgressBar { update } => {
                 self.handle_progress_bar(target, update);
+            }
+            UserEvent::SetGridFontScale { grid_id, scale } => {
+                let draw_command =
+                    DrawCommand::Window { grid_id, command: WindowDrawCommand::SetGridFontScale { scale } };
+                match target {
+                    EventTarget::Route(route_id) => {
+                        self.handle_draw_commands_for_route(route_id, vec![draw_command]);
+                    }
+                    _ => log::warn!("SetGridFontScale event missing route target"),
+                }
             }
             _ => {}
         }
