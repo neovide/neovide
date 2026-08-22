@@ -148,6 +148,10 @@ pub enum UserEvent {
     ShowProgressBar {
         update: ProgressBarUpdate,
     },
+    SetGridFontScale {
+        grid_id: u64,
+        scale: f32,
+    },
     #[cfg(target_os = "macos")]
     CreateWindow,
     #[cfg(target_os = "macos")]
