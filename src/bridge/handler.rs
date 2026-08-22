@@ -25,6 +25,7 @@ use crate::bridge::ParallelCommand;
 use crate::bridge::RedrawEvent;
 use crate::bridge::clipboard::get_clipboard_contents;
 use crate::bridge::clipboard::set_clipboard_contents;
+use crate::bridge::events;
 use crate::bridge::events::parse_redraw_event;
 use crate::bridge::parse_progress_bar_event;
 use crate::bridge::send_ui;
@@ -245,6 +246,11 @@ impl Handler for NeovimHandler {
 
                         match parsed_event {
                             RedrawEvent::Restart { details } => {
+                                // Stale font scale cache: window handles from the
+                                // previous instance are no longer valid.
+                                if let Ok(mut cache) = events::window_font_scale_cache().lock() {
+                                    cache.clear();
+                                }
                                 let payload = EventPayload::for_route(
                                     UserEvent::NeovimRestart(details),
                                     self.route_id,
@@ -252,6 +258,29 @@ impl Handler for NeovimHandler {
                                 let _ = self.proxy.lock().unwrap().send_event(payload);
                             }
                             _ => {
+                                // Sync per-window font scale (vim.w.neovide_font_scale)
+                                // whenever a FLOATING window is (re)positioned. The
+                                // variable is deliberately ignored on non-floating
+                                // windows: splits get no layout compensation, and
+                                // floats are the only supported target.
+                                if let Some((window_handle, grid_id)) = match &parsed_event {
+                                    RedrawEvent::WindowFloatPosition { window, grid, .. } => {
+                                        Some((*window, *grid))
+                                    }
+                                    _ => None,
+                                } && events::should_query_font_scale(window_handle)
+                                {
+                                    let nvim = neovim.clone();
+                                    let proxy = self.proxy.clone();
+                                    let route_id = self.route_id;
+                                    tokio::spawn(sync_window_font_scale(
+                                        nvim,
+                                        proxy,
+                                        route_id,
+                                        window_handle,
+                                        grid_id,
+                                    ));
+                                }
                                 let _ = self.redraw_event_sender.send(parsed_event);
                             }
                         }
@@ -353,6 +382,46 @@ impl Handler for NeovimHandler {
             }
             _ => {}
         }
+    }
+}
+
+/// Reads the window-local variable `neovide_font_scale` (clamped to [0.1, 1.0])
+/// and pushes it to the renderer as a per-grid font scale when it changed.
+async fn sync_window_font_scale(
+    nvim: Neovim<NeovimWriter>,
+    proxy: Arc<Mutex<EventLoopProxy<EventPayload>>>,
+    route_id: RouteId,
+    window_handle: u64,
+    grid_id: u64,
+) {
+    let value = nvim
+        .exec_lua(
+            "local winid = ...
+return vim.w[winid] and vim.w[winid].neovide_font_scale or nil",
+            vec![Value::from(window_handle)],
+        )
+        .await;
+
+    let queried_scale = match value {
+        Ok(Value::Nil) => None,
+        Ok(Value::F64(scale)) => Some(scale.clamp(0.1, 1.0)),
+        Ok(Value::Integer(scale)) => scale.as_u64().map(|s| (s as f64).clamp(0.1, 1.0)),
+        Ok(value) => {
+            log::warn!("invalid neovide_font_scale on window {window_handle}: {value:?}");
+            None
+        }
+        Err(error) => {
+            log::warn!("failed to query neovide_font_scale on window {window_handle}: {error:?}");
+            None
+        }
+    };
+
+    if events::update_font_scale_cache(window_handle, queried_scale) {
+        let payload = EventPayload::for_route(
+            UserEvent::SetGridFontScale { grid_id, scale: queried_scale.unwrap_or(1.0) as f32 },
+            route_id,
+        );
+        let _ = proxy.lock().unwrap().send_event(payload);
     }
 }
 

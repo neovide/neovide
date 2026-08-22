@@ -65,6 +65,7 @@ use crate::renderer::RendererSettingsChanged;
 use crate::renderer::SkiaRenderer;
 use crate::renderer::StartupMessageFlush;
 use crate::renderer::VSync;
+use crate::renderer::WindowDrawCommand;
 use crate::renderer::create_skia_renderer;
 use crate::running_tracker::RunningTracker;
 use crate::settings::Config;
@@ -1005,6 +1006,18 @@ impl WinitWindowWrapper {
             }
             UserEvent::ShowProgressBar { update } => {
                 self.handle_progress_bar(target, update);
+            }
+            UserEvent::SetGridFontScale { grid_id, scale } => {
+                let draw_command = DrawCommand::Window {
+                    grid_id,
+                    command: WindowDrawCommand::SetGridFontScale { scale },
+                };
+                match target {
+                    EventTarget::Route(route_id) => {
+                        self.handle_draw_commands_for_route(route_id, vec![draw_command]);
+                    }
+                    _ => log::warn!("SetGridFontScale event missing route target"),
+                }
             }
             _ => {}
         }
