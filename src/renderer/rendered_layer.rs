@@ -103,13 +103,33 @@ impl FloatingLayer<'_> {
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            window.draw_background_surface(root_canvas, pixel_regions[i], grid_scale);
-            window.draw_foreground_surface(root_canvas, pixel_regions[i], grid_scale);
+            let font_scale = window.font_scale;
+            if (font_scale - 1.0).abs() < f32::EPSILON {
+                window.draw_background_surface(root_canvas, pixel_regions[i], grid_scale);
+                window.draw_foreground_surface(root_canvas, pixel_regions[i], grid_scale);
+            } else {
+                // Minimap window: scale the canvas so the full-size glyphs are drawn
+                // smaller. The region passed to the draw helpers is divided by
+                // font_scale since the canvas transform multiplies the coordinates.
+                root_canvas.save();
+                let f = font_scale;
+                root_canvas.scale((f, f));
+                let inv = 1.0 / f;
+                let scaled_region = PixelRect::new(
+                    pixel_regions[i].min * inv,
+                    pixel_regions[i].max * inv,
+                );
+                root_canvas.clip_rect(to_skia_rect(&scaled_region), None, Some(false));
+                window.draw_background_surface(root_canvas, scaled_region, grid_scale);
+                window.draw_foreground_surface(root_canvas, scaled_region, grid_scale);
+                root_canvas.restore();
+            }
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],
                 grid_size: window.grid_size,
                 window_type: window.window_type,
+                font_scale: window.font_scale,
             });
         });
 

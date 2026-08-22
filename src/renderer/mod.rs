@@ -582,7 +582,8 @@ impl Renderer {
                     }
                     Entry::Vacant(vacant_entry) => match command {
                         WindowDrawCommand::Position { .. }
-                        | WindowDrawCommand::ViewportMargins { .. } => {
+                        | WindowDrawCommand::ViewportMargins { .. }
+                        | WindowDrawCommand::SetGridFontScale { .. } => {
                             let mut new_window = RenderedWindow::new(grid_id);
                             new_window.handle_window_draw_command(command);
                             vacant_entry.insert(new_window);
