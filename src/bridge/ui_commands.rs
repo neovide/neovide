@@ -264,6 +264,11 @@ impl SerialCommand {
     }
 }
 
+fn normalize_file_drop_path(path: String, windows: bool) -> String {
+    // Ex parsing can consume a Windows separator before escapable filename characters such as `(`.
+    if windows { path.replace('\\', "/") } else { path }
+}
+
 #[derive(Debug, Clone, AsRefStr)]
 pub enum ParallelCommand {
     Quit,
@@ -432,10 +437,13 @@ impl ParallelCommand {
                 .exec_lua(
                     "neovide.private.dropfile(...)",
                     call_args![
-                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl)
-                            .first()
-                            .unwrap()
-                            .to_string(),
+                        normalize_file_drop_path(
+                            handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl)
+                                .first()
+                                .unwrap()
+                                .to_string(),
+                            cfg!(target_os = "windows"),
+                        ),
                         tabs.unwrap_or(settings.get::<CmdLineSettings>().tabs)
                     ],
                 )
@@ -602,8 +610,25 @@ pub fn unregister_route_handler(route_id: RouteId) {
 
 #[cfg(test)]
 mod tests {
-    use super::cmdheight_to_restore;
+    use super::{cmdheight_to_restore, normalize_file_drop_path};
     use rmpv::Value;
+
+    #[test]
+    fn normalizes_windows_file_drop_separators() {
+        assert_eq!(
+            normalize_file_drop_path(
+                r"E:\Documents\atoms\duration\(Modified) Duration.md".to_owned(),
+                true,
+            ),
+            "E:/Documents/atoms/duration/(Modified) Duration.md"
+        );
+    }
+
+    #[test]
+    fn preserves_non_windows_file_drop_separators() {
+        let path = r"/tmp/a\b/file name.md";
+        assert_eq!(normalize_file_drop_path(path.to_owned(), false), path);
+    }
 
     #[test]
     fn cmdheight_restore_uses_pre_attach_value_for_ext_messages_zero() {
