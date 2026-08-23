@@ -1,12 +1,15 @@
-use std::fmt;
 use std::sync::{
     Arc, Mutex, RwLock,
     atomic::{AtomicBool, Ordering},
 };
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 use async_trait::async_trait;
 use log::{trace, warn};
-use nvim_rs::{Handler, Neovim, call_args};
+use nvim_rs::{Handler, Neovim, call_args, rpc::IntoVal};
 use rmpv::Value;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use winit::event_loop::EventLoopProxy;
@@ -74,6 +77,8 @@ struct NeovimState {
     nvim: Option<Neovim<NeovimWriter>>,
     can_support_ime_api: bool,
     pre_attach_cmdheight: Option<Value>,
+    grid_sizes: HashMap<u64, (u64, u64)>,
+    ui2_pager_grids: HashSet<u64>,
 }
 
 #[derive(Clone)]
@@ -137,6 +142,8 @@ impl NeovimHandler {
         if let Ok(mut guard) = self.current_neovim.write() {
             guard.nvim = Some(neovim);
             guard.can_support_ime_api = can_support_ime_api;
+            guard.grid_sizes.clear();
+            guard.ui2_pager_grids.clear();
         }
     }
 
@@ -166,6 +173,83 @@ impl NeovimHandler {
 
     pub fn send_redraw_event(&self, event: RedrawEvent) {
         let _ = self.redraw_event_sender.send(event);
+    }
+
+    fn update_grid_size(&self, grid: u64, width: u64, height: u64) {
+        if let Ok(mut guard) = self.current_neovim.write() {
+            guard.grid_sizes.insert(grid, (width, height));
+        }
+    }
+
+    fn remove_grid_size(&self, grid: u64) {
+        if let Ok(mut guard) = self.current_neovim.write() {
+            guard.grid_sizes.remove(&grid);
+            guard.ui2_pager_grids.remove(&grid);
+        }
+    }
+
+    fn remember_ui2_pager(&self, grid: u64) {
+        if let Ok(mut guard) = self.current_neovim.write() {
+            guard.ui2_pager_grids.insert(grid);
+        }
+    }
+
+    fn oversized_grid_resize_target(&self, grid: u64) -> Option<(u64, u64)> {
+        let guard = self.current_neovim.read().ok()?;
+        oversized_grid_resize_target(&guard.grid_sizes, grid)
+    }
+
+    fn ui2_pager_resize_targets(&self, changed_grid: u64) -> Vec<(u64, u64, u64)> {
+        let Ok(guard) = self.current_neovim.read() else {
+            return Vec::new();
+        };
+        ui2_pager_resize_targets(&guard.grid_sizes, &guard.ui2_pager_grids, changed_grid)
+    }
+}
+
+fn ui2_pager_resize_targets(
+    grid_sizes: &HashMap<u64, (u64, u64)>,
+    ui2_pager_grids: &HashSet<u64>,
+    changed_grid: u64,
+) -> Vec<(u64, u64, u64)> {
+    let Some(&(base_width, _)) = grid_sizes.get(&1) else {
+        return Vec::new();
+    };
+
+    ui2_pager_grids
+        .iter()
+        .filter(|&&grid| changed_grid == 1 || changed_grid == grid)
+        .filter_map(|&grid| {
+            let &(width, height) = grid_sizes.get(&grid)?;
+            (width != base_width).then_some((grid, base_width, height))
+        })
+        .collect()
+}
+
+fn oversized_grid_resize_target(
+    grid_sizes: &HashMap<u64, (u64, u64)>,
+    grid: u64,
+) -> Option<(u64, u64)> {
+    let &(base_width, _) = grid_sizes.get(&1)?;
+    let &(width, height) = grid_sizes.get(&grid)?;
+
+    (width > base_width).then_some((base_width, height))
+}
+
+async fn is_ui2_pager(nvim: &Neovim<NeovimWriter>, window: &Value) -> bool {
+    nvim.exec_lua(
+        "local win = ...; if not vim.api.nvim_win_is_valid(win) then return false end; local buf = vim.api.nvim_win_get_buf(win); return vim.bo[buf].filetype == 'pager' and vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':t') == '[Pager]'",
+        call_args![window.clone()],
+    )
+    .await
+    .ok()
+    .and_then(|value| value.as_bool())
+    .unwrap_or(false)
+}
+
+async fn resize_grid(nvim: &Neovim<NeovimWriter>, grid: u64, width: u64, height: u64) {
+    if let Err(error) = nvim.ui_try_resize_grid(grid as i64, width as i64, height as i64).await {
+        warn!("Failed to resize ui2 pager grid: {error}");
     }
 }
 
@@ -219,6 +303,28 @@ impl Handler for NeovimHandler {
                     for parsed_event in parsed_events {
                         if skip_default_guifont(&parsed_event, &self.settings, &neovim).await {
                             continue;
+                        }
+
+                        match &parsed_event {
+                            RedrawEvent::Resize { grid, width, height } => {
+                                self.update_grid_size(*grid, *width, *height);
+                                for (pager_grid, width, height) in
+                                    self.ui2_pager_resize_targets(*grid)
+                                {
+                                    resize_grid(&neovim, pager_grid, width, height).await;
+                                }
+                            }
+                            RedrawEvent::Destroy { grid } => self.remove_grid_size(*grid),
+                            RedrawEvent::WindowFloatPosition { grid, window, .. } => {
+                                if let Some((width, height)) =
+                                    self.oversized_grid_resize_target(*grid)
+                                    && is_ui2_pager(&neovim, window).await
+                                {
+                                    self.remember_ui2_pager(*grid);
+                                    resize_grid(&neovim, *grid, width, height).await;
+                                }
+                            }
+                            _ => {}
                         }
 
                         match parsed_event {
@@ -386,12 +492,35 @@ fn is_guifont_option_set(event: &RedrawEvent) -> bool {
 #[cfg(test)]
 mod tests {
     use std::{
+        collections::{HashMap, HashSet},
         panic::{AssertUnwindSafe, catch_unwind},
         sync::{Arc, Mutex},
     };
 
-    use super::{ClipboardRequestError, handle_clipboard_request};
+    use super::{
+        ClipboardRequestError, handle_clipboard_request, oversized_grid_resize_target,
+        ui2_pager_resize_targets,
+    };
     use crate::clipboard::{Clipboard, ClipboardError, ClipboardHandle, ProviderState};
+
+    #[test]
+    fn oversized_grid_uses_base_width_and_preserves_height() {
+        let grid_sizes = HashMap::from([(1, (80, 24)), (8, (10_000, 2))]);
+        assert_eq!(oversized_grid_resize_target(&grid_sizes, 8), Some((80, 2)));
+    }
+
+    #[test]
+    fn normal_grid_is_not_resized() {
+        let grid_sizes = HashMap::from([(1, (80, 24)), (8, (60, 2))]);
+        assert_eq!(oversized_grid_resize_target(&grid_sizes, 8), None);
+    }
+
+    #[test]
+    fn known_pager_tracks_base_grid_growth() {
+        let grid_sizes = HashMap::from([(1, (80, 24)), (8, (40, 3))]);
+        let pager_grids = HashSet::from([8]);
+        assert_eq!(ui2_pager_resize_targets(&grid_sizes, &pager_grids, 1), vec![(8, 80, 3)]);
+    }
 
     fn unavailable_clipboard(error: ClipboardError) -> Arc<Mutex<Clipboard>> {
         Arc::new(Mutex::new(Clipboard::from_provider_states_for_test(
