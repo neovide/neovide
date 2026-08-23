@@ -28,6 +28,20 @@ pub type NeovimWriter = Box<dyn futures::AsyncWrite + Send + Unpin + 'static>;
 type BoxedReader = Box<dyn AsyncRead + Send + Unpin + 'static>;
 type BoxedWriter = Box<dyn AsyncWrite + Send + Unpin + 'static>;
 
+#[cfg(any(target_os = "windows", test))]
+fn normalize_windows_pipe_address(address: String) -> String {
+    const PIPE_PREFIX: &str = r"\\.\pipe\";
+    const FORWARD_SLASH_PIPE_PREFIX: &str = "//./pipe/";
+
+    if address.starts_with(PIPE_PREFIX) {
+        address
+    } else if let Some(name) = address.strip_prefix(FORWARD_SLASH_PIPE_PREFIX) {
+        format!("{PIPE_PREFIX}{name}")
+    } else {
+        format!("{PIPE_PREFIX}{address}")
+    }
+}
+
 pub struct NeovimSession {
     pub neovim: Neovim<NeovimWriter>,
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
@@ -193,12 +207,7 @@ impl NeovimInstance {
 
             #[cfg(windows)]
             {
-                // Fixup the address if the pipe on windows does not start with \\.\pipe\.
-                let address = if address.starts_with("\\\\.\\pipe\\") {
-                    address
-                } else {
-                    format!("\\\\.\\pipe\\{address}")
-                };
+                let address = normalize_windows_pipe_address(address);
                 Ok(Self::split(
                     tokio::net::windows::named_pipe::ClientOptions::new().open(address)?,
                 ))
@@ -244,5 +253,29 @@ impl NeovimInstance {
     ) -> (BoxedReader, BoxedWriter) {
         let (reader, writer) = split(stream);
         (Box::new(reader), Box::new(writer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_windows_pipe_address;
+
+    #[test]
+    fn preserves_canonical_windows_pipe_address() {
+        let address = r"\\.\pipe\nvim.123".to_string();
+        assert_eq!(normalize_windows_pipe_address(address.clone()), address);
+    }
+
+    #[test]
+    fn normalizes_neovim_forward_slash_pipe_address() {
+        assert_eq!(
+            normalize_windows_pipe_address("//./pipe/nvim.123".to_string()),
+            r"\\.\pipe\nvim.123"
+        );
+    }
+
+    #[test]
+    fn prefixes_bare_windows_pipe_name() {
+        assert_eq!(normalize_windows_pipe_address("nvim.123".to_string()), r"\\.\pipe\nvim.123");
     }
 }

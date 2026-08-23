@@ -1984,27 +1984,34 @@ impl WinitWindowWrapper {
     }
 
     pub fn queue_restart_route(&mut self, route_id: RouteId, details: RestartDetails) {
+        // The restart notification arrives before the old channel closes. Keep the current
+        // renderer untouched because Neovim may still abort the restart (for example with E37).
         let grid_size = if let Some(window_id) = self.window_id_for_route(route_id) {
-            let grid_size = match self.routes.get(&window_id) {
+            match self.routes.get(&window_id) {
                 Some(route) => route.window.renderer.borrow().get_grid_size(),
                 None => return,
+            }
+        } else {
+            let Some(route_core) = self.route_cores.get(&route_id) else {
+                return;
             };
+            route_core.renderer.borrow().get_grid_size()
+        };
+
+        self.pending_restart.insert(route_id, RestartRequest { details, grid_size });
+    }
+
+    fn prepare_route_for_restart(&mut self, route_id: RouteId) {
+        // This is called only after the old Neovim channel has actually closed.
+        if let Some(window_id) = self.window_id_for_route(route_id) {
             self.clear_renderer(window_id);
             if let Some(route) = self.routes.get_mut(&window_id) {
                 route.window.last_synced_grid_size = None;
             }
-            grid_size
-        } else {
-            let Some(route_core) = self.route_cores.get_mut(&route_id) else {
-                return;
-            };
-            let grid_size = route_core.renderer.borrow().get_grid_size();
+        } else if let Some(route_core) = self.route_cores.get_mut(&route_id) {
             route_core.renderer.borrow_mut().clear();
             route_core.last_synced_grid_size = None;
-            grid_size
-        };
-
-        self.pending_restart.insert(route_id, RestartRequest { details, grid_size });
+        }
     }
 
     fn restart_neovim_route(
@@ -2015,6 +2022,11 @@ impl WinitWindowWrapper {
     ) -> Result<(), ()> {
         let handler = self.neovim_handler_for_route(route_id).ok_or(())?;
         let cwd = self.route_cwd(route_id);
+        if self.runtime.is_none() {
+            return Err(());
+        }
+
+        self.prepare_route_for_restart(route_id);
         let runtime = self.runtime.as_mut().ok_or(())?;
 
         runtime
