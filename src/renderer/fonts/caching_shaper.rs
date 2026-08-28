@@ -24,10 +24,16 @@ use crate::{
     units::PixelSize,
 };
 
-#[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
     pub style: CoarseStyle,
+}
+
+impl ShapeKey {
+    pub fn new(text: String, style: CoarseStyle) -> Self {
+        Self { text, style }
+    }
 }
 
 const FONT_CACHE_SIZE: usize = 8 * 1024 * 1024;
