@@ -52,42 +52,24 @@ see fit (and then update here with your findings).
 
 ### Preparing
 
-1. Head over to [the releases page][releases-page] and hit the `Draft a new
-    release` button.
-2. Keep the resulting page somewhere safe open, you'll need to work with it the
-    next half an hour and GitHub doesn't automatically save its contents.
-3. Create a new tag with an appropriate version number.
+1. Pick a new tag name with an appropriate version.
 
-  We're not fully following [SemVer][semver] here, but as of 0.10.1 larger
-  changes should be an increase in the MINOR part, while fixups should be an
-  increase in the PATCH part.
+    We're not fully following [SemVer][semver] here, but as of 0.10.1 larger
+    changes should be an increase in the MINOR part, while fixups should be an
+    increase in the PATCH part.
 
-1. Hit the `Generate release notes` button.
-2. Reformat to be similar to previous releases
+2. Announce a short period of time where last changes to be done or fixup work
+    can flow in (can be anything you imagine, though 24 hours to one week might
+    be enough depending on the blocker).
+3. Wait for that period to pass.
 
-    - Rename the `What's Changed` section to `Changes`
-    - Rewrite each line in the `Changes` section to reflect what this change means
-      for the end user, linking to the relevant PR/commit
-    - Group all bug fix PRs/commits under a point named `Bug fixes`
-    - Have each line reflect what platform it applies to if not irrelevant
+4. Have a last look over the draft to make sure every new contributor and change has
+    been mentioned
 
-3. Hit the `Save draft` button
-
-You can make several rounds of preparing such releases through editing the
-current draft over time, to make sure every contributor is mentioned and every
-change is included.
-
-[releases-page]: https://github.com/neovide/neovide/releases
+[release-draft-workflow]: https://github.com/neovide/neovide/actions/workflows/release-draft.yml
 [semver]: https://semver.org/
 
 ### Actually releasing
-
-1. Announce a short period of time where last changes to be done or fixup work
-    can flow in (can be anything you imagine, though 24 hours to one week might
-    be enough depending on the blocker)
-2. Wait for that period to pass
-3. Have a last look over the draft to make sure every new contributor and change has
-    been mentioned
 
 Now here's where the order becomes important:
 
@@ -98,7 +80,7 @@ Now here's where the order becomes important:
 
     - `Cargo.toml` (do note it contains the version _twice_, one time in the
         top, one time at the bottom in the bundling section)
-    - `extra/osx/Neovide.app/Contents/Resources/Info.plist`
+    - `extra/osx/Neovide.app/Contents/Info.plist`
     - `website/docs/*.md` and update `Nightly` to `Available since $tag`
       (where `$tag` is the tag name)
 
@@ -112,24 +94,56 @@ Now here's where the order becomes important:
 7. Create a commit called `Bump version to $tag`
 8. Push and wait for CI to complete (will take around 25 minutes)
 9. Run `cargo build --frozen`
+10. Record the full commit SHA for the `Bump version to $tag` commit:
+
+    ```sh
+    target="$(git rev-parse HEAD)"
+    ```
+
+11. Create and push an annotated `$tag` tag that points at that exact commit:
+
+    ```sh
+    git tag -a "$tag" "$target" -m "$tag"
+    git push origin "$tag"
+    ```
 
 In the meantime, you can look through the previous commits to see if you missed
 anything.
 
-1. From the `Bump version to $tag` commit, download all the artifacts
-2. Unzip
+1. Run the [Release Draft workflow][release-draft-workflow] with:
 
-    - `neovide.AppImage.zip`
-    - `neovide.AppImage.zsync.zip`
-    - `neovide.msi.zip`
-    - `neovide-linux-x86_64.tar.gz.zip`
+    - `tag`: the stable tag, for example `0.17.0`
+    - `target`: the full commit SHA for the `Bump version to $tag` commit
 
-3. Head to the release draft, edit it and upload the produced artifacts (using
-    the unzipped versions if listed above)
+2. Wait for the workflow to finish. It verifies the pushed annotated tag, builds
+    the release artifacts, creates a GitHub draft release, generates release
+    notes and uploads:
+
+    - `neovide.msi`
+    - `neovide-windows-x86_64.zip`
+    - `neovide.AppImage`
+    - `neovide.AppImage.zsync`
+    - `neovide-linux-x86_64.tar.gz`
+    - `Neovide-x86_64-apple-darwin.dmg`
+    - `Neovide-aarch64-apple-darwin.dmg`
+
+3. Head to the release draft and reformat the generated release notes to be
+    similar to previous releases:
+
+    - Rename the `What's Changed` section to `Changes`
+    - Rewrite each line in the `Changes` section to reflect what this change means
+      for the end user, linking to the relevant PR/commit
+    - Group all bug fix PRs/commits under a point named `Bug fixes`
+    - Have each line reflect what platform it applies to if not irrelevant
+
+    You can make several rounds of preparing such releases through editing the
+    current draft over time, to make sure every contributor is mentioned and every
+    change is included.
+
 4. Hit `Publish release`
-5. profit
-6. Publish `neovide-derive` to crates.io if necessary `cargo publish -p neovide-derive`
-7. Publish `neovide` to crates.io `cargo publish -p neovide`
+5. Publish `neovide-derive` to crates.io if necessary `cargo publish -p neovide-derive`
+6. Publish `neovide` to crates.io `cargo publish -p neovide`
+7. profit
 
 Phew. Now, announce the new release anywhere you think is appropriate (like
 Reddit, Discord, whatever) ~~and go create a PR in nixpkgs~~.
