@@ -74,6 +74,29 @@ pub struct Pressure {
     stage: i64,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProgressBarUpdate {
+    pub id: Option<String>,
+    pub source: Option<String>,
+    pub status: Option<String>,
+    pub percent: Option<f32>,
+}
+
+impl ProgressBarUpdate {
+    /// neovim stable and nightly encode the same save event differently.
+    /// for example stable uses id = "bufwrite" with percent = 0 while nightly uses
+    /// id = "nvim.bufwrite [file]" without a percent field.
+    /// A determinate percentage on either shape is not treated as built-in save progress.
+    pub fn is_neovim_bufwrite(&self) -> bool {
+        self.source.as_deref() == Some("nvim")
+            && match self.id.as_deref() {
+                Some("bufwrite") => self.percent == Some(0.0), // stable
+                Some(id) if id.starts_with("nvim.bufwrite ") => self.percent.is_none(), // nightly
+                _ => false,
+            }
+    }
+}
+
 #[cfg(target_os = "macos")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ForceClickKind {
@@ -158,7 +181,7 @@ pub enum UserEvent {
     },
     NeovimRestart(RestartDetails),
     ShowProgressBar {
-        percent: f32,
+        update: ProgressBarUpdate,
     },
     #[cfg(target_os = "macos")]
     CreateWindow,

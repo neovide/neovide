@@ -430,18 +430,19 @@ vim.api.nvim_create_autocmd("OptionSet", {
 
 notify_intro_state()
 
-pcall(vim.api.nvim_create_autocmd, 'Progress', {
-    group = vim.api.nvim_create_augroup('NeovideProgressBar', { clear = true }),
-    desc = 'Forward progress events to Neovide',
+pcall(vim.api.nvim_create_autocmd, "Progress", {
+    group = vim.api.nvim_create_augroup("NeovideProgressBar", { clear = true }),
+    desc = "Forward progress events to Neovide",
     callback = function(ev)
-        if ev.data and ev.data.status == 'running' then
+        if ev.data then
             progress_bar({
-                percent = ev.data.percent or 0,
+                id = ev.data.id,
+                source = ev.data.source,
+                status = ev.data.status,
+                percent = ev.data.percent,
                 title = ev.data.title or "",
                 message = ev.data.message or "",
             })
-        else
-            progress_bar({ percent = 100 })
         end
     end,
 })
