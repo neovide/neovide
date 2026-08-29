@@ -2,7 +2,7 @@
 
 use std::{env, fs, sync::mpsc, time::Duration};
 
-use notify_debouncer_full::{new_debouncer, notify::RecursiveMode};
+use notify_debouncer_full::{DebouncedEvent, new_debouncer, notify::RecursiveMode};
 use serde::{
     Deserialize, Deserializer,
     de::{Error as DeError, Unexpected},
@@ -314,8 +314,21 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
 
     let mut previous_config = init_config;
     loop {
-        if let Err(e) = rx.recv() {
-            eprintln!("Error while watching config file: {e}");
+        let events = match rx.recv() {
+            Ok(Ok(events)) => events,
+            Ok(Err(errors)) => {
+                for error in errors {
+                    log::warn!("Error while watching config file: {error}");
+                }
+                continue;
+            }
+            Err(error) => {
+                log::warn!("Config file watcher stopped: {error}");
+                return;
+            }
+        };
+
+        if !events_relevant_to_config(&events, &config_path) {
             continue;
         }
 
@@ -402,5 +415,59 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
             }
         }
         previous_config = config;
+    }
+}
+
+fn events_relevant_to_config(events: &[DebouncedEvent], config_path: &Path) -> bool {
+    events.iter().any(|event| {
+        event.event.need_rescan() || event.event.paths.iter().any(|path| path == config_path)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use notify_debouncer_full::{
+        DebouncedEvent,
+        notify::{Event, EventKind, event::Flag},
+    };
+
+    use super::*;
+
+    fn event_with_paths(paths: &[&str]) -> DebouncedEvent {
+        let event = paths
+            .iter()
+            .fold(Event::new(EventKind::Any), |event, path| event.add_path(PathBuf::from(path)));
+        DebouncedEvent::new(event, Instant::now())
+    }
+
+    #[test]
+    fn ignores_events_for_other_files_in_config_directory() {
+        let events = [event_with_paths(&["/tmp/.config.toml.swp"])];
+
+        assert!(!events_relevant_to_config(&events, Path::new("/tmp/config.toml")));
+    }
+
+    #[test]
+    fn accepts_events_for_config_file() {
+        let events = [event_with_paths(&["/tmp/config.toml"])];
+
+        assert!(events_relevant_to_config(&events, Path::new("/tmp/config.toml")));
+    }
+
+    #[test]
+    fn accepts_atomic_rename_to_config_file() {
+        let events = [event_with_paths(&["/tmp/config.toml.tmp", "/tmp/config.toml"])];
+
+        assert!(events_relevant_to_config(&events, Path::new("/tmp/config.toml")));
+    }
+
+    #[test]
+    fn accepts_events_that_require_a_rescan() {
+        let event = Event::new(EventKind::Any).set_flag(Flag::Rescan);
+        let events = [DebouncedEvent::new(event, Instant::now())];
+
+        assert!(events_relevant_to_config(&events, Path::new("/tmp/config.toml")));
     }
 }
