@@ -5,8 +5,8 @@ use std::{os::raw::c_char, ptr::null};
 use tracy_client_sys::{
     ___tracy_alloc_srcloc_name, ___tracy_c_zone_context, ___tracy_connected,
     ___tracy_emit_frame_mark, ___tracy_emit_plot, ___tracy_emit_zone_begin,
-    ___tracy_emit_zone_begin_alloc, ___tracy_emit_zone_end, ___tracy_fiber_enter,
-    ___tracy_fiber_leave, ___tracy_source_location_data, ___tracy_startup_profiler,
+    ___tracy_emit_zone_begin_alloc, ___tracy_emit_zone_end, ___tracy_source_location_data,
+    ___tracy_startup_profiler,
 };
 
 use crate::renderer::SkiaRenderer;
@@ -235,20 +235,6 @@ pub fn _tracy_plot(name: &std::ffi::CStr, value: f64) {
     }
 }
 
-#[inline(always)]
-pub fn _tracy_fiber_enter(name: &std::ffi::CStr) {
-    unsafe {
-        ___tracy_fiber_enter(name.as_ptr());
-    }
-}
-
-#[inline(always)]
-pub fn tracy_fiber_leave() {
-    unsafe {
-        ___tracy_fiber_leave();
-    }
-}
-
 #[macro_export]
 macro_rules! location_data {
     ($name: expr, $color: expr) => {{
@@ -317,18 +303,10 @@ macro_rules! tracy_plot {
     };
 }
 
-#[macro_export]
-macro_rules! tracy_fiber_enter {
-    ($name: expr) => {
-        $crate::profiling::_tracy_fiber_enter($crate::profiling::cstr!($name))
-    };
-}
-
 pub(crate) use cstr;
 pub(crate) use file_cstr;
 pub(crate) use location_data;
 pub(crate) use tracy_dynamic_zone;
-pub(crate) use tracy_fiber_enter;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_named_frame;
 pub(crate) use tracy_plot;
