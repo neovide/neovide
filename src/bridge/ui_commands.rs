@@ -18,10 +18,12 @@ use super::{
     NeovimHandler, RedrawEvent, Settings, StartupMessage, set_background_if_allowed,
     show_error_message, show_startup_message,
 };
+#[cfg(feature = "profiling")]
+use crate::profiling::scroll_tick_count;
 use crate::{
     bridge::{NeovimWriter, nvim_dict},
     cmd_line::CmdLineSettings,
-    profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
+    profiling::tracy_dynamic_zone,
     utils::handle_wslpaths,
     window::RouteId,
 };
@@ -225,8 +227,10 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => nvim
-                .input_mouse(
+            } => {
+                #[cfg(feature = "profiling")]
+                scroll_tick_count(1);
+                nvim.input_mouse(
                     "wheel",
                     &direction,
                     &modifier_string,
@@ -235,7 +239,8 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .context("Mouse Scroll Failed"),
+                .context("Mouse Scroll Failed")
+            }
             SerialCommand::Drag {
                 button,
                 grid_id,
@@ -547,10 +552,11 @@ pub fn start_ui_command_handler(
 
     let handler_for_serial = handler.clone();
     tokio::spawn(async move {
-        tracy_fiber_enter!("Serial command");
         while let Some(serial_command) = serial_rx.recv().await {
-            tracy_dynamic_zone!(serial_command.as_ref());
-            tracy_fiber_leave();
+            {
+                tracy_dynamic_zone!(serial_command.as_ref());
+            }
+
             match handler_for_serial.clone_current_neovim_with_ime() {
                 Some((serial_nvim, ime_api)) => {
                     serial_command.execute(&serial_nvim, ime_api).await;
@@ -560,7 +566,6 @@ pub fn start_ui_command_handler(
                     break;
                 }
             }
-            tracy_fiber_enter!("Serial command");
         }
         log::info!("serial command receiver finished");
     });
