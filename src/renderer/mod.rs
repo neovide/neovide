@@ -349,17 +349,20 @@ impl Renderer {
 
         let settings = self.settings.get::<RendererSettings>();
         let max_root_x = max_window_max_x(&root_windows, grid_scale);
+        let max_root_y = max_window_max_y(&root_windows, grid_scale);
         let root_window_regions = root_windows
             .into_iter()
             .map(|window| {
                 let region = window.pixel_region(grid_scale);
                 let rightmost_root_window = is_rightmost_window_edge(region.max.x, max_root_x);
+                let bottommost_root_window = is_bottommost_window_edge(region.max.y, max_root_y);
                 window.draw(
                     root_canvas,
                     default_background,
                     grid_scale,
                     content_region.copied(),
                     rightmost_root_window,
+                    bottommost_root_window,
                 )
             })
             .collect_vec();
@@ -709,10 +712,21 @@ pub fn is_rightmost_window_edge(region_max_x: f32, max_x: f32) -> bool {
     max_x.is_finite() && (region_max_x - max_x).abs() <= f32::EPSILON
 }
 
+pub fn is_bottommost_window_edge(region_max_y: f32, max_y: f32) -> bool {
+    max_y.is_finite() && (region_max_y - max_y).abs() <= f32::EPSILON
+}
+
 pub fn max_window_max_x(windows: &[&mut RenderedWindow], grid_scale: GridScale) -> f32 {
     windows.iter().fold(f32::NEG_INFINITY, |max_x, window| {
         let region = window.pixel_region(grid_scale);
         max_x.max(region.max.x)
+    })
+}
+
+pub fn max_window_max_y(windows: &[&mut RenderedWindow], grid_scale: GridScale) -> f32 {
+    windows.iter().fold(f32::NEG_INFINITY, |max_y, window| {
+        let region = window.pixel_region(grid_scale);
+        max_y.max(region.max.y)
     })
 }
 

@@ -13,7 +13,10 @@ use crate::{
     units::{GridScale, PixelRect, to_skia_rect},
 };
 
-use super::{RenderedWindow, RendererSettings, WindowDrawDetails, is_rightmost_window_edge};
+use super::{
+    RenderedWindow, RendererSettings, WindowDrawDetails, is_bottommost_window_edge,
+    is_rightmost_window_edge,
+};
 
 struct LayerWindow<'w> {
     window: &'w mut RenderedWindow,
@@ -33,11 +36,9 @@ impl FloatingLayer<'_> {
         grid_scale: GridScale,
     ) -> (Path, Rect) {
         for (window, region) in self.windows.iter().zip(expanded_regions.iter().copied()) {
-            if let Some((path, bounds)) = window.trailing_fill_path_and_bounds(region, grid_scale) {
-                if let Some(unioned) = draw_clip.op(&path, PathOp::Union) {
-                    draw_clip = unioned;
-                }
-                draw_bound_rect = Rect::join2(draw_bound_rect, bounds);
+            if let Some((path, bounds)) = window.edge_background_path_and_bounds(region, grid_scale)
+            {
+                include_path_bounds(&mut draw_clip, &mut draw_bound_rect, &path, bounds);
             }
         }
 
@@ -54,16 +55,7 @@ impl FloatingLayer<'_> {
     ) -> Vec<WindowDrawDetails> {
         let pixel_regions =
             self.windows.iter().map(|window| window.pixel_region(grid_scale)).collect::<Vec<_>>();
-        let max_layer_x = max_region_max_x(&pixel_regions);
-        let regions = self
-            .windows
-            .iter()
-            .zip(pixel_regions.iter().copied())
-            .map(|(window, region)| {
-                let rightmost_window = is_rightmost_window_edge(region.max.x, max_layer_x);
-                window.expanded_pixel_region(region, content_region, grid_scale, rightmost_window)
-            })
-            .collect::<Vec<_>>();
+        let regions = self.expanded_regions(&pixel_regions, grid_scale, content_region);
 
         let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
         let (draw_clip, draw_bound_rect) =
@@ -114,7 +106,7 @@ impl FloatingLayer<'_> {
         });
 
         for (window, region) in self.windows.iter().zip(regions.iter().copied()) {
-            window.draw_trailing_background_surface(root_canvas, region, grid_scale);
+            window.draw_edge_background_surface(root_canvas, region, grid_scale);
         }
 
         root_canvas.restore();
@@ -122,6 +114,36 @@ impl FloatingLayer<'_> {
         root_canvas.restore();
 
         ret
+    }
+
+    fn expanded_regions(
+        &self,
+        pixel_regions: &[PixelRect<f32>],
+        grid_scale: GridScale,
+        content_region: Option<PixelRect<f32>>,
+    ) -> Vec<PixelRect<f32>> {
+        let max_layer_x = max_region_max_x(pixel_regions);
+        let max_layer_y = max_region_max_y(pixel_regions);
+        self.windows
+            .iter()
+            .zip(pixel_regions.iter().copied())
+            .map(|(window, region)| {
+                let rightmost_window = is_rightmost_window_edge(region.max.x, max_layer_x);
+                let bottommost_window = is_bottommost_window_edge(region.max.y, max_layer_y);
+                let region = window.expanded_pixel_region(
+                    region,
+                    content_region,
+                    grid_scale,
+                    rightmost_window,
+                );
+                window.expanded_bottom_pixel_region(
+                    region,
+                    content_region,
+                    grid_scale,
+                    bottommost_window,
+                )
+            })
+            .collect::<Vec<_>>()
     }
 
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
@@ -218,6 +240,19 @@ pub fn group_windows(
         .collect_vec()
 }
 
+fn include_path_bounds(
+    draw_clip: &mut Path,
+    draw_bound_rect: &mut Rect,
+    path: &Path,
+    bounds: Rect,
+) {
+    if let Some(unioned) = draw_clip.op(path, PathOp::Union) {
+        *draw_clip = unioned;
+    }
+
+    *draw_bound_rect = Rect::join2(*draw_bound_rect, bounds);
+}
+
 fn build_silhouette(
     regions: &[PixelRect<f32>],
     settings: &RendererSettings,
@@ -238,6 +273,10 @@ fn max_region_max_x(regions: &[PixelRect<f32>]) -> f32 {
     regions.iter().fold(f32::NEG_INFINITY, |max_x, region| max_x.max(region.max.x))
 }
 
+fn max_region_max_y(regions: &[PixelRect<f32>]) -> f32 {
+    regions.iter().fold(f32::NEG_INFINITY, |max_y, region| max_y.max(region.max.y))
+}
+
 fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
     let scaled_radius =
         if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
@@ -246,4 +285,54 @@ fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: 
             0.0
         };
     Path::rrect(RRect::new_rect_xy(rect, scaled_radius, scaled_radius), None)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        editor::WindowType,
+        renderer::WindowDrawCommand,
+        units::{GridPos, GridScale, PixelPos, PixelRect, PixelSize},
+    };
+
+    use super::*;
+
+    fn grid_scale() -> GridScale {
+        GridScale::new(PixelSize::new(8.0, 16.0))
+    }
+
+    fn positioned_window(id: u64, grid_top: f64, grid_left: f64) -> RenderedWindow {
+        let mut window = RenderedWindow::new(id);
+        window.handle_window_draw_command(WindowDrawCommand::Position {
+            grid_position: (grid_left, grid_top),
+            grid_size: (20, 1),
+            anchor_info: None,
+            window_type: WindowType::Editor,
+        });
+        window.grid_current_position = GridPos::new(grid_left as f32, grid_top as f32);
+        window
+    }
+
+    #[test]
+    fn floating_layer_expands_bottommost_window_to_content_bottom() {
+        let grid_scale = grid_scale();
+        let mut upper_window = positioned_window(2, 3.0, 0.0);
+        let mut bottom_window = positioned_window(3, 4.0, 0.0);
+        let layer = FloatingLayer { windows: vec![&mut upper_window, &mut bottom_window] };
+        let pixel_regions =
+            layer.windows.iter().map(|window| window.pixel_region(grid_scale)).collect::<Vec<_>>();
+        let upper_region = pixel_regions[0];
+        let bottom_region = pixel_regions[1];
+        let content_region = PixelRect::new(
+            PixelPos::new(0.0, 0.0),
+            PixelPos::new(bottom_region.max.x, bottom_region.max.y + 7.0),
+        );
+
+        let expanded_regions =
+            layer.expanded_regions(&pixel_regions, grid_scale, Some(content_region));
+
+        assert_eq!(expanded_regions[0], upper_region);
+        assert_eq!(expanded_regions[1].max.y, content_region.max.y);
+        assert_eq!(expanded_regions[1].max.x, bottom_region.max.x);
+    }
 }
