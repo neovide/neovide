@@ -324,6 +324,7 @@ pub enum RedrawEvent {
     /// [nvim_open_win]: https://neovim.io/doc/user/api.html#nvim_open_win()
     WindowFloatPosition {
         grid: u64,
+        window: Value,
         anchor: WindowAnchor,
         anchor_grid: u64,
         anchor_row: f64,
@@ -884,12 +885,13 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
 
 fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let (
-        [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, mouse_enabled, z_index],
+        [grid, window, anchor, anchor_grid, anchor_row, anchor_column, mouse_enabled, z_index],
         [comp_index, screen_row, screen_col],
     ) = extract_values_with_optional(win_float_pos_arguments)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
         grid: parse_u64(grid)?,
+        window,
         anchor: parse_window_anchor(anchor)?,
         anchor_grid: parse_u64(anchor_grid)?,
         anchor_row: parse_f64(anchor_row)?,
@@ -1184,7 +1186,28 @@ pub fn parse_progress_bar_event(value: Option<&Value>) -> Option<UserEvent> {
 mod tests {
     use rmpv::Value;
 
-    use super::{MessageKind, RedrawEvent, parse_msg_show};
+    use super::{MessageKind, RedrawEvent, parse_msg_show, parse_win_float_pos};
+
+    #[test]
+    fn win_float_pos_preserves_window_handle() {
+        let window = Value::Ext(1, vec![0, 0, 3, 234]);
+        let event = parse_win_float_pos(vec![
+            Value::from(8),
+            window.clone(),
+            Value::from("SE"),
+            Value::from(1),
+            Value::from(9.0),
+            Value::from(10_000.0),
+            Value::from(true),
+            Value::from(197),
+        ])
+        .unwrap();
+
+        match event {
+            RedrawEvent::WindowFloatPosition { window: parsed, .. } => assert_eq!(parsed, window),
+            event => panic!("expected WindowFloatPosition, got {event:?}"),
+        }
+    }
 
     #[test]
     fn message_kind_marks_error_variants() {
