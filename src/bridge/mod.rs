@@ -200,10 +200,10 @@ async fn create_neovim_session(
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
 
-    let remote = cmdline_settings.wsl || cmdline_settings.server.is_some();
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
-    setup_neovide_specific_state(&session.neovim, remote, &api_information, &settings).await?;
+    setup_neovide_specific_state(&session.neovim, &cmdline_settings, &api_information, &settings)
+        .await?;
     if api_information.version.has_version(0, 12, 0, Some(1264)) {
         let mut window_settings = settings.get::<WindowSettings>();
         window_settings.has_mouse_grid_detection = true;
