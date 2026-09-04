@@ -34,10 +34,10 @@ impl FontPair {
         skia_font.set_edging(font_edging(&key.edging));
 
         let typeface = skia_font.typeface();
-        let (font_data, index) = typeface.to_font_data()?;
+        let (font_data, index) = typeface.to_font_bytes()?;
         // Only the lower 16 bits are part of the index, the rest indicates named instances. But we
         // don't care about those here, since we are just loading the font, so ignore them
-        let index = index & 0xFFFF;
+        let index = (index & 0xFFFF) as usize;
         let swash_font = SwashFont::from_data(font_data, index)?;
 
         Some(Self { key, skia_font, swash_font })
@@ -97,7 +97,7 @@ impl FontLoader {
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         } else {
             let data = Data::new_copy(DEFAULT_FONT);
-            let typeface = self.font_mgr.new_from_data(&data, 0)?;
+            let typeface = self.font_mgr.new_from_data(data, 0)?;
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         }
     }
@@ -161,7 +161,7 @@ impl FontLoader {
             let font_key = FontKey::default();
             let data = Data::new_copy(LAST_RESORT_FONT);
 
-            let typeface = self.font_mgr.new_from_data(&data, 0)?;
+            let typeface = self.font_mgr.new_from_data(data, 0)?;
             let font_pair =
                 Rc::new(FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))?);
 
@@ -229,7 +229,7 @@ mod tests {
         use skia_safe::{Color, Paint, Point, surfaces};
 
         let data = Data::new_copy(font_test_data::COLRV0V1);
-        let typeface = FontMgr::new().new_from_data(&data, 0).unwrap();
+        let typeface = FontMgr::new().new_from_data(data, 0).unwrap();
         let font = Font::from_typeface(typeface, 96.0);
         let mut surface = surfaces::raster_n32_premul((128, 128)).unwrap();
         let canvas = surface.canvas();
