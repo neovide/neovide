@@ -153,7 +153,7 @@ environment.systemPackages = with pkgs; [neovide];
 
      ```sh
      sudo apt install -y curl \
-         gnupg ca-certificates git \
+         gnupg ca-certificates git clang ninja-build \
          gcc-multilib g++-multilib cmake libssl-dev pkg-config \
          libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
          libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev \
@@ -163,7 +163,7 @@ environment.systemPackages = with pkgs; [neovide];
    - Fedora
 
      ```sh
-     sudo dnf install fontconfig-devel freetype-devel @development-tools \
+     sudo dnf install clang ninja-build fontconfig-devel freetype-devel @development-tools \
          libstdc++-static libstdc++-devel
      ```
 
@@ -172,7 +172,7 @@ environment.systemPackages = with pkgs; [neovide];
      Do note that an [AUR package](https://aur.archlinux.org/packages/neovide-git) already exists.
 
      ```sh
-     sudo pacman -S base-devel fontconfig freetype2 libglvnd sndio cmake \
+     sudo pacman -S base-devel clang ninja fontconfig freetype2 libglvnd sndio cmake \
          git gtk3 python sdl2 vulkan-intel libxkbcommon-x11
      ```
 
