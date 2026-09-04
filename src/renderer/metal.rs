@@ -21,7 +21,7 @@ use winit::{event_loop::EventLoopProxy, window::Window};
 use crate::{
     platform::macos::get_ns_window,
     profiling::tracy_gpu_zone,
-    renderer::{RendererSettings, SkiaRenderer, VSync},
+    renderer::{RendererSettings, SkiaRenderer, VSync, vsync::VSyncMacosDisplayLink},
     window::EventPayload,
 };
 
@@ -199,7 +199,18 @@ impl SkiaRenderer for MetalSkiaRenderer {
         self.window.request_redraw();
     }
 
-    fn create_vsync(&self, _proxy: EventLoopProxy<EventPayload>) -> VSync {
-        VSync::MacosMetal()
+    fn create_vsync(&self, proxy: EventLoopProxy<EventPayload>) -> VSync {
+        // Pace rendering from the CVDisplayLink (like the OpenGL path on
+        // macOS) instead of relying on displaySyncEnabled back-pressure.
+        // With VSync::MacosMetal() the only frame pacing is the blocking
+        // nextDrawable() call, which runs on the winit event thread; while
+        // it blocks, the run loop cannot dequeue input, and once dispatch
+        // latency exceeds roughly one display frame macOS silently
+        // coalesces pending key autorepeats, halving the effective repeat
+        // rate. Rendering right after the vsync tick means a
+        // drawable was just freed, so nextDrawable() returns immediately
+        // and the event thread stays responsive; displaySyncEnabled stays
+        // on, so presentation remains aligned with the refresh cycle.
+        VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(&self.window(), proxy))
     }
 }
