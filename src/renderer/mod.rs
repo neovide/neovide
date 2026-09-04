@@ -488,7 +488,7 @@ impl Renderer {
 
         let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
         self.progress_bar.animate(&progress_bar_settings, dt);
-        animating |= self.progress_bar.is_animating();
+        animating |= self.progress_bar.is_active();
 
         animating
     }
