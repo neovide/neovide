@@ -7,6 +7,7 @@ mod restart;
 pub mod session;
 mod setup;
 mod ui_commands;
+mod url_allowlist;
 
 use std::{
     io::Error,
@@ -400,12 +401,15 @@ impl NeovimRuntime {
         mode: OpenMode,
     ) -> Result<NeovimHandler> {
         let mut colorscheme_stream = self.colorscheme_stream();
+        let allowed_url_patterns =
+            config.remote.as_ref().and_then(|r| r.allowed_url_patterns.clone());
         let editor_handler = start_editor_handler(
             route_id,
             event_loop_proxy.clone(),
             running_tracker,
             settings.clone(),
             self.clipboard.clone(),
+            allowed_url_patterns,
         );
         let initial_background =
             self.runtime().block_on(initial_background_from_stream(&mut colorscheme_stream));

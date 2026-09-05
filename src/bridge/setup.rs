@@ -55,6 +55,7 @@ pub async fn setup_neovide_specific_state(
     .context("Error setting client info")?;
 
     let register_clipboard = remote;
+    let register_open = remote;
     let register_right_click = cfg!(target_os = "windows");
 
     let setting_locations = settings.setting_locations();
@@ -80,6 +81,7 @@ pub async fn setup_neovide_specific_state(
             "neovide_version" => BUILD_VERSION,
             "config_path" => config_path().to_string_lossy().into_owned(),
             "register_clipboard" => register_clipboard,
+            "register_open" => register_open,
             "register_right_click" => register_right_click,
             "remote" => remote,
             "global_variable_settings" => global_variable_settings,
