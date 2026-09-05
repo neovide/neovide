@@ -118,6 +118,38 @@ async fn ime_call(
         .context(context)
 }
 
+async fn scroll_call(
+    nvim: &Neovim<NeovimWriter>,
+    direction: &str,
+    grid_id: u64,
+    position: (u32, u32),
+    modifier_string: &str,
+    count: u32,
+) -> Result<()> {
+    if count == 0 {
+        return Ok(());
+    }
+
+    #[cfg(feature = "profiling")]
+    scroll_tick_count(count);
+
+    let (grid_x, grid_y) = position;
+    for _ in 0..count {
+        nvim.input_mouse(
+            "wheel",
+            direction,
+            modifier_string,
+            grid_id as i64,
+            grid_y as i64,
+            grid_x as i64,
+        )
+        .await
+        .context("Mouse Scroll Failed")?;
+    }
+
+    Ok(())
+}
+
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
@@ -144,6 +176,7 @@ pub enum SerialCommand {
         direction: String,
         grid_id: u64,
         position: (u32, u32),
+        count: u32,
         modifier_string: String,
     },
     Drag {
@@ -156,7 +189,67 @@ pub enum SerialCommand {
     ForceClickCommand,
 }
 
+/// Fields that must match before adjacent scroll commands can be merged.
+///
+/// neovim interprets wheel input using the target grid position and modifier
+/// state, so these fields are part of the merge key alongside direction.
+#[derive(PartialEq, Eq)]
+struct ScrollMergeKey<'a> {
+    direction: &'a str,
+    grid_id: u64,
+    position: (u32, u32),
+    modifier_string: &'a str,
+}
+
 impl SerialCommand {
+    pub fn scroll(
+        direction: impl Into<String>,
+        grid_id: u64,
+        position: (u32, u32),
+        count: u32,
+        modifier_string: String,
+    ) -> Self {
+        Self::Scroll { direction: direction.into(), grid_id, position, count, modifier_string }
+    }
+
+    /// Returns the comparable part of a scroll command.
+    ///
+    /// non-scroll commands don't have a merge key and must remain as ordering
+    /// barriers in the serial command stream.
+    fn scroll_merge_key(&self) -> Option<ScrollMergeKey<'_>> {
+        match self {
+            Self::Scroll { direction, grid_id, position, modifier_string, .. } => {
+                Some(ScrollMergeKey {
+                    direction,
+                    grid_id: *grid_id,
+                    position: *position,
+                    modifier_string,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Attempts to absorb the next_command into this command.
+    fn try_merge_scroll(&mut self, next_command: Self) -> Option<Self> {
+        let can_merge = match (self.scroll_merge_key(), next_command.scroll_merge_key()) {
+            (Some(current), Some(next)) => current == next,
+            _ => false,
+        };
+
+        if !can_merge {
+            return Some(next_command);
+        }
+
+        match (self, next_command) {
+            (Self::Scroll { count, .. }, Self::Scroll { count: next_count, .. }) => {
+                *count = count.saturating_add(next_count);
+                None
+            }
+            (_, other) => Some(other),
+        }
+    }
+
     async fn execute(self, nvim: &Neovim<NeovimWriter>, can_support_ime_api: bool) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
@@ -226,20 +319,11 @@ impl SerialCommand {
                 direction,
                 grid_id,
                 position: (grid_x, grid_y),
+                count,
                 modifier_string,
             } => {
-                #[cfg(feature = "profiling")]
-                scroll_tick_count(1);
-                nvim.input_mouse(
-                    "wheel",
-                    &direction,
-                    &modifier_string,
-                    grid_id as i64,
-                    grid_y as i64,
-                    grid_x as i64,
-                )
-                .await
-                .context("Mouse Scroll Failed")
+                scroll_call(nvim, &direction, grid_id, (grid_x, grid_y), &modifier_string, count)
+                    .await
             }
             SerialCommand::Drag {
                 button,
@@ -552,7 +636,26 @@ pub fn start_ui_command_handler(
 
     let handler_for_serial = handler.clone();
     tokio::spawn(async move {
-        while let Some(serial_command) = serial_rx.recv().await {
+        let mut pending_command: Option<SerialCommand> = None;
+
+        loop {
+            let mut serial_command = match pending_command.take() {
+                Some(command) => command,
+                None => match serial_rx.recv().await {
+                    Some(command) => command,
+                    None => break,
+                },
+            };
+
+            if matches!(serial_command, SerialCommand::Scroll { .. }) {
+                while let Ok(next_command) = serial_rx.try_recv() {
+                    if let Some(other) = serial_command.try_merge_scroll(next_command) {
+                        pending_command = Some(other);
+                        break;
+                    }
+                }
+            }
+
             {
                 tracy_dynamic_zone!(serial_command.as_ref());
             }
