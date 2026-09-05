@@ -1,0 +1,438 @@
+name: Release Draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to draft, for example 0.17.0
+        required: true
+        type: string
+      target:
+        description: Full commit SHA for the version-bump commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-draft-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  MACOSX_DEPLOYMENT_TARGET: 10.11
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: Validate Release Inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch main and tags
+        run: git fetch --force --tags origin '+refs/heads/main:refs/remotes/origin/main'
+
+      - name: Validate inputs
+        id: release_info
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag must match X.Y.Z without a leading v, got '$TAG'"
+            exit 1
+          fi
+
+          if [[ ! "$TARGET" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::target must be a full 40-character lowercase commit SHA"
+            exit 1
+          fi
+
+          if ! git cat-file -e "$TARGET^{commit}"; then
+            echo "::error::target '$TARGET' is not a commit in this repository"
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$TARGET" origin/main; then
+            echo "::error::target '$TARGET' is not reachable from origin/main"
+            exit 1
+          fi
+
+          if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::tag '$TAG' does not exist. Push an annotated tag before running this workflow."
+            exit 1
+          fi
+
+          if [[ "$(git cat-file -t "refs/tags/$TAG")" != "tag" ]]; then
+            echo "::error::tag '$TAG' must be an annotated tag, not a lightweight tag"
+            exit 1
+          fi
+
+          tag_target="$(git rev-parse "$TAG^{commit}")"
+          if [[ "$tag_target" != "$TARGET" ]]; then
+            echo "::error::tag '$TAG' points at '$tag_target', not target '$TARGET'"
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::release '$TAG' already exists"
+            exit 1
+          fi
+
+          package_version="$(
+            git show "$TARGET:Cargo.toml" |
+              awk -F '"' '
+                /^\[package\]$/ { in_package = 1; next }
+                /^\[/ { if (in_package) exit; in_package = 0 }
+                in_package && /^version = / { print $2; exit }
+              '
+          )"
+          plist_version="$(
+            git show "$TARGET:extra/osx/Neovide.app/Contents/Info.plist" |
+              awk '
+                /<key>CFBundleShortVersionString<\/key>/ {
+                  getline
+                  gsub(/.*<string>|<\/string>.*/, "")
+                  print
+                  exit
+                }
+              '
+          )"
+
+          if [[ "$package_version" != "$TAG" ]]; then
+            echo "::error::Cargo.toml package.version is '$package_version', expected '$TAG'"
+            exit 1
+          fi
+
+          if [[ "$plist_version" != "$TAG" ]]; then
+            echo "::error::Info.plist CFBundleShortVersionString is '$plist_version', expected '$TAG'"
+            exit 1
+          fi
+
+          echo "Release draft inputs validated for $TAG at $TARGET"
+
+  build:
+    name: Build ${{ matrix.os }}
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Setup github long path support (Windows)
+        if: matrix.os == 'windows-latest'
+        run: git config --system core.longpaths true
+
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
+
+      - name: Setup Ninja
+        if: matrix.os == 'windows-latest'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.3.tar.gz
+          tar -xzf create-dmg.tar.gz
+          cd create-dmg-1.2.3
+          sudo make install
+          cd ..
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get -qq install -y \
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev libfuse2 appstream
+
+      - name: Install neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+        run: |
+          cargo wix --nocapture --output target/release/neovide.msi --package neovide
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cargo build --locked --release --target=x86_64-apple-darwin
+          cargo build --locked --release --target=aarch64-apple-darwin
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: cargo build --locked --release
+
+      - name: Create Neovide.app (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run x86_64-apple-darwin
+
+      - name: Write Apple signing key to a file (macOS only)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_SIGNING_KEY_P12: ${{ secrets.APPLE_SIGNING_KEY_P12 }}
+        run: echo "$APPLE_SIGNING_KEY_P12" | base64 -d -o key.p12
+
+      - name: Write App Store Connect API key to a file (macOS only)
+        if: matrix.os == 'macos-latest'
+        env:
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: echo "$APP_STORE_CONNECT_API_KEY" > app_store_connect_api_key.json
+
+      - name: Sign Mac App binary root (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .app (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary root (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .app (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Prepare Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pwsh -Command 'Compress-Archive -Path "$env:GITHUB_WORKSPACE/target/release/neovide.exe" -DestinationPath "$env:GITHUB_WORKSPACE/target/release/neovide-windows-x86_64.zip" -Force'
+
+      - name: Prepare Artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
+
+      - name: Prepare Artifacts (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cd target/release
+          strip neovide
+          tar czvf neovide-linux-x86_64.tar.gz neovide
+          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-appimage
+          export LDAI_OUTPUT=neovide.AppImage
+          export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
+          ./linuxdeploy \
+            --executable=neovide \
+            --desktop-file=../../assets/neovide.desktop \
+            --appdir=AppDir \
+            --icon-file=../../assets/neovide.svg \
+            --output=appimage
+
+      - name: Sign Mac App .dmg (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .dmg (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Notarize signed macOS (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        continue-on-error: true
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+          sign: false
+          notarize: true
+          staple: true
+          app_store_connect_api_key_json_file: app_store_connect_api_key.json
+
+      - name: Notarize signed macOS (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        continue-on-error: true
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
+          sign: false
+          notarize: true
+          staple: true
+          app_store_connect_api_key_json_file: app_store_connect_api_key.json
+
+      - name: Upload Windows release artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-draft-windows
+          path: |
+            target/release/neovide.msi
+            target/release/neovide-windows-x86_64.zip
+          retention-days: 7
+
+      - name: Upload macOS release artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-draft-macos
+          path: |
+            target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
+            target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+          retention-days: 7
+
+      - name: Upload Linux release artifacts
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-draft-linux
+          path: |
+            target/release/neovide-linux-x86_64.tar.gz
+            target/release/neovide.AppImage
+            target/release/neovide.AppImage.zsync
+          retention-days: 7
+
+  create_draft:
+    name: Create Draft Release
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-draft-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Verify release artifacts
+        run: |
+          expected_assets=(
+            "neovide.msi"
+            "neovide-windows-x86_64.zip"
+            "neovide-linux-x86_64.tar.gz"
+            "neovide.AppImage"
+            "neovide.AppImage.zsync"
+            "Neovide-x86_64-apple-darwin.dmg"
+            "Neovide-aarch64-apple-darwin.dmg"
+          )
+
+          for asset in "${expected_assets[@]}"; do
+            if [[ ! -f "release-artifacts/$asset" ]]; then
+              echo "::error::missing release artifact '$asset'"
+              exit 1
+            fi
+          done
+
+          find release-artifacts -maxdepth 1 -type f -print | sort
+
+      - name: Create GitHub draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release create \
+            "$TAG" \
+            --draft \
+            --verify-tag \
+            --generate-notes \
+            --title "$TAG" \
+            release-artifacts/*
