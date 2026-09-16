@@ -899,8 +899,8 @@ augroup ime_input
     autocmd!
     autocmd InsertLeave * execute "let g:neovide_input_ime=v:false"
     autocmd InsertEnter * execute "let g:neovide_input_ime=v:true"
-    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:false"
-    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:true"
+    autocmd CmdlineLeave [\/\?] execute "let g:neovide_input_ime=v:false"
+    autocmd CmdlineEnter [\/\?] execute "let g:neovide_input_ime=v:true"
 augroup END
 ```
 
