@@ -182,20 +182,35 @@ impl Handler for NeovimHandler {
         trace!("Neovim request: {:?}", event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => handle_clipboard_request(&self.clipboard, |clipboard| {
-                get_clipboard_contents(clipboard, &arguments[0])
-                    .map_err(|_| ClipboardRequestError::CannotGetContents)
-            })
-            .map_err(Value::from),
-            "neovide.set_clipboard" => handle_clipboard_request(&self.clipboard, |clipboard| {
-                set_clipboard_contents(clipboard, &arguments[0], &arguments[1])
-                    .map_err(|_| ClipboardRequestError::CannotSetContents)
-            })
-            .map_err(Value::from),
+            "neovide.get_clipboard" => {
+                if let Some(register) = arguments.first() {
+                    handle_clipboard_request(&self.clipboard, |clipboard| {
+                        get_clipboard_contents(clipboard, register)
+                            .map_err(|_| ClipboardRequestError::CannotGetContents)
+                    })
+                    .map_err(Value::from)
+                } else {
+                    Err(Value::from("missing register argument"))
+                }
+            }
+            "neovide.set_clipboard" => {
+                if arguments.len() >= 2 {
+                    handle_clipboard_request(&self.clipboard, |clipboard| {
+                        set_clipboard_contents(clipboard, &arguments[0], &arguments[1])
+                            .map_err(|_| ClipboardRequestError::CannotSetContents)
+                    })
+                    .map_err(Value::from)
+                } else {
+                    Err(Value::from("missing register or content arguments"))
+                }
+            }
             "neovide.quit" => {
-                let error_code =
-                    arguments[0].as_i64().expect("Could not parse error code from neovim");
-                self.running_tracker.quit_with_code(error_code as u8, "Quit from neovim");
+                let error_code = arguments
+                    .first()
+                    .and_then(|v| v.as_i64())
+                    .map(|code| code as u8)
+                    .unwrap_or(0);
+                self.running_tracker.quit_with_code(error_code, "Quit from neovim");
                 Ok(Value::Nil)
             }
             _ => Ok(Value::from("rpcrequest not handled")),
