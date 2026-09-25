@@ -65,7 +65,7 @@ impl FloatingLayer<'_> {
             })
             .collect::<Vec<_>>();
 
-        let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
+        let (silhouette, bound_rect) = build_silhouette(&self.windows, &pixel_regions, settings, grid_scale);
         let (draw_clip, draw_bound_rect) =
             self.build_draw_clip_and_bounds(silhouette.clone(), bound_rect, &regions, grid_scale);
         let has_transparency = self.windows.iter().any(|window| window.has_transparency());
@@ -219,13 +219,19 @@ pub fn group_windows(
 }
 
 fn build_silhouette(
+    windows: &[&mut RenderedWindow],
     regions: &[PixelRect<f32>],
     settings: &RendererSettings,
     grid_scale: GridScale,
 ) -> (Path, Rect) {
-    let silhouette = regions
+    let silhouette = windows
         .iter()
-        .map(|r| rect_to_round_rect_path(to_skia_rect(r), settings, grid_scale))
+        .zip(regions.iter())
+        .map(|(window, r)| {
+            let is_message = matches!(window.window_type, WindowType::Message { .. });
+            let radius = if is_message { 0.0 } else { scaled_corner_radius(settings, grid_scale) };
+            rect_to_round_rect_path(to_skia_rect(r), radius)
+        })
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
 
@@ -238,12 +244,14 @@ fn max_region_max_x(regions: &[PixelRect<f32>]) -> f32 {
     regions.iter().fold(f32::NEG_INFINITY, |max_x, region| max_x.max(region.max.x))
 }
 
-fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
-    let scaled_radius =
-        if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
-            settings.floating_corner_radius * grid_scale.height()
-        } else {
-            0.0
-        };
-    Path::rrect(RRect::new_rect_xy(rect, scaled_radius, scaled_radius), None)
+fn scaled_corner_radius(settings: &RendererSettings, grid_scale: GridScale) -> f32 {
+    if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
+        settings.floating_corner_radius * grid_scale.height()
+    } else {
+        0.0
+    }
+}
+
+fn rect_to_round_rect_path(rect: Rect, radius: f32) -> Path {
+    Path::rrect(RRect::new_rect_xy(rect, radius, radius), None)
 }
