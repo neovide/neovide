@@ -861,12 +861,6 @@ impl ApplicationHandler<EventPayload> for Application {
                     return;
                 };
                 self.window_wrapper.queue_restart_route(route_id, details);
-                if let Some(window_id) = self.window_wrapper.window_id_for_route(route_id)
-                    && let Some(state) = self.render_states.get_mut(&window_id)
-                {
-                    state.pending_draw_commands.clear();
-                    state.should_render = ShouldRender::Immediately;
-                }
             }
             payload => {
                 self.window_wrapper.handle_user_event(EventPayload { payload, target });
