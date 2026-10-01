@@ -8,6 +8,7 @@ use super::{
 };
 use crate::{
     bridge::NeovimWriter,
+    cmd_line::CmdLineSettings,
     settings::{SettingLocation, Settings, config::config_path},
     version::BUILD_VERSION,
 };
@@ -26,7 +27,7 @@ pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInfor
 
 pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
-    remote: bool,
+    cmdline_settings: &CmdLineSettings,
     api_information: &ApiInformation,
     settings: &Settings,
 ) -> Result<()> {
@@ -54,7 +55,8 @@ pub async fn setup_neovide_specific_state(
     .await
     .context("Error setting client info")?;
 
-    let register_clipboard = remote;
+    let remote = cmdline_settings.wsl || cmdline_settings.server.is_some();
+    let register_clipboard = cmdline_settings.force_register_clipboard.unwrap_or(remote);
     let register_right_click = cfg!(target_os = "windows");
 
     let setting_locations = settings.setting_locations();

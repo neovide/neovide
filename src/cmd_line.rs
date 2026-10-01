@@ -70,6 +70,10 @@ pub struct CmdLineSettings {
     #[arg(long, env = "NEOVIDE_WSL")]
     pub wsl: bool,
 
+    /// Force enable/disable the neovide clipboard provider
+    #[arg(long, value_name = "ENABLED")]
+    pub force_register_clipboard: Option<bool>,
+
     /// Which window decorations to use (do note that the window might not be resizable
     /// if this is "none")
     #[arg(long, env = "NEOVIDE_FRAME", default_value_t)]
