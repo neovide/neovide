@@ -205,11 +205,8 @@ impl Handler for NeovimHandler {
                 }
             }
             "neovide.quit" => {
-                let error_code = arguments
-                    .first()
-                    .and_then(|v| v.as_i64())
-                    .map(|code| code as u8)
-                    .unwrap_or(0);
+                let error_code =
+                    arguments.first().and_then(|v| v.as_i64()).map(|code| code as u8).unwrap_or(0);
                 self.running_tracker.quit_with_code(error_code, "Quit from neovim");
                 Ok(Value::Nil)
             }
