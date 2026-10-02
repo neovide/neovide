@@ -57,7 +57,8 @@ impl FloatingLayer<'_> {
             self.windows.iter().map(|window| window.pixel_region(grid_scale)).collect::<Vec<_>>();
         let regions = self.expanded_regions(&pixel_regions, grid_scale, content_region);
 
-        let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
+        let (silhouette, bound_rect) =
+            build_silhouette(&self.windows, &pixel_regions, settings, grid_scale);
         let (draw_clip, draw_bound_rect) =
             self.build_draw_clip_and_bounds(silhouette.clone(), bound_rect, &regions, grid_scale);
         let has_transparency = self.windows.iter().any(|window| window.has_transparency());
@@ -254,13 +255,19 @@ fn include_path_bounds(
 }
 
 fn build_silhouette(
+    windows: &[&mut RenderedWindow],
     regions: &[PixelRect<f32>],
     settings: &RendererSettings,
     grid_scale: GridScale,
 ) -> (Path, Rect) {
-    let silhouette = regions
+    let silhouette = windows
         .iter()
-        .map(|r| rect_to_round_rect_path(to_skia_rect(r), settings, grid_scale))
+        .zip(regions.iter())
+        .map(|(window, r)| {
+            let is_message = matches!(window.window_type, WindowType::Message { .. });
+            let radius = if is_message { 0.0 } else { scaled_corner_radius(settings, grid_scale) };
+            rect_to_round_rect_path(to_skia_rect(r), radius)
+        })
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
 
@@ -277,14 +284,16 @@ fn max_region_max_y(regions: &[PixelRect<f32>]) -> f32 {
     regions.iter().fold(f32::NEG_INFINITY, |max_y, region| max_y.max(region.max.y))
 }
 
-fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
-    let scaled_radius =
-        if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
-            settings.floating_corner_radius * grid_scale.height()
-        } else {
-            0.0
-        };
-    Path::rrect(RRect::new_rect_xy(rect, scaled_radius, scaled_radius), None)
+fn scaled_corner_radius(settings: &RendererSettings, grid_scale: GridScale) -> f32 {
+    if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
+        settings.floating_corner_radius * grid_scale.height()
+    } else {
+        0.0
+    }
+}
+
+fn rect_to_round_rect_path(rect: Rect, radius: f32) -> Path {
+    Path::rrect(RRect::new_rect_xy(rect, radius, radius), None)
 }
 
 #[cfg(test)]
@@ -311,6 +320,31 @@ mod tests {
         });
         window.grid_current_position = GridPos::new(grid_left as f32, grid_top as f32);
         window
+    }
+
+    #[test]
+    fn message_silhouettes_keep_sharp_corners_while_editor_windows_stay_rounded() {
+        let grid_scale = grid_scale();
+        let settings = RendererSettings { floating_corner_radius: 0.5, ..Default::default() };
+        for window_type in [
+            WindowType::Editor,
+            WindowType::Message { scrolled: false },
+            WindowType::Message { scrolled: true },
+        ] {
+            let mut window = positioned_window(2, 0.0, 0.0);
+            window.window_type = window_type;
+            let region = window.pixel_region(grid_scale);
+            let (silhouette, bounds) =
+                build_silhouette(&[&mut window], &[region], &settings, grid_scale);
+
+            assert_eq!(bounds, to_skia_rect(&region));
+            assert!(silhouette.contains(skia_safe::Point::new(80.0, 8.0)));
+            assert_eq!(
+                silhouette.contains(skia_safe::Point::new(1.0, 1.0)),
+                matches!(window_type, WindowType::Message { .. }),
+                "{window_type:?}"
+            );
+        }
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use skia_safe::Color4f;
 
+#[allow(clippy::redundant_field_names)]
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Colors {
     /// Foreground color.
@@ -19,6 +20,7 @@ pub enum UnderlineStyle {
     UnderCurl,
 }
 
+#[allow(clippy::redundant_field_names)]
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Style {
     pub colors: Colors,
