@@ -24,6 +24,7 @@ use crate::{
     units::PixelSize,
 };
 
+#[allow(clippy::redundant_field_names)]
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
