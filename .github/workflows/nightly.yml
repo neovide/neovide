@@ -205,9 +205,10 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          sign_args: >-
+          # The action passes each line as one argument; keep option values joined with '='.
+          sign_args: |-
             --code-signature-flags=runtime
-            --entitlements-xml-file macos-builder/Neovide.entitlements
+            --entitlements-xml-file=macos-builder/Neovide.entitlements
 
       - name: Sign Mac App binary (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
@@ -217,9 +218,9 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          sign_args: >-
+          sign_args: |-
             --code-signature-flags=runtime
-            --entitlements-xml-file macos-builder/Neovide.entitlements
+            --entitlements-xml-file=macos-builder/Neovide.entitlements
 
       - name: Sign Mac App .app (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
@@ -229,9 +230,9 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          sign_args: >-
+          sign_args: |-
             --code-signature-flags=runtime
-            --entitlements-xml-file macos-builder/Neovide.entitlements
+            --entitlements-xml-file=macos-builder/Neovide.entitlements
 
       - name: Sign Mac App binary root (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
@@ -241,9 +242,9 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          sign_args: >-
+          sign_args: |-
             --code-signature-flags=runtime
-            --entitlements-xml-file macos-builder/Neovide.entitlements
+            --entitlements-xml-file=macos-builder/Neovide.entitlements
 
       - name: Sign Mac App binary (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
@@ -253,9 +254,9 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          sign_args: >-
+          sign_args: |-
             --code-signature-flags=runtime
-            --entitlements-xml-file macos-builder/Neovide.entitlements
+            --entitlements-xml-file=macos-builder/Neovide.entitlements
 
       - name: Sign Mac App .app (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
@@ -265,9 +266,9 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          sign_args: >-
+          sign_args: |-
             --code-signature-flags=runtime
-            --entitlements-xml-file macos-builder/Neovide.entitlements
+            --entitlements-xml-file=macos-builder/Neovide.entitlements
 
       - name: Prepare Artifacts (Windows)
         if: matrix.os == 'windows-latest'
