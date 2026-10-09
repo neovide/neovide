@@ -499,7 +499,7 @@ impl Application {
 
     fn process_buffered_draw_commands(&mut self, window_id: WindowId) {
         let pending_batches = match self.render_states.get_mut(&window_id) {
-            Some(state) => state.pending_draw_commands.drain(..).collect::<Vec<_>>(),
+            Some(state) => std::mem::take(&mut state.pending_draw_commands),
             None => return,
         };
         if !pending_batches.is_empty() {

@@ -15,10 +15,9 @@
   be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue
   [#527](https://github.com/neovide/neovide/issues/527).
 
-- If you installed `neovim` via Apple Silicon (M1)-based `brew`, you have to add the `brew prefix`
-  to `$PATH` to run `Neovide.app` in GUI. Please see the
-  [homebrew documentation](https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities).
-  Reference issue [#1242](https://github.com/neovide/neovide/pull/1242)
+- If Neovide cannot find a homebrew-installed `nvim` when launched from Finder or the Dock,
+  configure your login shell's `PATH` or set `neovim-bin` to the executable's absolute path.
+  See the [Homebrew installation instructions](installation.md#homebrew).
 
 ## Linux
 
