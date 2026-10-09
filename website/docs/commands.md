@@ -4,6 +4,12 @@ On startup, Neovide registers some commands for interacting
 with the os and platform window. These are neovim commands
 accessible via `:{command name}`.
 
+## Open Documentation
+
+Run `:NeovideHelp` to open the [documentation](https://neovide.dev/) in your browser.
+
+The browser opens on the machine running neovim. Remote sessions use that machine URL handler.
+
 ## Register/Unregister Right Click
 
 On windows you can register a right click context menu item

@@ -248,7 +248,6 @@ jobs:
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
-          # The action passes each line as one argument; keep option values joined with '='.
           sign_args: |-
             --code-signature-flags=runtime
             --entitlements-xml-file=macos-builder/Neovide.entitlements
