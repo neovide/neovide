@@ -37,9 +37,6 @@ mod window;
 #[cfg(target_os = "windows")]
 mod windows_utils;
 
-#[macro_use]
-extern crate derive_new;
-
 use std::{
     env::{self, args},
     fs::{File, OpenOptions, create_dir_all},
