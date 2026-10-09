@@ -1,6 +1,6 @@
 use skia_safe::Color4f;
 
-#[derive(new, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Colors {
     /// Foreground color.
     pub foreground: Option<Color4f>,
@@ -8,6 +8,16 @@ pub struct Colors {
     pub background: Option<Color4f>,
     /// Color to use for various underlines, when present.
     pub special: Option<Color4f>,
+}
+
+impl Colors {
+    pub fn new(
+        foreground: Option<Color4f>,
+        background: Option<Color4f>,
+        special: Option<Color4f>,
+    ) -> Self {
+        Self { foreground, background, special }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -19,29 +29,35 @@ pub enum UnderlineStyle {
     UnderCurl,
 }
 
-#[derive(new, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Style {
     pub colors: Colors,
     /// Reverse video, i.e. switch foreground and background colors.
-    #[new(default)]
     pub reverse: bool,
     /// Italic text.
-    #[new(default)]
     pub italic: bool,
     /// Bold text.
-    #[new(default)]
     pub bold: bool,
     /// Struck through text.
-    #[new(default)]
     pub strikethrough: bool,
     /// Blend level (0-100).
-    #[new(default)]
     pub blend: u8,
-    #[new(default)]
     pub underline: Option<UnderlineStyle>,
 }
 
 impl Style {
+    pub fn new(colors: Colors) -> Self {
+        Self {
+            colors,
+            reverse: false,
+            italic: false,
+            bold: false,
+            strikethrough: false,
+            blend: 0,
+            underline: None,
+        }
+    }
+
     pub fn foreground(&self, default_colors: &Colors) -> Color4f {
         if self.reverse {
             self.colors.background.unwrap_or_else(|| default_colors.background.unwrap())

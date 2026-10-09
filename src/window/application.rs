@@ -499,7 +499,7 @@ impl Application {
 
     fn process_buffered_draw_commands(&mut self, window_id: WindowId) {
         let pending_batches = match self.render_states.get_mut(&window_id) {
-            Some(state) => state.pending_draw_commands.drain(..).collect::<Vec<_>>(),
+            Some(state) => std::mem::take(&mut state.pending_draw_commands),
             None => return,
         };
         if !pending_batches.is_empty() {
@@ -861,12 +861,6 @@ impl ApplicationHandler<EventPayload> for Application {
                     return;
                 };
                 self.window_wrapper.queue_restart_route(route_id, details);
-                if let Some(window_id) = self.window_wrapper.window_id_for_route(route_id)
-                    && let Some(state) = self.render_states.get_mut(&window_id)
-                {
-                    state.pending_draw_commands.clear();
-                    state.should_render = ShouldRender::Immediately;
-                }
             }
             payload => {
                 self.window_wrapper.handle_user_event(EventPayload { payload, target });

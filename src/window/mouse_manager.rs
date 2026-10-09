@@ -33,6 +33,19 @@ fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
     }
 }
 
+fn scroll_direction_and_count(
+    previous: i32,
+    new: i32,
+    forward: &'static str,
+    backward: &'static str,
+) -> Option<(&'static str, u32)> {
+    match new.cmp(&previous) {
+        Ordering::Greater => Some((forward, new.abs_diff(previous))),
+        Ordering::Less => Some((backward, new.abs_diff(previous))),
+        Ordering::Equal => None,
+    }
+}
+
 struct DragDetails {
     draw_details: WindowDrawDetails,
     button: MouseButton,
@@ -467,6 +480,26 @@ impl MouseManager {
         }
     }
 
+    fn send_nvim_scroll(
+        &self,
+        direction: &str,
+        count: u32,
+        grid_id: u64,
+        editor_state: &EditorState,
+        neovim_handler: &NeovimHandler,
+    ) {
+        send_ui(
+            SerialCommand::scroll(
+                direction,
+                grid_id,
+                self.grid_position.to_tuple(),
+                count,
+                editor_state.keyboard_manager.format_modifier_string("", true),
+            ),
+            neovim_handler,
+        );
+    }
+
     fn handle_line_scroll(
         &mut self,
         amount: GridVec<f32>,
@@ -485,40 +518,16 @@ impl MouseManager {
         self.scroll_position += amount;
         let new: GridPos<i32> = self.scroll_position.floor().try_cast().unwrap();
 
-        let vertical_input_type = match new.y.partial_cmp(&previous.y) {
-            Some(Ordering::Greater) => Some("up"),
-            Some(Ordering::Less) => Some("down"),
-            _ => None,
-        };
-
-        if let Some(input_type) = vertical_input_type {
-            let scroll_command = SerialCommand::Scroll {
-                direction: input_type.to_string(),
-                grid_id,
-                position: self.grid_position.to_tuple(),
-                modifier_string: editor_state.keyboard_manager.format_modifier_string("", true),
-            };
-            for _ in 0..(new.y - previous.y).abs() {
-                send_ui(scroll_command.clone(), neovim_handler);
-            }
+        if let Some((direction, count)) =
+            scroll_direction_and_count(previous.y, new.y, "up", "down")
+        {
+            self.send_nvim_scroll(direction, count, grid_id, editor_state, neovim_handler);
         }
 
-        let horizontal_input_type = match new.x.partial_cmp(&previous.x) {
-            Some(Ordering::Greater) => Some("left"),
-            Some(Ordering::Less) => Some("right"),
-            _ => None,
-        };
-
-        if let Some(input_type) = horizontal_input_type {
-            let scroll_command = SerialCommand::Scroll {
-                direction: input_type.to_string(),
-                grid_id,
-                position: self.grid_position.to_tuple(),
-                modifier_string: editor_state.keyboard_manager.format_modifier_string("", true),
-            };
-            for _ in 0..(new.x - previous.x).abs() {
-                send_ui(scroll_command.clone(), neovim_handler);
-            }
+        if let Some((direction, count)) =
+            scroll_direction_and_count(previous.x, new.x, "left", "right")
+        {
+            self.send_nvim_scroll(direction, count, grid_id, editor_state, neovim_handler);
         }
     }
 

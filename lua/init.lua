@@ -285,10 +285,20 @@ end
 -- Create auto command for retrieving exit code from neovim on quit.
 vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
     pattern = "*",
-    once = true,
     nested = true,
     callback = function()
+        -- plugins like minimap.vim replays exit events before :quit from a
+        -- non-nested WinEnter autocmd, where the real exit events are
+        -- suppressed. https://github.com/wfxr/minimap.vim/pull/36
+        --
+        -- v:exiting is still unset so we keep this callback for any later real exit.
+        if vim.v.exiting == vim.NIL then
+            return
+        end
+
         rpcrequest("neovide.quit", vim.v.exiting)
+
+        return true
     end,
 })
 
