@@ -38,6 +38,7 @@ BUNDLE_DIR="${RELEASE_DIR}/bundle"
 
 APP_NAME="Neovide.app"
 APP_TEMPLATE="${EXTRAS_DIR}/osx/${APP_NAME}"
+APP_ENTITLEMENTS="macos-builder/Neovide.entitlements"
 APP_DIR="${BUNDLE_DIR}/osx"
 APP_BINARY="${RELEASE_DIR}/${TARGET}"
 APP_BINARY_DIR="${APP_DIR}/${APP_NAME}/Contents/MacOS"
@@ -65,13 +66,16 @@ if [ "$GENERATE_BUNDLE_APP" == "true" ]; then
   if [ -n "$DEVELOPER_ID" ]; then
     codesign --remove-signature "${APP_DIR}/${APP_NAME}"
     echo "Signing '${APP_BINARY}' with '${DEVELOPER_ID}'"
-    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
+    codesign --force --options runtime --deep --entitlements "${APP_ENTITLEMENTS}" \
+      --sign "${DEVELOPER_ID}" "${APP_BINARY}"
     echo "Signed '${APP_BINARY}'"
     echo "Signing '${APP_BINARY_DIR}/${TARGET}' with '${DEVELOPER_ID}'"
-    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
+    codesign --force --options runtime --deep --entitlements "${APP_ENTITLEMENTS}" \
+      --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
     echo "Signed '${APP_BINARY_DIR}/${TARGET}'"
     echo "Signing '${APP_NAME}' in '${APP_DIR}' with '${DEVELOPER_ID}'"
-    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
+    codesign --force --options runtime --deep --entitlements "${APP_ENTITLEMENTS}" \
+      --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
     echo "Signed '${APP_NAME}' in '${APP_DIR}'"
   fi
 fi
