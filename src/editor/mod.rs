@@ -1335,6 +1335,7 @@ pub fn start_editor_handler(
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
     clipboard: ClipboardHandle,
+    allowed_url_patterns: Option<Vec<String>>,
 ) -> NeovimHandler {
     let (redraw_event_sender, mut redraw_event_receiver) = unbounded_channel();
     let (ui_command_sender, ui_command_receiver) = unbounded_channel();
@@ -1347,6 +1348,7 @@ pub fn start_editor_handler(
         route_id,
         settings.clone(),
         clipboard,
+        allowed_url_patterns,
     );
     thread::spawn(move || {
         let mut editor = Editor::new(route_id, event_loop_proxy.clone(), settings.clone());
