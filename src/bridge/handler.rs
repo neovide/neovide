@@ -69,6 +69,25 @@ where
     request(&mut clipboard)
 }
 
+fn handle_quit_request(
+    running_tracker: &RunningTracker,
+    arguments: &[Value],
+) -> Result<Value, Value> {
+    match arguments {
+        [Value::Nil] => Ok(Value::Nil),
+        [value] => {
+            let exit_code = value
+                .as_i64()
+                .ok_or_else(|| Value::from("neovide.quit expects an integer exit code or nil"))?;
+
+            running_tracker.quit_with_code(exit_code as u8, "Quit from neovim");
+
+            Ok(Value::Nil)
+        }
+        _ => Err(Value::from("neovide.quit expects an argument")),
+    }
+}
+
 #[derive(Default)]
 struct NeovimState {
     nvim: Option<Neovim<NeovimWriter>>,
@@ -192,12 +211,7 @@ impl Handler for NeovimHandler {
                     .map_err(|_| ClipboardRequestError::CannotSetContents)
             })
             .map_err(Value::from),
-            "neovide.quit" => {
-                let error_code =
-                    arguments[0].as_i64().expect("Could not parse error code from neovim");
-                self.running_tracker.quit_with_code(error_code as u8, "Quit from neovim");
-                Ok(Value::Nil)
-            }
+            "neovide.quit" => handle_quit_request(&self.running_tracker, &arguments),
             _ => Ok(Value::from("rpcrequest not handled")),
         }
     }
