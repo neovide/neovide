@@ -93,6 +93,16 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
     rpcnotify("neovide.focus_window")
 end, {})
 
+local function open_neovide_help()
+    local _, err = vim.ui.open("https://neovide.dev/")
+    if err then
+        vim.notify(err, vim.log.levels.ERROR, { title = "Neovide" })
+    end
+end
+
+vim.api.nvim_create_user_command("NeovideHelp", open_neovide_help, {
+    desc = "Open Neovide documentation",
+})
 
 if vim.fn.has("mac") == 1 then
     local URL_PATTERN = "https?://[%w-_%.]+%.%w[%w-_%.%%%?%.:/+=&%%[%]#]*"
