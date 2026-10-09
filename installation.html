@@ -199,12 +199,18 @@ $ scoop install neovide
 line:</p>
 <pre><code class="language-sh">brew install --cask neovide
 </code></pre>
-<p>Neovide registers launched shells taking the user's preferred shell into account.</p>
-<p>If you are encountering issues with Neovide not being found by your shell, you can try to add the
-<code>brew</code> binary path to your <code>PATH</code> environment variable:</p>
-<pre><code class="language-sh">sudo launchctl config user path &quot;$(brew --prefix)/bin:${PATH}&quot;
+<p>If your shell cannot find <code>neovide</code> please follow homebrew
+<a href="https://docs.brew.sh/Installation#post-installation-steps">post-installation steps</a>.
+These add homebrew <code>bin</code> directory to your shell's <code>PATH</code>. Open a new terminal after updating
+your shell configuration.</p>
+<p>If Neovide starts but cannot find <code>nvim</code>, check your login shell <code>PATH</code>. When launched from
+Finder or the Dock, Neovide starts Neovim through your login shell. Put homebrew shell setup
+in <code>~/.zprofile</code> for Zsh or <code>~/.bash_profile</code> for Bash. These files are read by login shells.</p>
+<p>You can also set <code>neovim-bin</code> in Neovide <a href="config-file.html">configuration file</a> to the absolute
+path of the Neovim executable. Run <code>command -v nvim</code> in a terminal where Neovim works to find
+that path. For example, with homebrew default installation on Apple Silicon:</p>
+<pre><code class="language-toml">neovim-bin = &quot;/opt/homebrew/bin/nvim&quot;
 </code></pre>
-<p>For more information, see the Homebrew <a href="https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities">FAQ</a>.</p>
 <h3 id="mac-source"><a class="header" href="#mac-source">Mac Source</a></h3>
 <ol>
 <li>
