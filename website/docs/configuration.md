@@ -899,8 +899,8 @@ augroup ime_input
     autocmd!
     autocmd InsertLeave * execute "let g:neovide_input_ime=v:false"
     autocmd InsertEnter * execute "let g:neovide_input_ime=v:true"
-    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:false"
-    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:true"
+    autocmd CmdlineLeave [\/\?] execute "let g:neovide_input_ime=v:false"
+    autocmd CmdlineEnter [\/\?] execute "let g:neovide_input_ime=v:true"
 augroup END
 ```
 
@@ -923,7 +923,7 @@ vim.api.nvim_create_autocmd({ "InsertEnter", "InsertLeave" }, {
 
 vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
     group = ime_input,
-    pattern = "[/\\?]",
+    pattern = "[\\/\\?]",
     callback = set_ime
 })
 ```
