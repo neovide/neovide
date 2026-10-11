@@ -295,15 +295,16 @@ Neovide will add it if it is missing.</p>
 <h3 id="wireframe"><a class="header" href="#wireframe">Wireframe</a></h3>
 <img src="./assets/Wireframe.gif" alt="Wireframe" width=550>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
-<p><strong>Note</strong>: Neovide requires neovim version <code>0.10</code> <em>or greater</em>. See previous releases such as <code>0.5.0</code>
-if your distro is too slow with updating or you need to rely on older neovim versions.</p>
+<p><strong>Note</strong>: Neovide requires Neovim version <code>0.12+</code> including when using WSL or
+connecting to a remote Neovim server. If you need an older Neovim version, use an older Neovide
+release that supports it.</p>
 <p>Building instructions are somewhat limited at the moment. All the libraries Neovide uses are cross
 platform and should have support for Windows, Mac, and Linux. The rendering is based on OpenGL, so a
 good GPU driver will be necessary, the default drivers provided by virtual machines might not be
 enough. On Windows this should be enabled by default if you have a relatively recent system.</p>
 <h2 id="binaries"><a class="header" href="#binaries">Binaries</a></h2>
 <p>Installing should be as simple as downloading the binary, making sure the <code>nvim</code> executable with
-version 0.10 or greater is on your <code>PATH</code> environment variable, and running it. Everything should be
+version 0.12+ is on your <code>PATH</code> environment variable, and running it. Everything should be
 self contained.</p>
 <p>The binaries are to be found on the <a href="https://github.com/neovide/neovide/releases">releases</a> page where
 you can download:</p>
@@ -1353,8 +1354,8 @@ particles rotate in accordance to each other, the lower, the more line-wise all 
 <p>Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
 more &quot;nervous&quot;, the lower, the more it looks like a collapsing sine wave.</p>
 <h3 id="automatic-settings-should-be-turned-onoff-for-debug-purposes-only"><a class="header" href="#automatic-settings-should-be-turned-onoff-for-debug-purposes-only">Automatic settings, should be turned on/off for debug purposes only</a></h3>
-<p>Note: These settings will be removed when the features are deemed stable. In most cases they are
-only here because the automatic detection of Neovim nightly versions does not always work.</p>
+<p>Note: These settings will be removed when the features are deemed stable. They can be used to
+disable features for troubleshooting.</p>
 <h4 id="autodetect-mouse-grid"><a class="header" href="#autodetect-mouse-grid">Autodetect mouse grid</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_has_mouse_grid_detection = v:true
@@ -1363,10 +1364,8 @@ only here because the automatic detection of Neovim nightly versions does not al
 <pre><code class="language-lua">vim.g.neovide_has_mouse_grid_detection = true
 </code></pre>
 <p><strong>Available since 0.16.0.</strong></p>
-<p><strong>Requires Neovim 0.12.0.</strong></p>
 <p>Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
-automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
-it manually for unsupported versions, since the behaviour is undefined.</p>
+automatically enabled when the neovim version supports it.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
 <p>On startup, Neovide registers some commands for interacting
 with the os and platform window. These are neovim commands
@@ -1541,8 +1540,8 @@ or not.</p>
 <pre><code class="language-sh">--no-startup-message-capture, --startup-message-capture or $NEOVIDE_STARTUP_MESSAGE_CAPTURE=0|1
 </code></pre>
 <p><strong>Nightly.</strong></p>
-<p>By default, Neovide temporarily captures startup messages on supported Neovim versions so errors can
-be shown before the first grid render. <code>--no-startup-message-capture</code> disables that temporary
+<p>By default, Neovide temporarily captures startup messages so errors can be shown before the first
+grid render. <code>--no-startup-message-capture</code> disables that temporary
 external message UI path for plugins that need to initialize without another UI client advertising
 <code>ext_messages</code> or <code>ext_cmdline</code></p>
 <h3 id="reuse-existing-instance-macos-only"><a class="header" href="#reuse-existing-instance-macos-only">Reuse Existing Instance (macOS Only)</a></h3>
