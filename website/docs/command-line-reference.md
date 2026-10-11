@@ -219,8 +219,8 @@ or not.
 
 **Nightly.**
 
-By default, Neovide temporarily captures startup messages on supported Neovim versions so errors can
-be shown before the first grid render. `--no-startup-message-capture` disables that temporary
+By default, Neovide temporarily captures startup messages so errors can be shown before the first
+grid render. `--no-startup-message-capture` disables that temporary
 external message UI path for plugins that need to initialize without another UI client advertising
 `ext_messages` or `ext_cmdline`
 

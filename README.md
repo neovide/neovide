@@ -20,6 +20,8 @@ much more, head on over to [neovide.dev](https://neovide.dev).
 
 ## Installation
 
+Neovide requires Neovim **0.12+**
+
 Pre-built releases for macOS, Windows and Linux are published on the
 [GitHub Releases page](https://github.com/neovide/neovide/releases) and each release includes signed
 installers or AppImage builds. For detailed package-manager commands, verification steps and build

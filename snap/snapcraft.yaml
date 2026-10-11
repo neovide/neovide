@@ -23,12 +23,18 @@ parts:
     source: https://github.com/neovim/neovim.git
     override-pull: |
       snapcraftctl pull
-      branch="$(git tag -l --sort=refname | awk '/v[0-9\.]/{print $0}' | tail -1)"
-      git checkout tags/${branch} -b ${branch}
+      branch="$(git tag -l --sort=version:refname | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/{print $0}' | tail -1)"
+      git checkout --detach "tags/${branch}"
       major="$(awk '/NVIM_VERSION_MAJOR/{gsub(")","",$2); print $2}' CMakeLists.txt)"
       minor="$(awk '/NVIM_VERSION_MINOR/{gsub(")","",$2); print $2}' CMakeLists.txt)"
       patch="$(awk '/NVIM_VERSION_PATCH/{gsub(")","",$2); print $2}' CMakeLists.txt)"
       VERSION="v$major.$minor.$patch"
+
+      if [ "$major" -eq 0 ] && [ "$minor" -lt 12 ]; then
+        echo "Neovide requires Neovim 0.12+, but found ${VERSION}" >&2
+        exit 1
+      fi
+
       snapcraftctl set-version "${VERSION}"
     plugin: make
     override-build: |

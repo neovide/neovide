@@ -154,6 +154,7 @@ jobs:
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
+          version: v0.12.0
 
       - uses: Swatinem/rust-cache@v2
         with:
