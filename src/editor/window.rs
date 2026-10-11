@@ -68,6 +68,11 @@ impl Line {
     pub fn cells(&self) -> Option<&[String]> {
         self.cells.as_deref()
     }
+
+    #[cfg(test)]
+    pub(crate) fn empty() -> Self {
+        Self { text: String::new(), fragments: Vec::new(), cells: None }
+    }
 }
 
 impl LineFragment<'_> {

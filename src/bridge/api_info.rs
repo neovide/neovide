@@ -52,14 +52,12 @@ impl ApiVersion {
     /// See the tests for more examples.
     #[allow(dead_code)]
     pub fn has_version(&self, major: u64, minor: u64, patch: u64, prerelease: Option<u64>) -> bool {
-        self.major > major
-            || (self.major == major && self.minor > minor)
-            || ((self.major == major && self.minor == minor && self.patch >= patch)
-                && !self.prerelease)
-            || (self.major == major
-                && self.minor == minor
-                && self.patch == patch
-                && matches!(prerelease, Some(prerelease) if self.prerelease_version >= prerelease))
+        let version = (self.major, self.minor, self.patch);
+        let required = (major, minor, patch);
+        version > required
+            || (version == required
+                && (!self.prerelease
+                    || matches!(prerelease, Some(prerelease) if self.prerelease_version >= prerelease)))
     }
 }
 

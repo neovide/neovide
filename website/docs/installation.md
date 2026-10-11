@@ -1,7 +1,8 @@
 # Installation
 
-**Note**: Neovide requires neovim version `0.10` _or greater_. See previous releases such as `0.5.0`
-if your distro is too slow with updating or you need to rely on older neovim versions.
+**Note**: Neovide requires Neovim version `0.12+` including when using WSL or
+connecting to a remote Neovim server. If you need an older Neovim version, use an older Neovide
+release that supports it.
 
 Building instructions are somewhat limited at the moment. All the libraries Neovide uses are cross
 platform and should have support for Windows, Mac, and Linux. The rendering is based on OpenGL, so a
@@ -11,7 +12,7 @@ enough. On Windows this should be enabled by default if you have a relatively re
 ## Binaries
 
 Installing should be as simple as downloading the binary, making sure the `nvim` executable with
-version 0.10 or greater is on your `PATH` environment variable, and running it. Everything should be
+version 0.12+ is on your `PATH` environment variable, and running it. Everything should be
 self contained.
 
 The binaries are to be found on the [releases](https://github.com/neovide/neovide/releases) page where
@@ -66,16 +67,22 @@ line:
 brew install --cask neovide
 ```
 
-Neovide registers launched shells taking the user's preferred shell into account.
+If your shell cannot find `neovide` please follow homebrew
+[post-installation steps](https://docs.brew.sh/Installation#post-installation-steps).
+These add homebrew `bin` directory to your shell's `PATH`. Open a new terminal after updating
+your shell configuration.
 
-If you are encountering issues with Neovide not being found by your shell, you can try to add the
-`brew` binary path to your `PATH` environment variable:
+If Neovide starts but cannot find `nvim`, check your login shell `PATH`. When launched from
+Finder or the Dock, Neovide starts Neovim through your login shell. Put homebrew shell setup
+in `~/.zprofile` for Zsh or `~/.bash_profile` for Bash. These files are read by login shells.
 
-```sh
-sudo launchctl config user path "$(brew --prefix)/bin:${PATH}"
+You can also set `neovim-bin` in Neovide [configuration file](config-file.md) to the absolute
+path of the Neovim executable. Run `command -v nvim` in a terminal where Neovim works to find
+that path. For example, with homebrew default installation on Apple Silicon:
+
+```toml
+neovim-bin = "/opt/homebrew/bin/nvim"
 ```
-
-For more information, see the Homebrew [FAQ](https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities).
 
 ### Mac Source
 

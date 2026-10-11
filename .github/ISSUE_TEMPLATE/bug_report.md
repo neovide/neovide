@@ -26,8 +26,8 @@ If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
  - OS: [e.g. macOS 11.4]
- - Neovide Version [e.g. 0.6.0]
- - Neovim Version [e.g. 0.5.0]
+ - Neovide Version [e.g. 0.16.2]
+ - Neovim Version [e.g. 0.12.0. requires 0.12+]
 
 **Please run `neovide --log` and paste the contents of the `.log` file created in the current directory here:**
 

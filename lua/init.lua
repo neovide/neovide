@@ -93,6 +93,16 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
     rpcnotify("neovide.focus_window")
 end, {})
 
+local function open_neovide_help()
+    local _, err = vim.ui.open("https://neovide.dev/")
+    if err then
+        vim.notify(err, vim.log.levels.ERROR, { title = "Neovide" })
+    end
+end
+
+vim.api.nvim_create_user_command("NeovideHelp", open_neovide_help, {
+    desc = "Open Neovide documentation",
+})
 
 if vim.fn.has("mac") == 1 then
     local URL_PATTERN = "https?://[%w-_%.]+%.%w[%w-_%.%%%?%.:/+=&%%[%]#]*"
@@ -285,10 +295,20 @@ end
 -- Create auto command for retrieving exit code from neovim on quit.
 vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
     pattern = "*",
-    once = true,
     nested = true,
     callback = function()
+        -- plugins like minimap.vim replays exit events before :quit from a
+        -- non-nested WinEnter autocmd, where the real exit events are
+        -- suppressed. https://github.com/wfxr/minimap.vim/pull/36
+        --
+        -- v:exiting is still unset so we keep this callback for any later real exit.
+        if vim.v.exiting == vim.NIL then
+            return
+        end
+
         rpcrequest("neovide.quit", vim.v.exiting)
+
+        return true
     end,
 })
 
