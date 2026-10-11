@@ -55,13 +55,7 @@ pub use ui_commands::{
     start_ui_command_handler, unregister_route_handler,
 };
 
-const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 10, 0);
-
-fn supports_startup_message_capture(version: &api_info::ApiVersion) -> bool {
-    // It's needed to keep the built-in message UI on nvim 0.10/0.11. since its external cmdline
-    // startup prompts can block before we have a rendered window.
-    version.has_version(0, 12, 0, None) || version.has_version(0, 12, 0, Some(0))
-}
+const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 12, 0);
 
 macro_rules! nvim_dict {
     ( $( $key:expr => $value:expr ),* $(,)? ) => {
@@ -191,7 +185,7 @@ async fn create_neovim_session(
     info!("Neovide registered to nvim with channel id {}", api_information.channel);
 
     let (major, minor, patch) = NEOVIM_REQUIRED_VERSION;
-    if !api_information.version.has_version(major, minor, patch, None) {
+    if !api_information.version.has_version(major, minor, patch, Some(0)) {
         let found = api_information.version.string;
         bail!(
             "Neovide requires nvim version {major}.{minor}.{patch} or higher, but {found} was detected. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim"
@@ -224,8 +218,7 @@ async fn create_neovim_session(
     settings.read_initial_values(&session.neovim).await?;
     set_background_if_allowed(background, &session.neovim).await;
 
-    let capture_startup_messages = cmdline_settings.startup_message_capture
-        && supports_startup_message_capture(&api_information.version);
+    let capture_startup_messages = cmdline_settings.startup_message_capture;
     if capture_startup_messages {
         let pre_attach_cmdheight = session
             .neovim
