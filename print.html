@@ -1384,6 +1384,11 @@ window containing Neovide to the front and activate it. This
 is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.</p>
+<p>On Wayland, this requests attention through <code>xdg_activation_v1</code> instead of
+forcing keyboard focus. The compositor decides whether to focus the window
+or show a notification. For example, GNOME may show a notification when the
+command is sent from a terminal. Compositors without this protocol cannot
+make the request.</p>
 <h2 id="force-click-macos-available-since-0160"><a class="header" href="#force-click-macos-available-since-0160">Force Click (macOS) (Available since 0.16.0)</a></h2>
 <p>On macOS, <code>:NeovideForceClick</code> triggers native force-click behaviours for whatever is under the
 cursor. Plain text falls back to the usual &quot;Look Up&quot; popover; file paths and URLs both open in the
