@@ -371,9 +371,11 @@ mod tests {
         let cmdline_settings = settings.get::<CmdLineSettings>();
         let command = create_tokio_nvim_command(&cmdline_settings, true, None, OpenMode::Startup);
         let instance = NeovimInstance::Embedded(command);
-        let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
-            .await
-            .unwrap_or_explained_panic("Could not locate or start the neovim process");
+        let NeovimSession { neovim: nvim, .. } =
+            NeovimSession::new(instance, NeovimHandler(), None)
+                .await
+                .unwrap_or_explained_panic("Could not locate or start the neovim process");
+
         nvim.set_var("neovide_bar", Value::from("bar_set".to_owned()))
             .await
             .expect("Could not set neovide_bar variable");

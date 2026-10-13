@@ -11,7 +11,12 @@ use std::{
 };
 
 use anyhow::Context;
-use nvim_rs::{Handler, error::LoopError, neovim::Neovim};
+use nvim_rs::{
+    Handler, Value, call_args,
+    error::{CallError, LoopError},
+    neovim::Neovim,
+    rpc::IntoVal,
+};
 #[cfg(not(target_os = "windows"))]
 use tokio::process::Child;
 use tokio::{
@@ -62,6 +67,7 @@ impl NeovimSession {
     pub async fn new(
         instance: NeovimInstance,
         handler: impl Handler<Writer = NeovimWriter>,
+        channel_config: Option<&[(Value, Value)]>,
     ) -> anyhow::Result<Self> {
         // This needs to be done before the process is spawned, since the file descriptors are
         // inherited on unix-like systems
@@ -100,6 +106,18 @@ impl NeovimSession {
             }
             Ok((neovim, io)) => {
                 let io_handle = spawn(io);
+
+                if let Some(channel_config) = channel_config {
+                    let restored = neovim
+                        .call("nvim_chan_set", call_args![0, Value::Map(channel_config.to_vec())])
+                        .await
+                        .and_then(|response| response.map_err(Box::<CallError>::from));
+
+                    if let Err(error) = restored {
+                        io_handle.abort();
+                        return Err(error).context("Could not restore Neovim channel properties");
+                    }
+                }
 
                 Ok(Self {
                     neovim,
