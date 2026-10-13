@@ -14,7 +14,7 @@ use winit::{
     dpi,
     event::{Ime, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Cursor, Fullscreen, Theme, Window, WindowId},
+    window::{Cursor, Fullscreen, Theme, UserAttentionType, Window, WindowId},
 };
 
 use approx::AbsDiffEq;
@@ -542,8 +542,15 @@ impl WinitWindowWrapper {
             WindowCommand::ListAvailableFonts => self.send_font_names(target_window_id),
             WindowCommand::FocusWindow => {
                 if let Some(route) = &self.routes.get(&target_window_id) {
-                    let window = route.window.winit_window.clone();
-                    window.focus_window();
+                    let window = &route.window.winit_window;
+                    match window.window_handle().map(|handle| handle.as_raw()) {
+                        Ok(RawWindowHandle::Wayland(_)) => {
+                            // focus_window does nothing on wayland
+                            // request activation and let the compositor decide whether to focus us
+                            window.request_user_attention(Some(UserAttentionType::Informational));
+                        }
+                        _ => window.focus_window(),
+                    }
                 }
 
                 #[cfg(target_os = "macos")]
