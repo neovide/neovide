@@ -25,6 +25,12 @@ is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.
 
+On Wayland, this requests attention through `xdg_activation_v1` instead of
+forcing keyboard focus. The compositor decides whether to focus the window
+or show a notification. For example, GNOME may show a notification when the
+command is sent from a terminal. Compositors without this protocol cannot
+make the request.
+
 ## Force Click (macOS) (Available since 0.16.0)
 
 On macOS, `:NeovideForceClick` triggers native force-click behaviours for whatever is under the
