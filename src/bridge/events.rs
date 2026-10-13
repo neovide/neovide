@@ -553,10 +553,7 @@ fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_restart(arguments: Vec<Value>) -> Result<RedrawEvent> {
-    RestartDetails::from_values(&arguments).map_or_else(
-        || Err(ParseError::Format(format!("invalid restart event: {arguments:?}"))),
-        |details| Ok(RedrawEvent::Restart { details }),
-    )
+    RestartDetails::from_values(arguments).map(|details| RedrawEvent::Restart { details })
 }
 
 fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {

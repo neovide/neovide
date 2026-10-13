@@ -177,9 +177,13 @@ async fn create_neovim_session(
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref(), restart_details, cwd, mode).await?;
     #[allow(unused_mut)]
-    let mut session = NeovimSession::new(neovim_instance, handler.clone())
-        .await
-        .context("Could not locate or start neovim process")?;
+    let mut session = NeovimSession::new(
+        neovim_instance,
+        handler.clone(),
+        restart_details.and_then(|details| details.channel_config.as_deref()),
+    )
+    .await
+    .context("Could not establish Neovim session")?;
 
     let api_information = get_api_information(&session.neovim).await?;
     info!("Neovide registered to nvim with channel id {}", api_information.channel);
