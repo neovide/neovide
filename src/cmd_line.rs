@@ -230,7 +230,12 @@ pub struct CmdLineSettings {
     pub neovim_bin: Option<String>,
 
     /// The app ID to show to the compositor (Wayland only, useful for setting WM rules)
-    #[arg(long = "wayland_app_id", env = "NEOVIDE_APP_ID", default_value = "neovide")]
+    #[arg(
+        long = "wayland-app-id",
+        alias = "wayland_app_id",
+        env = "NEOVIDE_APP_ID",
+        default_value = "neovide"
+    )]
     pub wayland_app_id: String,
 
     /// The class part of the X11 WM_CLASS property (X only, useful for setting WM rules)
