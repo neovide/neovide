@@ -64,6 +64,7 @@ pub fn get_active_handler() -> Option<NeovimHandler> {
     HANDLER_REGISTRY.lock().unwrap().clone()
 }
 
+#[cfg(target_os = "macos")]
 pub fn require_active_handler() -> NeovimHandler {
     get_active_handler().expect("NeovimHandler has not been initialized")
 }
