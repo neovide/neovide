@@ -48,12 +48,12 @@ pub use command::{OpenArgs, OpenMode, create_blocking_nvim_command};
 pub use events::*;
 pub use restart::RestartDetails;
 pub use session::NeovimWriter;
-#[cfg(target_os = "macos")]
-pub use ui_commands::send_or_queue_file_drop;
 pub use ui_commands::{
-    ParallelCommand, SerialCommand, require_active_handler, send_ui, set_active_route_handler,
+    ParallelCommand, SerialCommand, get_active_handler, send_ui, set_active_route_handler,
     start_ui_command_handler, unregister_route_handler,
 };
+#[cfg(target_os = "macos")]
+pub use ui_commands::{require_active_handler, send_or_queue_file_drop};
 
 const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 12, 0);
 

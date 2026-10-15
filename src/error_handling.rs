@@ -14,7 +14,7 @@ use winit::event_loop::EventLoop;
 use crate::windows_attach_to_console;
 
 use crate::{
-    bridge::{ParallelCommand, require_active_handler, send_ui},
+    bridge::{ParallelCommand, get_active_handler, send_ui},
     clipboard::Clipboard,
     settings::Settings,
     window::{EventPayload, show_error_window},
@@ -31,14 +31,18 @@ fn show_error(explanation: &str) -> ! {
 }
 
 pub fn show_nvim_error(msg: &str) {
-    let handler = require_active_handler();
+    // the renderer can report font errors before neovim starts
+    let Some(handler) = get_active_handler() else {
+        return;
+    };
+
     send_ui(
         ParallelCommand::ShowError { lines: msg.split('\n').map(|s| s.to_string()).collect_vec() },
         &handler,
     );
 }
 
-/// Formats, logs and displays the given message.
+/// logs the message and displays it when a neovim handler is available
 #[macro_export]
 macro_rules! error_msg {
     ($($arg:tt)+) => {
