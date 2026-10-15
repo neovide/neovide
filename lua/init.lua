@@ -450,6 +450,56 @@ vim.api.nvim_create_autocmd("OptionSet", {
 
 notify_intro_state()
 
+local scrollbar_windows = {}
+local scrollbar_group = vim.api.nvim_create_augroup("NeovideScrollbar", { clear = true })
+
+local function notify_scrollbar_window(window)
+    if not vim.api.nvim_win_is_valid(window) then
+        return
+    end
+    local buffer = vim.api.nvim_win_get_buf(window)
+    if scrollbar_windows[window] == buffer then
+        return
+    end
+    scrollbar_windows[window] = buffer
+    pcall(rpcnotify, "neovide.scrollbar_window", window, buffer, true)
+end
+
+local function notify_scrollbar_windows(buffer)
+    -- Include other tabs and every window showing a changed buffer, not just curwin.
+    for _, window in ipairs(vim.api.nvim_list_wins()) do
+        if not buffer or vim.api.nvim_win_get_buf(window) == buffer then
+            notify_scrollbar_window(window)
+        end
+    end
+end
+
+vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
+    group = scrollbar_group,
+    callback = function(ev)
+        notify_scrollbar_windows(ev.buf)
+    end,
+})
+
+vim.api.nvim_create_autocmd({ "VimEnter", "WinNew", "WinEnter", "TabEnter" }, {
+    group = scrollbar_group,
+    callback = function()
+        notify_scrollbar_windows()
+    end,
+})
+
+vim.api.nvim_create_autocmd("WinClosed", {
+    group = scrollbar_group,
+    callback = function(ev)
+        local window = tonumber(ev.match)
+        scrollbar_windows[window] = nil
+        -- A window-only notification removes metadata, including pre-layout entries.
+        pcall(rpcnotify, "neovide.scrollbar_window", window)
+    end,
+})
+
+notify_scrollbar_windows()
+
 pcall(vim.api.nvim_create_autocmd, "Progress", {
     group = vim.api.nvim_create_augroup("NeovideProgressBar", { clear = true }),
     desc = "Forward progress events to Neovide",

@@ -48,6 +48,9 @@ use crate::{
     window::{EventPayload, ShouldRender},
 };
 
+#[cfg(target_os = "macos")]
+use crate::editor::ScrollbarSnapshot;
+
 #[cfg(feature = "profiling")]
 use crate::profiling::tracy_plot;
 #[cfg(feature = "profiling")]
@@ -152,12 +155,21 @@ pub enum DrawCommand {
     LineSpaceChanged(f32),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
-    StartupMessage { message: StartupMessage, replace_last: bool, append: bool },
+    StartupMessage {
+        message: StartupMessage,
+        replace_last: bool,
+        append: bool,
+    },
     ClearStartupMessages,
     StartupPrompt,
     ReplayStartupMessages,
     UIReady,
-    Window { grid_id: u64, command: WindowDrawCommand },
+    #[cfg(target_os = "macos")]
+    ScrollbarSnapshot(ScrollbarSnapshot),
+    Window {
+        grid_id: u64,
+        command: WindowDrawCommand,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -175,6 +187,9 @@ pub struct Renderer {
 
     pub rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
+    /// committed with this route grids, including before its OS window exists.
+    #[cfg(target_os = "macos")]
+    pub scrollbar_snapshot: Option<ScrollbarSnapshot>,
 
     profiler: profiler::Profiler,
     pub os_scale_factor: f64,
@@ -188,6 +203,8 @@ pub struct Renderer {
 
 /// Results of processing the draw commands from the command channel.
 pub struct DrawCommandResult {
+    #[cfg(target_os = "macos")]
+    pub scrollbar_changed: bool,
     pub font_changed: bool,
     pub should_show: bool,
     pub startup_message_flush: Option<StartupMessageFlush>,
@@ -218,6 +235,8 @@ impl Renderer {
 
         Renderer {
             rendered_windows,
+            #[cfg(target_os = "macos")]
+            scrollbar_snapshot: None,
             cursor_renderer,
             grid_renderer,
             current_mode,
@@ -249,12 +268,7 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(
-        &mut self,
-        root_canvas: &Canvas,
-        content_region: Option<&PixelRect<f32>>,
-        dt: f32,
-    ) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, content_region: &PixelRect<f32>, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let window_settings = self.settings.get::<WindowSettings>();
         let opacity = if window_settings.normal_opacity < 1.0 {
@@ -269,13 +283,7 @@ impl Renderer {
         root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
-
-        if let Some(content_region) = content_region {
-            root_canvas.clip_rect(to_skia_rect(content_region), None, Some(false));
-        } else if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
-            root_canvas.clip_rect(clip_rect, None, Some(false));
-        }
+        root_canvas.clip_rect(to_skia_rect(content_region), None, Some(false));
 
         let (root_windows, floating_layers) = {
             let (mut root_windows, mut floating_windows): (
@@ -360,7 +368,7 @@ impl Renderer {
                     root_canvas,
                     default_background,
                     grid_scale,
-                    content_region.copied(),
+                    Some(*content_region),
                     rightmost_root_window,
                     bottommost_root_window,
                 )
@@ -375,7 +383,7 @@ impl Renderer {
                     &settings,
                     default_background,
                     grid_scale,
-                    content_region.copied(),
+                    Some(*content_region),
                 )
             })
             .collect_vec();
@@ -521,6 +529,8 @@ impl Renderer {
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
         let settings = self.settings.get::<RendererSettings>();
         let mut result = DrawCommandResult {
+            #[cfg(target_os = "macos")]
+            scrollbar_changed: false,
             font_changed: false,
             should_show: false,
             startup_message_flush: None,
@@ -605,6 +615,11 @@ impl Renderer {
             DrawCommand::UpdateCursor(new_cursor) => {
                 self.cursor_renderer.update_cursor(new_cursor);
             }
+            #[cfg(target_os = "macos")]
+            DrawCommand::ScrollbarSnapshot(snapshot) => {
+                self.scrollbar_snapshot = Some(snapshot);
+                result.scrollbar_changed = true;
+            }
             DrawCommand::FontChanged(new_font) => {
                 self.grid_renderer.update_font(&new_font);
                 result.font_changed = true;
@@ -686,6 +701,10 @@ impl Renderer {
 
     pub fn clear(&mut self) {
         self.rendered_windows.clear();
+        #[cfg(target_os = "macos")]
+        {
+            self.scrollbar_snapshot = None;
+        }
         self.window_regions.clear();
         self.cursor_renderer = CursorRenderer::new(self.settings.clone());
         self.progress_bar = ProgressBar::new();

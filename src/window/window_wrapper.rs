@@ -111,6 +111,15 @@ pub struct WindowPadding {
     pub bottom: u32,
 }
 
+impl WindowPadding {
+    fn content_size(&self, size: PixelSize<u32>) -> PixelSize<u32> {
+        PixelSize::new(
+            size.width.saturating_sub(self.left).saturating_sub(self.right),
+            size.height.saturating_sub(self.top).saturating_sub(self.bottom),
+        )
+    }
+}
+
 #[derive(PartialEq, PartialOrd)]
 enum UIState {
     Initing, // Running init.vim/lua
@@ -162,6 +171,24 @@ pub struct RouteWindow {
     pub document_modified: bool,
     pub last_applied_window_size: dpi::PhysicalSize<u32>,
     pub last_synced_grid_size: Option<GridSize<u32>>,
+}
+
+#[cfg(target_os = "macos")]
+impl RouteWindow {
+    fn with_macos_feature<R>(&self, read: impl FnOnce(&MacosWindowFeature) -> R) -> Option<R> {
+        let feature = self.macos_feature.as_ref()?;
+
+        Some(read(feature.borrow().as_ref()))
+    }
+
+    fn with_macos_feature_mut<R>(
+        &self,
+        update: impl FnOnce(&mut MacosWindowFeature) -> R,
+    ) -> Option<R> {
+        let feature = self.macos_feature.as_ref()?;
+
+        Some(update(feature.borrow_mut().as_mut()))
+    }
 }
 
 impl fmt::Debug for RouteWindow {
@@ -805,6 +832,17 @@ impl WinitWindowWrapper {
                     self.set_simple_fullscreen(*window_id, fullscreen);
                 }
             }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::SystemScrollbar(_) => {
+                for window_id in window_ids.iter() {
+                    if let Some(route) = self.routes.get(window_id) {
+                        let renderer = route.window.renderer.borrow();
+                        route.window.with_macos_feature_mut(|feature| {
+                            feature.apply_scrollbar_snapshot(&renderer);
+                        });
+                    }
+                }
+            }
             _ => {}
         }
         #[cfg(target_os = "macos")]
@@ -1059,6 +1097,13 @@ impl WinitWindowWrapper {
                         vsync.update(&window);
                     }
                 }
+                WindowEvent::ThemeChanged(_) => {
+                    tracy_zone!("ThemeChanged");
+                    #[cfg(target_os = "macos")]
+                    route.window.with_macos_feature(|feature| {
+                        feature.refresh_scrollbar_appearance();
+                    });
+                }
                 #[cfg(target_os = "macos")]
                 WindowEvent::TouchpadPressure { stage, .. } => {
                     tracy_zone!("TouchpadPressure");
@@ -1091,6 +1136,7 @@ impl WinitWindowWrapper {
 
         #[cfg(target_os = "macos")]
         if resized {
+            self.update_scrollbar_layout_from_window(window_id);
             self.sync_native_tabs_resize(window_id);
         }
 
@@ -1137,7 +1183,6 @@ impl WinitWindowWrapper {
             if let Some(route) = self.routes.get_mut(&window_id) {
                 route.state.saved_inner_size = shared_inner_size;
                 route.state.window_padding = window_padding;
-                route.window.last_synced_grid_size = None;
             }
 
             self.update_grid_size_from_window(window_id);
@@ -1260,7 +1305,12 @@ impl WinitWindowWrapper {
 
     pub fn clear_renderer(&mut self, window_id: WindowId) {
         if let Some(route) = self.routes.get(&window_id) {
-            route.window.renderer.borrow_mut().clear();
+            let mut renderer = route.window.renderer.borrow_mut();
+            renderer.clear();
+            #[cfg(target_os = "macos")]
+            route.window.with_macos_feature_mut(|feature| {
+                feature.apply_scrollbar_snapshot(&renderer);
+            });
         }
     }
 
@@ -1443,33 +1493,35 @@ impl WinitWindowWrapper {
         tracy_zone!("draw_frame");
 
         let content_rect = self.get_content_pixel_rect_from_window(window_id);
-
         let Some(route) = self.routes.get_mut(&window_id) else {
             return;
         };
-
-        let mut renderer = route.window.renderer.borrow_mut();
         let window = route.window.winit_window.clone();
-        let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         let Some(vsync) = route.state.vsync.as_mut() else {
             return;
         };
 
-        renderer.draw_frame(skia_renderer.canvas(), Some(&content_rect), dt);
-
-        skia_renderer.flush();
-
         {
-            tracy_gpu_zone!("wait for vsync");
-            vsync.wait_for_vsync();
+            let mut renderer = route.window.renderer.borrow_mut();
+            let mut skia_renderer = route.window.skia_renderer.borrow_mut();
+            renderer.draw_frame(skia_renderer.canvas(), &content_rect, dt);
+            skia_renderer.flush();
+            {
+                tracy_gpu_zone!("wait for vsync");
+                vsync.wait_for_vsync();
+            }
+            skia_renderer.swap_buffers();
         }
-
-        skia_renderer.swap_buffers();
         if self.ui_state == UIState::FirstFrame {
             window.set_visible(true);
             self.ui_state = UIState::Showing;
         }
 
+        #[cfg(target_os = "macos")]
+        route.window.with_macos_feature_mut(|feature| {
+            let renderer = route.window.renderer.borrow();
+            feature.update_scrollbar_from_renderer(&renderer, dt);
+        });
         tracy_frame();
         tracy_gpu_collect();
     }
@@ -1798,12 +1850,14 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         let macos_feature = {
-            let feature = MacosWindowFeature::from_winit_window(
+            let mut feature = MacosWindowFeature::from_winit_window(
                 &window,
                 self.settings.clone(),
                 proxy.clone(),
                 neovim_handler.clone(),
             );
+
+            feature.apply_scrollbar_snapshot(&renderer.borrow());
 
             if creating_initial_window {
                 feature.activate_and_focus();
@@ -1892,7 +1946,15 @@ impl WinitWindowWrapper {
 
         let mut handle_draw_commands_result = {
             let mut renderer = route.window.renderer.borrow_mut();
-            renderer.handle_draw_commands(batch)
+            let result = renderer.handle_draw_commands(batch);
+            #[cfg(target_os = "macos")]
+            if result.scrollbar_changed {
+                route.window.with_macos_feature_mut(|feature| {
+                    feature.apply_scrollbar_snapshot(&renderer);
+                });
+            }
+
+            result
         };
 
         flush_startup_messages_if_ready(
@@ -2292,21 +2354,30 @@ impl WinitWindowWrapper {
         let window_settings = self.settings.get::<WindowSettings>();
 
         #[cfg(not(target_os = "macos"))]
-        let window_padding_top = window_settings.padding_top;
+        let (window_padding_top, window_padding_right, window_padding_left) = (
+            window_settings.padding_top,
+            window_settings.padding_right,
+            window_settings.padding_left,
+        );
 
         #[cfg(target_os = "macos")]
-        let window_padding_top = {
+        let (window_padding_top, window_padding_right, window_padding_left) = {
             let mut padding_top = window_settings.padding_top;
+            let mut padding_right = window_settings.padding_right;
+            let mut padding_left = window_settings.padding_left;
             if let Some(macos_feature) = self.macos_feature_for_window(window_id) {
-                padding_top += macos_feature.borrow().extra_titlebar_height_in_pixels();
+                let macos_feature = macos_feature.borrow();
+                padding_top += macos_feature.extra_titlebar_height_in_pixels();
+                padding_right += macos_feature.scrollbar_reserved_width_in_pixels();
+                padding_left += macos_feature.scrollbar_left_reserved_width_in_pixels();
             }
-            padding_top
+            (padding_top, padding_right, padding_left)
         };
 
         WindowPadding {
             top: window_padding_top,
-            left: window_settings.padding_left,
-            right: window_settings.padding_right,
+            left: window_padding_left,
+            right: window_padding_right,
             bottom: window_settings.padding_bottom,
         }
     }
@@ -2557,12 +2628,18 @@ impl WinitWindowWrapper {
                 None => return should_render,
             };
 
+            let live_grid_size = self.routes.get(&window_id).map(|route| {
+                let grid_scale = route.window.renderer.borrow().grid_renderer.grid_scale;
+                self.get_grid_size_from_window(window_id, grid_scale, MIN_GRID_SIZE)
+            });
+
             let mut needs_window_update = false;
             if let Some(route) = self.routes.get(&window_id)
                 && (route.state.saved_inner_size != new_window_size
                     || route.state.font_changed_last_frame
                     || padding_changed
-                    || route.window.last_applied_window_size != route.state.saved_inner_size)
+                    || route.window.last_applied_window_size != route.state.saved_inner_size
+                    || live_grid_size != route.window.last_synced_grid_size)
             {
                 needs_window_update = true;
             }
@@ -2579,6 +2656,11 @@ impl WinitWindowWrapper {
                 should_render = ShouldRender::Immediately;
             }
         }
+
+        #[cfg(target_os = "macos")]
+        // A flushed layout can acknowledge a resize without changing the desired
+        // dimensions. Refresh frames independently of the resize-request cache.
+        self.update_scrollbar_layout_from_window(window_id);
 
         self.update_ime_position(window_id, false);
 
@@ -2689,14 +2771,8 @@ impl WinitWindowWrapper {
             None => return min,
         };
         let window_padding = route.state.window_padding;
-        let window_padding_size: PixelSize<u32> = PixelSize::new(
-            window_padding.left + window_padding.right,
-            window_padding.top + window_padding.bottom,
-        );
-
         let content_size =
-            PixelSize::new(route.state.saved_inner_size.width, route.state.saved_inner_size.height)
-                - window_padding_size;
+            window_padding.content_size(self.content_pixel_size_from_window(window_id));
 
         let round_or_floor = |v: GridSize<f32>| -> GridSize<f32> {
             GridSize::new(round_or_op(v.width, f32::floor), round_or_op(v.height, f32::floor))
@@ -2735,24 +2811,33 @@ impl WinitWindowWrapper {
         };
 
         let window_padding = route.state.window_padding;
-        let window_padding_size: PixelSize<u32> = PixelSize::new(
-            window_padding.left + window_padding.right,
-            window_padding.top + window_padding.bottom,
-        );
-
         let content_size =
-            PixelSize::new(route.state.saved_inner_size.width, route.state.saved_inner_size.height)
-                - window_padding_size;
+            window_padding.content_size(self.content_pixel_size_from_window(window_id));
 
         let min = PixelPos::new(window_padding.left as f32, window_padding.top as f32);
         let max = PixelPos::new(
             (window_padding.left + content_size.width) as f32,
             (window_padding.top + content_size.height) as f32,
         );
-
         PixelRect::new(min, max)
     }
 
+    fn content_pixel_size_from_window(&self, window_id: WindowId) -> PixelSize<u32> {
+        let Some(route) = self.routes.get(&window_id) else {
+            return PixelSize::new(0, 0);
+        };
+
+        #[cfg(target_os = "macos")]
+        if let Some(content_size) = route
+            .window
+            .with_macos_feature(|feature| feature.content_view_size_in_pixels())
+            .flatten()
+        {
+            return content_size;
+        }
+
+        PixelSize::new(route.state.saved_inner_size.width, route.state.saved_inner_size.height)
+    }
     fn update_grid_size_from_window(&mut self, window_id: WindowId) {
         let (grid_scale, neovim_handler, last_synced, saved_inner_size) =
             match self.routes.get(&window_id) {
@@ -2769,6 +2854,10 @@ impl WinitWindowWrapper {
             };
 
         let grid_size = self.get_grid_size_from_window(window_id, grid_scale, MIN_GRID_SIZE);
+
+        #[cfg(target_os = "macos")]
+        self.update_scrollbar_layout_from_window(window_id);
+
         if last_synced.as_ref() == Some(&grid_size) {
             trace!("Grid matched route size, skip update.");
             return;
@@ -2795,6 +2884,65 @@ impl WinitWindowWrapper {
         if let Some(route_mut) = self.routes.get_mut(&window_id) {
             route_mut.window.last_synced_grid_size = Some(grid_size);
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn update_scrollbar_layout_from_window(&self, window_id: WindowId) {
+        let Some(route) = self.routes.get(&window_id) else {
+            return;
+        };
+
+        let window_padding = route.state.window_padding;
+
+        let Some(macos_feature) = self.macos_feature_for_window(window_id) else {
+            return;
+        };
+
+        let reserved_width = {
+            let macos_feature = macos_feature.borrow();
+            macos_feature.scrollbar_reserved_width_in_pixels()
+        };
+
+        if reserved_width == 0 {
+            macos_feature.borrow_mut().set_scrollbar_geometry_in_pixels(0.0, 0.0, 0.0, 0.0, 0.0);
+            return;
+        }
+
+        let content_size = self.content_pixel_size_from_window(window_id);
+        let content_top = f64::from(window_padding.top);
+        let content_height = f64::from(
+            content_size
+                .height
+                .saturating_sub(window_padding.top)
+                .saturating_sub(window_padding.bottom),
+        );
+
+        // a resize request is not yet drawable state so we keep the track at the
+        // committed root edge until neovim acknowledges the new grid size.
+        let renderer = route.window.renderer.borrow();
+        let grid_scale = renderer.grid_renderer.grid_scale;
+        let root_width = renderer
+            .scrollbar_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.root_grid_size)
+            .map_or(f64::from(renderer.get_grid_size().width), |size| size.width as f64);
+
+        let grid_edge_x =
+            f64::from(window_padding.left) + root_width * f64::from(grid_scale.width());
+
+        let left_width = if macos_feature.borrow().scrollbar_left_reserved_width_in_pixels() > 0 {
+            f64::from(window_padding.left)
+        } else {
+            0.0
+        };
+
+        macos_feature.borrow_mut().set_scrollbar_geometry_in_pixels(
+            grid_edge_x,
+            content_top,
+            content_height,
+            left_width,
+            f64::from(grid_scale.height()),
+        );
     }
 
     fn update_ime_position(&mut self, window_id: WindowId, force: bool) {

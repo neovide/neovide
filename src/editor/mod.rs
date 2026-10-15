@@ -2,6 +2,8 @@ mod cursor;
 mod draw_command_batcher;
 mod grid;
 mod intro;
+#[cfg(target_os = "macos")]
+mod scrollbar;
 mod style;
 mod window;
 
@@ -33,8 +35,14 @@ use crate::{
     window::{EventPayload, RouteId, UserEvent, WindowCommand, WindowSettings},
 };
 
+#[cfg(target_os = "macos")]
+use crate::bridge::ScrollbarWindowMetadata;
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
+#[cfg(target_os = "macos")]
+pub use scrollbar::{ScrollbarGrid, ScrollbarSnapshot};
+#[cfg(target_os = "macos")]
+use scrollbar::{retain_tiled_focus, update_window_metadata};
 pub use style::{Colors, Style, UnderlineStyle};
 pub use window::*;
 
@@ -161,6 +169,10 @@ pub struct Editor {
     match_paren_dirty: bool,
     #[cfg(target_os = "macos")]
     match_paren_cache_cleared_in_batch: bool,
+    #[cfg(target_os = "macos")]
+    active_editor_grid: Option<u64>,
+    #[cfg(target_os = "macos")]
+    scrollbar_windows: HashMap<u64, ScrollbarWindowMetadata>,
 }
 
 impl Editor {
@@ -183,6 +195,10 @@ impl Editor {
             match_paren_dirty: false,
             #[cfg(target_os = "macos")]
             match_paren_cache_cleared_in_batch: false,
+            #[cfg(target_os = "macos")]
+            active_editor_grid: None,
+            #[cfg(target_os = "macos")]
+            scrollbar_windows: HashMap::new(),
             mode_list: Vec::new(),
             draw_command_batcher: DrawCommandBatcher::new(),
             current_mode_index: None,
@@ -200,6 +216,24 @@ impl Editor {
     fn send_window_command(&self, command: WindowCommand) {
         let payload = EventPayload::for_route(UserEvent::WindowCommand(command), self.route_id);
         let _ = self.event_loop_proxy.send_event(payload);
+    }
+
+    fn send_draw_batch(&self, batch: Vec<DrawCommand>) {
+        let payload = EventPayload::for_route(batch.into(), self.route_id);
+        let _ = self.event_loop_proxy.send_event(payload);
+    }
+
+    fn update_window_viewport(&mut self, grid: u64, viewport: WindowViewport) {
+        if let Some(window_state) = self.windows.get_mut(&grid) {
+            window_state.set_viewport(viewport);
+        }
+    }
+
+    fn update_window_viewport_margins(&mut self, grid: u64, top: u64, bottom: u64) {
+        let Some(window_state) = self.windows.get_mut(&grid) else {
+            return;
+        };
+        window_state.set_viewport_margins(top, bottom);
     }
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
@@ -260,9 +294,24 @@ impl Editor {
                 self.send_cursor_info();
                 self.advance_startup_capture_on_flush();
 
+                #[cfg(target_os = "macos")]
                 {
-                    trace!("send_batch");
-                    self.draw_command_batcher.send_batch(self.route_id, &self.event_loop_proxy);
+                    self.active_editor_grid = retain_tiled_focus(
+                        &self.windows,
+                        self.cursor.parent_window_id,
+                        self.active_editor_grid,
+                    );
+                    self.draw_command_batcher.queue(DrawCommand::ScrollbarSnapshot(
+                        ScrollbarSnapshot::capture(
+                            &self.windows,
+                            self.active_editor_grid,
+                            &self.scrollbar_windows,
+                        ),
+                    ));
+                }
+
+                if let Some(batch) = self.draw_command_batcher.finish_batch() {
+                    self.send_draw_batch(batch);
                 }
 
                 #[cfg(target_os = "macos")]
@@ -278,11 +327,9 @@ impl Editor {
                 self.send_window_command(WindowCommand::ThemeChanged(window_theme_for_background(
                     colors.background,
                 )));
-
                 self.draw_command_batcher
                     .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
                 self.redraw_screen();
-                self.draw_command_batcher.send_batch(self.route_id, &self.event_loop_proxy);
             }
             RedrawEvent::HighlightAttributesDefine { id, style, name } => {
                 tracy_zone!("EditorHighlightAttributesDefine");
@@ -368,9 +415,25 @@ impl Editor {
                     );
                 }
             }
-            RedrawEvent::WindowPosition { grid, start_row, start_column, width, height } => {
+            RedrawEvent::WindowPosition {
+                grid,
+                window,
+                start_row,
+                start_column,
+                width,
+                height,
+            } => {
                 tracy_zone!("EditorWindowPosition");
-                self.set_window_position(grid, start_column, start_row, width, height)
+                self.set_window_position(
+                    grid,
+                    TiledWindowLayout {
+                        window,
+                        rect: GridRect::from_origin_and_size(
+                            (start_column, start_row).into(),
+                            (width, height).into(),
+                        ),
+                    },
+                );
             }
             RedrawEvent::WindowFloatPosition {
                 grid,
@@ -447,19 +510,31 @@ impl Editor {
             }
             RedrawEvent::WindowViewport {
                 grid,
-                // Don't send viewport events if they don't have a scroll delta
-                scroll_delta: Some(scroll_delta),
+                window,
+                top_line,
+                bottom_line,
+                current_line,
+                line_count,
+                scroll_delta,
                 ..
             } => {
                 tracy_zone!("EditorWindowViewport");
                 self.set_ui_ready();
-                self.draw_command_batcher.queue(DrawCommand::Window {
-                    grid_id: grid,
-                    command: WindowDrawCommand::Viewport { scroll_delta },
-                });
+                if let Some(scroll_delta) = scroll_delta {
+                    self.draw_command_batcher.queue(DrawCommand::Window {
+                        grid_id: grid,
+                        command: WindowDrawCommand::Viewport { scroll_delta },
+                    });
+                }
+
+                self.update_window_viewport(
+                    grid,
+                    WindowViewport { window, top_line, bottom_line, current_line, line_count },
+                );
             }
             RedrawEvent::WindowViewportMargins { grid, top, bottom, left, right } => {
                 tracy_zone!("EditorWindowViewportMargins");
+                self.update_window_viewport_margins(grid, top, bottom);
                 self.draw_command_batcher.queue(DrawCommand::Window {
                     grid_id: grid,
                     command: WindowDrawCommand::ViewportMargins { top, bottom, left, right },
@@ -470,7 +545,18 @@ impl Editor {
                 self.send_window_command(WindowCommand::Minimize);
             }
             RedrawEvent::NeovideSetRedraw(enable) => {
-                self.draw_command_batcher.set_enabled(enable, self.route_id, &self.event_loop_proxy)
+                for batch in self.draw_command_batcher.set_enabled(enable) {
+                    self.send_draw_batch(batch);
+                }
+            }
+            #[cfg(target_os = "macos")]
+            RedrawEvent::ScrollbarWindow { window, metadata } => {
+                update_window_metadata(
+                    &mut self.windows,
+                    &mut self.scrollbar_windows,
+                    window,
+                    metadata,
+                );
             }
             RedrawEvent::NeovideIntroBannerAllowed(allowed) => {
                 self.intro_message_extender.set_sponsor_allowed(
@@ -484,6 +570,12 @@ impl Editor {
     }
 
     fn close_window(&mut self, grid: u64) {
+        #[cfg(target_os = "macos")]
+        {
+            if self.active_editor_grid == Some(grid) {
+                self.active_editor_grid = None;
+            }
+        }
         if let Some(window) = self.windows.remove(&grid) {
             window.close(&mut self.draw_command_batcher);
         }
@@ -498,7 +590,7 @@ impl Editor {
                 self.set_window_float_position(grid, anchor_info, None, None)
             }
         } else {
-            let window = Window::new(
+            let mut window = Window::new(
                 grid,
                 WindowType::Editor,
                 None,
@@ -516,31 +608,11 @@ impl Editor {
         }
     }
 
-    fn set_window_position(
-        &mut self,
-        grid: u64,
-        start_left: u64,
-        start_top: u64,
-        width: u64,
-        height: u64,
-    ) {
+    fn set_window_position(&mut self, grid: u64, layout: TiledWindowLayout) {
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.position(
-                &mut self.draw_command_batcher,
-                None,
-                (width, height),
-                (start_left as f64, start_top as f64),
-            );
-            window.show(&mut self.draw_command_batcher);
+            window.position_tiled(&mut self.draw_command_batcher, layout);
         } else {
-            let new_window = Window::new(
-                grid,
-                WindowType::Editor,
-                None,
-                (start_left as f64, start_top as f64),
-                (width, height),
-                &mut self.draw_command_batcher,
-            );
+            let new_window = Window::new_tiled(grid, layout, &mut self.draw_command_batcher);
             self.windows.insert(grid, new_window);
         }
     }
@@ -725,6 +797,11 @@ impl Editor {
 
         self.cursor.parent_window_id = grid;
         self.cursor.grid_position = (grid_left, grid_top);
+
+        #[cfg(target_os = "macos")]
+        if self.windows.get(&grid).and_then(Window::visible_tiled_layout).is_some() {
+            self.active_editor_grid = Some(grid);
+        }
     }
 
     fn draw_grid_line(&mut self, grid: u64, row: u64, column_start: u64, cells: &[GridLineCell]) {
@@ -1312,9 +1389,7 @@ impl Editor {
     }
 
     fn replay_startup_messages(&self) {
-        let batch = vec![DrawCommand::ReplayStartupMessages];
-        let payload = EventPayload::for_route(batch.into(), self.route_id);
-        let _ = self.event_loop_proxy.send_event(payload);
+        self.send_draw_batch(vec![DrawCommand::ReplayStartupMessages]);
     }
 }
 

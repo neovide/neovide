@@ -145,7 +145,6 @@ pub struct RenderedWindow {
     pub scroll_animation: CriticallyDampedSpringAnimation,
     pub scroll_animation_delta: f32,
 }
-
 #[derive(Clone, Debug)]
 pub struct WindowDrawDetails {
     pub id: u64,
@@ -655,7 +654,6 @@ impl RenderedWindow {
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
         (scroll_offset * line_height).round()
     }
-
     fn line_for_row(&self, row: u32) -> Option<Rc<RefCell<RenderedLine>>> {
         if self.actual_lines.is_empty() {
             return None;
