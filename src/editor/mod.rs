@@ -368,7 +368,7 @@ impl Editor {
                     );
                 }
             }
-            RedrawEvent::WindowPosition { grid, start_row, start_column, width, height } => {
+            RedrawEvent::WindowPosition { grid, start_row, start_column, width, height, .. } => {
                 tracy_zone!("EditorWindowPosition");
                 self.set_window_position(grid, start_column, start_row, width, height)
             }
