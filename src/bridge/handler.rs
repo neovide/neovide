@@ -288,6 +288,15 @@ impl Handler for NeovimHandler {
                 }
             },
             #[cfg(target_os = "macos")]
+            "neovide.scrollbar_window" => match parse_scrollbar_window_args(&arguments) {
+                Some((window, metadata)) => {
+                    self.send_redraw_event(RedrawEvent::ScrollbarWindow { window, metadata });
+                }
+                None => {
+                    warn!("neovide.scrollbar_window called with invalid arguments: {arguments:?}")
+                }
+            },
+            #[cfg(target_os = "macos")]
             "neovide.force_click" => match parse_force_click_args(&arguments) {
                 Some((col, row, entity, guifont, kind)) => {
                     self.send_window_command(WindowCommand::TouchpadPressure {
@@ -366,6 +375,24 @@ fn parse_document_state_args(arguments: &[Value]) -> Option<(String, bool)> {
     };
 
     Some((path.as_str().unwrap_or("").to_string(), modified.as_bool().unwrap_or(false)))
+}
+
+#[cfg(target_os = "macos")]
+fn parse_scrollbar_window_args(
+    arguments: &[Value],
+) -> Option<(u64, Option<crate::bridge::ScrollbarWindowMetadata>)> {
+    use crate::bridge::ScrollbarWindowMetadata;
+
+    let window = arguments.first()?.as_u64().filter(|id| *id > 0)?;
+    let metadata = match arguments {
+        [_] => None,
+        [_, buffer, eligible] => Some(ScrollbarWindowMetadata {
+            buffer: buffer.as_u64().filter(|id| *id > 0)?,
+            eligible: eligible.as_bool()?,
+        }),
+        _ => return None,
+    };
+    Some((window, metadata))
 }
 
 async fn skip_default_guifont(
