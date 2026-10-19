@@ -1,22 +1,29 @@
-use itertools::Itertools;
-use skia_safe::{
-    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, RRect, Rect,
-    canvas::SaveLayerRec,
-    image_filters::blur,
-    utils::shadow_utils::{ShadowFlags, draw_shadow},
-};
-
 use glamour::Intersection;
+use itertools::Itertools;
+use skia_safe::BlendMode;
+use skia_safe::Canvas;
+use skia_safe::ClipOp;
+use skia_safe::Color;
+use skia_safe::Paint;
+use skia_safe::Path;
+use skia_safe::PathOp;
+use skia_safe::Point3;
+use skia_safe::RRect;
+use skia_safe::Rect;
+use skia_safe::canvas::SaveLayerRec;
+use skia_safe::image_filters::blur;
+use skia_safe::utils::shadow_utils::ShadowFlags;
+use skia_safe::utils::shadow_utils::draw_shadow;
 
-use crate::{
-    editor::WindowType,
-    units::{GridScale, PixelRect, to_skia_rect},
-};
-
-use super::{
-    RenderedWindow, RendererSettings, WindowDrawDetails, is_bottommost_window_edge,
-    is_rightmost_window_edge,
-};
+use super::RenderedWindow;
+use super::RendererSettings;
+use super::WindowDrawDetails;
+use super::is_bottommost_window_edge;
+use super::is_rightmost_window_edge;
+use crate::editor::WindowType;
+use crate::units::GridScale;
+use crate::units::PixelRect;
+use crate::units::to_skia_rect;
 
 struct LayerWindow<'w> {
     window: &'w mut RenderedWindow,
@@ -289,17 +296,16 @@ fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: 
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        editor::WindowType,
-        renderer::WindowDrawCommand,
-        units::{GridPos, GridScale, PixelPos, PixelRect, PixelSize},
-    };
-
     use super::*;
+    use crate::editor::WindowType;
+    use crate::renderer::WindowDrawCommand;
+    use crate::units::GridPos;
+    use crate::units::GridScale;
+    use crate::units::PixelPos;
+    use crate::units::PixelRect;
+    use crate::units::PixelSize;
 
-    fn grid_scale() -> GridScale {
-        GridScale::new(PixelSize::new(8.0, 16.0))
-    }
+    fn grid_scale() -> GridScale { GridScale::new(PixelSize::new(8.0, 16.0)) }
 
     fn positioned_window(id: u64, grid_top: f64, grid_left: f64) -> RenderedWindow {
         let mut window = RenderedWindow::new(id);

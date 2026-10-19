@@ -1,20 +1,24 @@
-use std::{
-    convert::TryInto,
-    error,
-    fmt::{self, Debug},
-    io::Cursor,
-};
+use std::convert::TryInto;
+use std::error;
+use std::fmt::Debug;
+use std::fmt::{self};
+use std::io::Cursor;
 
-use log::{debug, warn};
-use rmpv::{Value, decode::read_value};
+use log::debug;
+use log::warn;
+use rmpv::Value;
+use rmpv::decode::read_value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
 use super::RestartDetails;
-use crate::{
-    editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle},
-    window::{ProgressBarUpdate, UserEvent},
-};
+use crate::editor::Colors;
+use crate::editor::CursorMode;
+use crate::editor::CursorShape;
+use crate::editor::Style;
+use crate::editor::UnderlineStyle;
+use crate::window::ProgressBarUpdate;
+use crate::window::UserEvent;
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -51,9 +55,7 @@ impl fmt::Display for ParseError {
 }
 
 impl error::Error for ParseError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        None
-    }
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> { None }
 }
 
 #[derive(Clone, Debug)]
@@ -547,9 +549,7 @@ fn parse_string(string_value: Value) -> Result<String> {
     }
 }
 
-fn parse_u64(u64_value: Value) -> Result<u64> {
-    u64_value.try_into().map_err(ParseError::U64)
-}
+fn parse_u64(u64_value: Value) -> Result<u64> { u64_value.try_into().map_err(ParseError::U64) }
 
 fn parse_handle_u64(value: Value) -> Result<u64> {
     match value {
@@ -563,17 +563,11 @@ fn parse_handle_u64(value: Value) -> Result<u64> {
     }
 }
 
-fn parse_i64(i64_value: Value) -> Result<i64> {
-    i64_value.try_into().map_err(ParseError::I64)
-}
+fn parse_i64(i64_value: Value) -> Result<i64> { i64_value.try_into().map_err(ParseError::I64) }
 
-fn parse_f64(f64_value: Value) -> Result<f64> {
-    f64_value.try_into().map_err(ParseError::F64)
-}
+fn parse_f64(f64_value: Value) -> Result<f64> { f64_value.try_into().map_err(ParseError::F64) }
 
-fn parse_bool(bool_value: Value) -> Result<bool> {
-    bool_value.try_into().map_err(ParseError::Bool)
-}
+fn parse_bool(bool_value: Value) -> Result<bool> { bool_value.try_into().map_err(ParseError::Bool) }
 
 fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let [title] = extract_values(set_title_arguments)?;
@@ -790,9 +784,7 @@ fn parse_hl_group_set(hl_group_set_arguments: Vec<Value>) -> Result<RedrawEvent>
 }
 
 fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
-    fn take_value(val: &mut Value) -> Value {
-        std::mem::replace(val, Value::Nil)
-    }
+    fn take_value(val: &mut Value) -> Value { std::mem::replace(val, Value::Nil) }
 
     let mut cell_contents = parse_array(grid_line_cell)?;
 
@@ -1183,9 +1175,7 @@ fn parse_progress_id(value: &Value) -> Option<String> {
         .or_else(|| value.as_u64().map(|value| value.to_string()))
 }
 
-fn parse_progress_string(value: &Value) -> Option<String> {
-    value.as_str().map(ToOwned::to_owned)
-}
+fn parse_progress_string(value: &Value) -> Option<String> { value.as_str().map(ToOwned::to_owned) }
 
 fn parse_progress_percent(value: &Value) -> Option<f32> {
     value
@@ -1211,7 +1201,9 @@ pub fn parse_progress_bar_event(value: Option<&Value>) -> Option<UserEvent> {
 mod tests {
     use rmpv::Value;
 
-    use super::{MessageKind, RedrawEvent, parse_msg_show};
+    use super::MessageKind;
+    use super::RedrawEvent;
+    use super::parse_msg_show;
 
     #[test]
     fn message_kind_marks_error_variants() {

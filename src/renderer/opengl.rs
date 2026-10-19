@@ -1,49 +1,60 @@
-use std::{
-    convert::TryInto,
-    env::{self, consts::OS},
-    ffi::{CStr, CString, c_void},
-    num::NonZeroU32,
-    rc::Rc,
-    sync::Arc,
-};
+use std::convert::TryInto;
+use std::env::consts::OS;
+use std::env::{self};
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::ffi::c_void;
+use std::num::NonZeroU32;
+use std::rc::Rc;
+use std::sync::Arc;
 
-use gl::{MAX_RENDERBUFFER_SIZE, types::*};
+use gl::MAX_RENDERBUFFER_SIZE;
+use gl::types::*;
+use glutin::config::Config;
+use glutin::config::ConfigTemplateBuilder;
+use glutin::context::ContextAttributesBuilder;
+use glutin::context::GlProfile;
+use glutin::context::PossiblyCurrentContext;
+use glutin::display::GetGlDisplay;
+use glutin::prelude::*;
+use glutin::surface::Surface;
+use glutin::surface::SurfaceAttributesBuilder;
 use glutin::surface::SwapInterval;
-use glutin::{
-    config::{Config, ConfigTemplateBuilder},
-    context::{ContextAttributesBuilder, GlProfile, PossiblyCurrentContext},
-    display::GetGlDisplay,
-    prelude::*,
-    surface::{Surface, SurfaceAttributesBuilder, WindowSurface},
-};
+use glutin::surface::WindowSurface;
 use glutin_winit::DisplayBuilder;
 use raw_window_handle::HasWindowHandle;
-use skia_safe::{
-    ColorSpace, ColorType, SurfaceProps, SurfacePropsFlags,
-    canvas::Canvas,
-    gpu::{
-        DirectContext, SurfaceOrigin, backend_render_targets::make_gl, gl::FramebufferInfo,
-        surfaces::wrap_backend_render_target,
-    },
-};
-use winit::{
-    dpi::PhysicalSize,
-    event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Window, WindowAttributes},
-};
+use skia_safe::ColorSpace;
+use skia_safe::ColorType;
+use skia_safe::SurfaceProps;
+use skia_safe::SurfacePropsFlags;
+use skia_safe::canvas::Canvas;
+use skia_safe::gpu::DirectContext;
+use skia_safe::gpu::SurfaceOrigin;
+use skia_safe::gpu::backend_render_targets::make_gl;
+use skia_safe::gpu::gl::FramebufferInfo;
+use skia_safe::gpu::surfaces::wrap_backend_render_target;
+use winit::dpi::PhysicalSize;
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::EventLoopProxy;
+use winit::window::Window;
+use winit::window::WindowAttributes;
 
-#[cfg(target_os = "windows")]
-pub use super::vsync::VSyncWinDwm;
-
+use super::RendererSettings;
+use super::SkiaRenderer;
+use super::VSync;
+use super::WindowConfig;
+use super::WindowConfigType;
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacosDisplayLink;
-
-use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
-
-use crate::{profiling::tracy_gpu_zone, settings::Settings, window::EventPayload};
-
+#[cfg(target_os = "windows")]
+pub use super::vsync::VSyncWinDwm;
 #[cfg(feature = "gpu_profiling")]
-use crate::profiling::{GpuCtx, opengl::create_opengl_gpu_context};
+use crate::profiling::GpuCtx;
+#[cfg(feature = "gpu_profiling")]
+use crate::profiling::opengl::create_opengl_gpu_context;
+use crate::profiling::tracy_gpu_zone;
+use crate::settings::Settings;
+use crate::window::EventPayload;
 
 pub struct OpenGLSkiaRenderer {
     // NOTE: The destruction order is important, so don't re-arrange
@@ -160,9 +171,7 @@ impl OpenGLSkiaRenderer {
 }
 
 impl SkiaRenderer for OpenGLSkiaRenderer {
-    fn window(&self) -> Rc<Window> {
-        Rc::clone(self.window.as_ref().unwrap())
-    }
+    fn window(&self) -> Rc<Window> { Rc::clone(self.window.as_ref().unwrap()) }
 
     fn flush(&mut self) {
         {
@@ -179,9 +188,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
         }
     }
 
-    fn canvas(&mut self) -> &Canvas {
-        self.skia_surface.canvas()
-    }
+    fn canvas(&mut self) -> &Canvas { self.skia_surface.canvas() }
 
     fn resize(&mut self) {
         self.skia_surface = create_surface(

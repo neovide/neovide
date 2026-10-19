@@ -1,26 +1,38 @@
-use std::{
-    cmp::Ordering,
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
-use winit::{
-    event::WindowEvent,
-    event::{DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase},
-    window::Window,
-};
+use glamour::Contains;
+use glamour::Point2;
+use winit::event::DeviceId;
+use winit::event::ElementState;
+use winit::event::MouseButton;
+use winit::event::MouseScrollDelta;
+use winit::event::Touch;
+use winit::event::TouchPhase;
+use winit::event::WindowEvent;
+use winit::window::Window;
 
-use glamour::{Contains, Point2};
-
-use crate::{
-    bridge::{NeovimHandler, SerialCommand, send_ui},
-    editor::WindowType,
-    renderer::{MessageSelection, Renderer, WindowDrawDetails},
-    settings::Settings,
-    units::{GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
-    window::{WindowSettings, keyboard_manager::KeyboardManager},
-};
+use crate::bridge::NeovimHandler;
+use crate::bridge::SerialCommand;
+use crate::bridge::send_ui;
+use crate::editor::WindowType;
+use crate::renderer::MessageSelection;
+use crate::renderer::Renderer;
+use crate::renderer::WindowDrawDetails;
+use crate::settings::Settings;
+use crate::units::GridPos;
+use crate::units::GridScale;
+use crate::units::GridSize;
+use crate::units::GridVec;
+use crate::units::PixelPos;
+use crate::units::PixelRect;
+use crate::units::PixelSize;
+use crate::units::PixelVec;
+use crate::window::WindowSettings;
+use crate::window::keyboard_manager::KeyboardManager;
 
 fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
     match mouse_button {

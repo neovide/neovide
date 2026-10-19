@@ -1,34 +1,41 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, LazyLock, Mutex},
-};
-
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::LazyLock;
+use std::sync::Mutex;
 #[cfg(target_os = "macos")]
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+#[cfg(target_os = "macos")]
+use std::sync::atomic::Ordering;
 
-use anyhow::{Context, Result};
+use anyhow::Context;
+use anyhow::Result;
 use indoc::indoc;
 use log::trace;
-use nvim_rs::{Neovim, call_args, error::CallError, rpc::model::IntoVal};
+use nvim_rs::Neovim;
+use nvim_rs::call_args;
+use nvim_rs::error::CallError;
+use nvim_rs::rpc::model::IntoVal;
 use rmpv::Value;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{
-    NeovimHandler, RedrawEvent, Settings, StartupMessage, set_background_if_allowed,
-    show_error_message, show_startup_message,
-};
+use super::NeovimHandler;
+use super::RedrawEvent;
+use super::Settings;
+use super::StartupMessage;
+use super::set_background_if_allowed;
+use super::show_error_message;
+use super::show_startup_message;
+use crate::bridge::NeovimWriter;
+use crate::bridge::nvim_dict;
+use crate::cmd_line::CmdLineSettings;
 #[cfg(feature = "profiling")]
 use crate::profiling::scroll_tick_count;
 #[cfg(all(feature = "profiling", target_os = "macos"))]
 use crate::profiling::scroll_to_exec_lua_latency;
-use crate::{
-    bridge::{NeovimWriter, nvim_dict},
-    cmd_line::CmdLineSettings,
-    profiling::tracy_dynamic_zone,
-    utils::handle_wslpaths,
-    window::RouteId,
-};
+use crate::profiling::tracy_dynamic_zone;
+use crate::utils::handle_wslpaths;
+use crate::window::RouteId;
 
 // nvim_get_option_info2 reports this when an option
 // was last set through an API client, which is how ui_attach applies ext_messages.
@@ -62,9 +69,7 @@ static PENDING_FILE_DROPS: LazyLock<Mutex<Vec<PendingFileDrop>>> =
 #[cfg(target_os = "macos")]
 static FILE_DROP_HANDLER_READY: AtomicBool = AtomicBool::new(false);
 
-pub fn get_active_handler() -> Option<NeovimHandler> {
-    HANDLER_REGISTRY.lock().unwrap().clone()
-}
+pub fn get_active_handler() -> Option<NeovimHandler> { HANDLER_REGISTRY.lock().unwrap().clone() }
 
 #[cfg(target_os = "macos")]
 pub fn require_active_handler() -> NeovimHandler {
@@ -743,15 +748,11 @@ pub enum UiCommand {
 }
 
 impl From<SerialCommand> for UiCommand {
-    fn from(serial: SerialCommand) -> Self {
-        UiCommand::Serial(serial)
-    }
+    fn from(serial: SerialCommand) -> Self { UiCommand::Serial(serial) }
 }
 
 impl From<ParallelCommand> for UiCommand {
-    fn from(parallel: ParallelCommand) -> Self {
-        UiCommand::Parallel(parallel)
-    }
+    fn from(parallel: ParallelCommand) -> Self { UiCommand::Parallel(parallel) }
 }
 
 impl AsRef<str> for UiCommand {
@@ -862,9 +863,7 @@ pub fn start_ui_command_handler(
 }
 
 pub fn send_ui<T>(command: T, handler: &NeovimHandler)
-where
-    T: Into<UiCommand>,
-{
+where T: Into<UiCommand> {
     let command: UiCommand = command.into();
     let sender = handler.get_ui_command_channel().0;
     sender.send(command).expect("The UI command channel has not been initialized");
@@ -897,8 +896,10 @@ pub fn unregister_route_handler(route_id: RouteId) {
 
 #[cfg(test)]
 mod tests {
-    use super::{cmdheight_to_restore, normalize_file_drop_path};
     use rmpv::Value;
+
+    use super::cmdheight_to_restore;
+    use super::normalize_file_drop_path;
 
     #[test]
     fn normalizes_windows_file_drop_separators() {

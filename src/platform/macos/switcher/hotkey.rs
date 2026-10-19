@@ -1,4 +1,6 @@
-use winit::event::{ElementState, KeyEvent, Modifiers};
+use winit::event::ElementState;
+use winit::event::KeyEvent;
+use winit::event::Modifiers;
 
 use crate::window::macos::tab_navigation::KeyCombo;
 

@@ -1,22 +1,20 @@
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
-};
+use std::collections::HashMap;
+use std::sync::LazyLock;
+use std::sync::Mutex;
 
 use objc2_app_kit::NSScroller;
 
 use super::appearance::ScrollbarColors;
 use super::interaction::cancel_tracking;
-use super::state::{ScrollbarState, SharedScrollbarState};
+use super::state::ScrollbarState;
+use super::state::SharedScrollbarState;
 
 static SCROLLBAR_STATES: LazyLock<Mutex<HashMap<usize, SharedScrollbarState>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static SCROLLBAR_COLORS: LazyLock<Mutex<HashMap<usize, ScrollbarColors>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub fn scrollbar_key(scroller: &NSScroller) -> usize {
-    scroller as *const NSScroller as usize
-}
+pub fn scrollbar_key(scroller: &NSScroller) -> usize { scroller as *const NSScroller as usize }
 
 pub fn scrollbar_state(scroller: &NSScroller) -> Option<ScrollbarState> {
     shared_state(scroller)?.snapshot()

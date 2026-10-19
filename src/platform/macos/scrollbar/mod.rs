@@ -42,28 +42,33 @@ mod registry;
 mod selection;
 mod state;
 
-use std::{cell::Cell, collections::HashMap};
+use std::cell::Cell;
+use std::collections::HashMap;
 
 use objc2_app_kit::NSWindow;
 use skia_safe::Color4f;
 
-use crate::{
-    bridge::NeovimHandler, cmd_line::CmdLineSettings, editor::ScrollbarSnapshot,
-    renderer::Renderer, settings::Settings, units::PixelSize, window::WindowSettings,
-};
-
+use self::appearance::ScrollbarColors;
+use self::entry::ScrollbarControlKey;
+use self::entry::ScrollbarEntry;
+use self::layout::ScrollbarFrameInputs;
+use self::layout::ScrollbarLaneGeometry;
 pub use self::layout::ScrollbarLayoutInput;
-use self::{
-    appearance::ScrollbarColors,
-    entry::{ScrollbarControlKey, ScrollbarEntry},
-    layout::{
-        ScrollbarFrameInputs, ScrollbarLaneGeometry, ScrollbarSegment, ScrollbarSide,
-        partition_lane,
-    },
-    selection::{ScrollbarLanes, select_lanes},
-    state::{ScrollbarGridState, sync_grid_states},
-};
+use self::layout::ScrollbarSegment;
+use self::layout::ScrollbarSide;
+use self::layout::partition_lane;
+use self::selection::ScrollbarLanes;
+use self::selection::select_lanes;
+use self::state::ScrollbarGridState;
+use self::state::sync_grid_states;
 use super::MacosWindowFeature;
+use crate::bridge::NeovimHandler;
+use crate::cmd_line::CmdLineSettings;
+use crate::editor::ScrollbarSnapshot;
+use crate::renderer::Renderer;
+use crate::settings::Settings;
+use crate::units::PixelSize;
+use crate::window::WindowSettings;
 
 /// Owns the scrollbar state and AppKit views for one OS window.
 #[derive(Debug, Default)]

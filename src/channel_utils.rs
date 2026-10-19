@@ -1,28 +1,25 @@
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
+use std::sync::Arc;
 
 use log::trace;
-use tokio::sync::{
-    Mutex,
-    mpsc::{
-        UnboundedReceiver, UnboundedSender,
-        error::{SendError as TokioSendError, TryRecvError},
-    },
-};
+use tokio::sync::Mutex;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::error::SendError as TokioSendError;
+use tokio::sync::mpsc::error::TryRecvError;
 
 use crate::profiling::tracy_dynamic_zone;
 
 #[derive(Clone, Debug)]
 pub struct LoggingSender<T>
-where
-    T: Debug + AsRef<str>,
+where T: Debug + AsRef<str>
 {
     tx: UnboundedSender<T>,
     channel_name: String,
 }
 
 impl<T> LoggingSender<T>
-where
-    T: Debug + AsRef<str>,
+where T: Debug + AsRef<str>
 {
     pub fn attach(tx: UnboundedSender<T>, channel_name: &str) -> Self {
         Self { tx, channel_name: channel_name.to_string() }
@@ -37,16 +34,14 @@ where
 
 #[derive(Clone, Debug)]
 pub struct LoggingReceiver<T>
-where
-    T: Debug + AsRef<str>,
+where T: Debug + AsRef<str>
 {
     rx: Arc<Mutex<UnboundedReceiver<T>>>,
     channel_name: String,
 }
 
 impl<T> LoggingReceiver<T>
-where
-    T: Debug + AsRef<str>,
+where T: Debug + AsRef<str>
 {
     pub fn attach(rx: UnboundedReceiver<T>, channel_name: &str) -> Self {
         Self { rx: Arc::new(Mutex::new(rx)), channel_name: channel_name.to_string() }

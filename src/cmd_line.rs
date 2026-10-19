@@ -1,18 +1,25 @@
-use std::{iter, process::ExitStatus};
+use std::iter;
+use std::process::ExitStatus;
 
-use crate::{
-    bridge::create_blocking_nvim_command, dimensions::Dimensions, frame::Frame, settings::*,
-    version::BUILD_VERSION,
-};
-
-use anyhow::{Context, Result};
-use clap::{
-    ArgAction, Parser, ValueEnum,
-    builder::{FalseyValueParser, Styles, styling},
-};
+use anyhow::Context;
+use anyhow::Result;
+use clap::ArgAction;
 #[cfg(target_os = "macos")]
-use clap::{CommandFactory, parser::ValueSource};
+use clap::CommandFactory;
+use clap::Parser;
+use clap::ValueEnum;
+use clap::builder::FalseyValueParser;
+use clap::builder::Styles;
+use clap::builder::styling;
+#[cfg(target_os = "macos")]
+use clap::parser::ValueSource;
 use winit::window::CursorIcon;
+
+use crate::bridge::create_blocking_nvim_command;
+use crate::dimensions::Dimensions;
+use crate::frame::Frame;
+use crate::settings::*;
+use crate::version::BUILD_VERSION;
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
@@ -327,9 +334,7 @@ impl GeometryArgs {
 }
 
 impl Default for CmdLineSettings {
-    fn default() -> Self {
-        Self::parse_from(iter::empty::<String>())
-    }
+    fn default() -> Self { Self::parse_from(iter::empty::<String>()) }
 }
 
 pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> Result<()> {

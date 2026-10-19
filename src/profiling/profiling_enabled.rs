@@ -1,13 +1,20 @@
 #[cfg(feature = "gpu_profiling")]
-use std::cell::{OnceCell, RefCell};
-use std::{os::raw::c_char, ptr::null};
+use std::cell::OnceCell;
+#[cfg(feature = "gpu_profiling")]
+use std::cell::RefCell;
+use std::os::raw::c_char;
+use std::ptr::null;
 
-use tracy_client_sys::{
-    ___tracy_alloc_srcloc_name, ___tracy_c_zone_context, ___tracy_connected,
-    ___tracy_emit_frame_mark, ___tracy_emit_plot, ___tracy_emit_zone_begin,
-    ___tracy_emit_zone_begin_alloc, ___tracy_emit_zone_end, ___tracy_source_location_data,
-    ___tracy_startup_profiler,
-};
+use tracy_client_sys::___tracy_alloc_srcloc_name;
+use tracy_client_sys::___tracy_c_zone_context;
+use tracy_client_sys::___tracy_connected;
+use tracy_client_sys::___tracy_emit_frame_mark;
+use tracy_client_sys::___tracy_emit_plot;
+use tracy_client_sys::___tracy_emit_zone_begin;
+use tracy_client_sys::___tracy_emit_zone_begin_alloc;
+use tracy_client_sys::___tracy_emit_zone_end;
+use tracy_client_sys::___tracy_source_location_data;
+use tracy_client_sys::___tracy_startup_profiler;
 
 use crate::renderer::SkiaRenderer;
 
@@ -20,9 +27,7 @@ unsafe impl Sync for _LocationData {}
 
 #[allow(unconditional_panic)]
 #[allow(clippy::out_of_bounds_indexing)]
-const fn illegal_null_in_string() {
-    [][0]
-}
+const fn illegal_null_in_string() { [][0] }
 
 #[doc(hidden)]
 pub const fn validate_cstr_contents(bytes: &[u8]) {
@@ -36,14 +41,14 @@ pub const fn validate_cstr_contents(bytes: &[u8]) {
 }
 
 macro_rules! cstr {
-    ( $s:literal ) => {{
+    ($s:literal) => {{
         $crate::profiling::validate_cstr_contents($s.as_bytes());
         unsafe { std::mem::transmute::<_, &std::ffi::CStr>(concat!($s, "\0")) }
     }};
 }
 
 macro_rules! file_cstr {
-    ( ) => {{ unsafe { std::mem::transmute::<_, &std::ffi::CStr>(concat!(std::file!(), "\0")) } }};
+    () => {{ unsafe { std::mem::transmute::<_, &std::ffi::CStr>(concat!(std::file!(), "\0")) } }};
 }
 
 pub const fn _create_location_data(
@@ -65,19 +70,13 @@ pub const fn _create_location_data(
 }
 
 #[allow(dead_code)]
-pub fn is_connected() -> bool {
-    unsafe { ___tracy_connected() > 0 }
-}
+pub fn is_connected() -> bool { unsafe { ___tracy_connected() > 0 } }
 
 #[cfg(feature = "gpu_profiling")]
-pub fn gpu_enabled() -> bool {
-    is_connected()
-}
+pub fn gpu_enabled() -> bool { is_connected() }
 
 #[cfg(not(feature = "gpu_profiling"))]
-pub fn gpu_enabled() -> bool {
-    false
-}
+pub fn gpu_enabled() -> bool { false }
 
 pub struct _Zone {
     context: ___tracy_c_zone_context,
@@ -214,9 +213,7 @@ fn gpu_end(query_id: i64) {
 pub fn tracy_gpu_collect() {}
 #[cfg(not(feature = "gpu_profiling"))]
 #[inline(always)]
-fn gpu_begin(_loc_data: &___tracy_source_location_data) -> i64 {
-    0
-}
+fn gpu_begin(_loc_data: &___tracy_source_location_data) -> i64 { 0 }
 #[cfg(not(feature = "gpu_profiling"))]
 #[inline(always)]
 fn gpu_end(_query_id: i64) {}
@@ -237,7 +234,7 @@ pub fn _tracy_plot(name: &std::ffi::CStr, value: f64) {
 
 #[macro_export]
 macro_rules! location_data {
-    ($name: expr, $color: expr) => {{
+    ($name:expr, $color:expr) => {{
         static LOC: $crate::profiling::_LocationData = $crate::profiling::_create_location_data(
             $crate::profiling::cstr!($name),
             // There does not seem to be any way of getting a c string to the current
@@ -255,50 +252,50 @@ macro_rules! location_data {
 
 #[macro_export]
 macro_rules! tracy_zone {
-    ($name: expr, $color: expr) => {
+    ($name:expr, $color:expr) => {
         let _tracy_zone =
             $crate::profiling::_Zone::new($crate::profiling::location_data!($name, $color), false);
     };
-    ($name: expr) => {
+    ($name:expr) => {
         $crate::profiling::tracy_zone!($name, 0)
     };
 }
 
 #[macro_export]
 macro_rules! tracy_dynamic_zone {
-    ($name: expr, $color: expr) => {
+    ($name:expr, $color:expr) => {
         let _tracy_zone =
             $crate::profiling::_Zone::new_dynamic(std::line!(), std::file!(), $name, false);
     };
-    ($name: expr) => {
+    ($name:expr) => {
         $crate::profiling::tracy_dynamic_zone!($name, 0)
     };
 }
 
 #[macro_export]
 macro_rules! tracy_gpu_zone {
-    ($name: expr, $color: expr) => {
+    ($name:expr, $color:expr) => {
         let _tracy_zone =
             $crate::profiling::_Zone::new($crate::profiling::location_data!($name, $color), true);
     };
-    ($name: expr) => {
+    ($name:expr) => {
         $crate::profiling::tracy_gpu_zone!($name, 0)
     };
 }
 
 #[macro_export]
 macro_rules! tracy_named_frame {
-    ($name: expr) => {
+    ($name:expr) => {
         $crate::profiling::_tracy_named_frame($crate::profiling::cstr!($name))
     };
 }
 
 #[macro_export]
 macro_rules! tracy_plot {
-    ($name: literal, $dt: expr) => {
+    ($name:literal, $dt:expr) => {
         $crate::profiling::_tracy_plot($crate::profiling::cstr!($name), $dt)
     };
-    ($name: expr, $dt: expr) => {
+    ($name:expr, $dt:expr) => {
         $crate::profiling::_tracy_plot($name, $dt)
     };
 }

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
+use super::DrawCommandBatcher;
+use super::window::Window;
 use crate::bridge::GridLineCell;
-
-use super::{DrawCommandBatcher, window::Window};
 
 const INTRO_HEADER_PREFIX: &str = "NVIM ";
 const INTRO_FINAL_LINE: &str = "type  :help Kuwasha<Enter>    for information";
@@ -37,32 +37,22 @@ enum IntroLineKind {
 }
 
 impl IntroState {
-    fn mark_intro_possible(&mut self) {
-        self.saw_intro_header = true;
-    }
+    fn mark_intro_possible(&mut self) { self.saw_intro_header = true; }
 
     fn remember_injection(&mut self, row: u64) {
         self.saw_intro_header = false;
         self.banner_start_row = Some(row);
     }
 
-    fn has_visible_banner(&self) -> bool {
-        self.banner_start_row.is_some()
-    }
+    fn has_visible_banner(&self) -> bool { self.banner_start_row.is_some() }
 
-    fn take_banner_start_row(&mut self) -> Option<u64> {
-        self.banner_start_row.take()
-    }
+    fn take_banner_start_row(&mut self) -> Option<u64> { self.banner_start_row.take() }
 }
 
 impl IntroMessageExtender {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
+    pub(crate) fn new() -> Self { Self::default() }
 
-    pub(crate) fn reset(&mut self, grid: u64) {
-        self.per_grid.remove(&grid);
-    }
+    pub(crate) fn reset(&mut self, grid: u64) { self.per_grid.remove(&grid); }
 
     pub(crate) fn preprocess_line(&mut self, grid: u64, cells: &[GridLineCell]) -> IntroProcessing {
         let state = self.per_grid.entry(grid).or_default();
@@ -166,14 +156,10 @@ impl IntroMessageExtender {
         }
     }
 
-    pub(crate) fn sponsor_allowed(&self) -> bool {
-        self.sponsor_allowed
-    }
+    pub(crate) fn sponsor_allowed(&self) -> bool { self.sponsor_allowed }
 }
 
-fn is_intro_header(text: &str) -> bool {
-    text.trim_start().starts_with(INTRO_HEADER_PREFIX)
-}
+fn is_intro_header(text: &str) -> bool { text.trim_start().starts_with(INTRO_HEADER_PREFIX) }
 
 fn is_neovim_intro_final_line_text(text: &str) -> bool {
     text.split_whitespace().eq(INTRO_FINAL_LINE.split_whitespace())

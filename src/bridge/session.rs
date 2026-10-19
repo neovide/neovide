@@ -3,30 +3,33 @@
 
 #[cfg(debug_assertions)]
 use core::fmt;
+use std::io::Error;
+use std::io::Result;
 #[cfg(target_os = "windows")]
 use std::process::Child;
-use std::{
-    io::{Error, Result},
-    process::Stdio,
-};
+use std::process::Stdio;
 
 use anyhow::Context;
-use nvim_rs::{
-    Handler, Value, call_args,
-    error::{CallError, LoopError},
-    neovim::Neovim,
-    rpc::IntoVal,
-};
+use nvim_rs::Handler;
+use nvim_rs::Value;
+use nvim_rs::call_args;
+use nvim_rs::error::CallError;
+use nvim_rs::error::LoopError;
+use nvim_rs::neovim::Neovim;
+use nvim_rs::rpc::IntoVal;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
+use tokio::io::BufReader;
+use tokio::io::split;
+use tokio::net::TcpStream;
 #[cfg(not(target_os = "windows"))]
 use tokio::process::Child;
-use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader, split},
-    net::TcpStream,
-    process::Command,
-    spawn,
-    task::JoinHandle,
-};
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
+use tokio::process::Command;
+use tokio::spawn;
+use tokio::task::JoinHandle;
+use tokio_util::compat::TokioAsyncReadCompatExt;
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 pub type NeovimWriter = Box<dyn futures::AsyncWrite + Send + Unpin + 'static>;
 
@@ -201,6 +204,7 @@ impl NeovimInstance {
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::io::IntoRawHandle;
+
             use tokio::net::windows::named_pipe::NamedPipeServer;
             reader = Box::new(unsafe {
                 NamedPipeServer::from_raw_handle(reader_inner.into_raw_handle())
@@ -241,8 +245,10 @@ impl NeovimInstance {
 
     #[cfg(not(target_os = "windows"))]
     fn forward_stdin(&self) -> Option<rustix::fd::OwnedFd> {
-        use rustix::fs::{FileType, fstat};
         use std::os::fd::AsFd;
+
+        use rustix::fs::FileType;
+        use rustix::fs::fstat;
 
         // stdin should be forwarded only in embedded mode when stdio is piped or redirected
         match self {

@@ -1,31 +1,41 @@
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
+use std::sync::Arc;
 
-use objc2::{rc::Retained, runtime::ProtocolObject};
+use objc2::rc::Retained;
+use objc2::runtime::ProtocolObject;
 use objc2_app_kit::NSColorSpace;
-use objc2_core_foundation::{CGFloat, CGSize};
-use objc2_metal::{
-    MTLCommandBuffer, MTLCommandQueue, MTLCreateSystemDefaultDevice, MTLDevice, MTLDrawable,
-    MTLTexture,
-};
-use objc2_quartz_core::{CAMetalDrawable, CAMetalLayer};
-use skia_safe::{
-    Canvas, ColorSpace, ColorType, Surface, SurfaceProps, SurfacePropsFlags,
-    gpu::{
-        self, DirectContext, SurfaceOrigin,
-        mtl::{BackendContext, TextureInfo},
-        surfaces::wrap_backend_render_target,
-    },
-};
-use winit::{event_loop::EventLoopProxy, window::Window};
-
-use crate::{
-    platform::macos::get_ns_window,
-    profiling::tracy_gpu_zone,
-    renderer::{RendererSettings, SkiaRenderer, VSync},
-    window::EventPayload,
-};
+use objc2_core_foundation::CGFloat;
+use objc2_core_foundation::CGSize;
+use objc2_metal::MTLCommandBuffer;
+use objc2_metal::MTLCommandQueue;
+use objc2_metal::MTLCreateSystemDefaultDevice;
+use objc2_metal::MTLDevice;
+use objc2_metal::MTLDrawable;
+use objc2_metal::MTLTexture;
+use objc2_quartz_core::CAMetalDrawable;
+use objc2_quartz_core::CAMetalLayer;
+use skia_safe::Canvas;
+use skia_safe::ColorSpace;
+use skia_safe::ColorType;
+use skia_safe::Surface;
+use skia_safe::SurfaceProps;
+use skia_safe::SurfacePropsFlags;
+use skia_safe::gpu::DirectContext;
+use skia_safe::gpu::SurfaceOrigin;
+use skia_safe::gpu::mtl::BackendContext;
+use skia_safe::gpu::mtl::TextureInfo;
+use skia_safe::gpu::surfaces::wrap_backend_render_target;
+use skia_safe::gpu::{self};
+use winit::event_loop::EventLoopProxy;
+use winit::window::Window;
 
 use super::Settings;
+use crate::platform::macos::get_ns_window;
+use crate::profiling::tracy_gpu_zone;
+use crate::renderer::RendererSettings;
+use crate::renderer::SkiaRenderer;
+use crate::renderer::VSync;
+use crate::window::EventPayload;
 
 struct MetalDrawableSurface {
     pub drawable: Retained<ProtocolObject<dyn CAMetalDrawable>>,
@@ -69,9 +79,7 @@ impl MetalDrawableSurface {
         MetalDrawableSurface { drawable, surface }
     }
 
-    fn mtl_drawable(&self) -> &ProtocolObject<dyn MTLDrawable> {
-        self.drawable.as_ref()
-    }
+    fn mtl_drawable(&self) -> &ProtocolObject<dyn MTLDrawable> { self.drawable.as_ref() }
 }
 
 pub struct MetalSkiaRenderer {
@@ -152,9 +160,7 @@ impl MetalSkiaRenderer {
 }
 
 impl SkiaRenderer for MetalSkiaRenderer {
-    fn window(&self) -> Rc<Window> {
-        Rc::clone(&self.window)
-    }
+    fn window(&self) -> Rc<Window> { Rc::clone(&self.window) }
 
     fn flush(&mut self) {
         tracy_gpu_zone!("flush");
@@ -199,7 +205,5 @@ impl SkiaRenderer for MetalSkiaRenderer {
         self.window.request_redraw();
     }
 
-    fn create_vsync(&self, _proxy: EventLoopProxy<EventPayload>) -> VSync {
-        VSync::MacosMetal()
-    }
+    fn create_vsync(&self, _proxy: EventLoopProxy<EventPayload>) -> VSync { VSync::MacosMetal() }
 }

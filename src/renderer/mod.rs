@@ -16,61 +16,75 @@ pub mod d3d;
 #[cfg(target_os = "macos")]
 mod metal;
 
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, hash_map::Entry},
-    rc::Rc,
-    sync::Arc,
-};
-
-use itertools::Itertools;
-use progress_bar::{ProgressBar, ProgressBarSettings};
-use skia_safe::{Canvas, Color4f, Paint};
-
-use winit::{
-    event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Window, WindowAttributes},
-};
-
-use crate::{
-    WindowSettings,
-    bridge::{EditorMode, StartupMessage},
-    cmd_line::CmdLineSettings,
-    editor::{Cursor, Style, WindowType},
-    profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
-    renderer::{
-        fonts::font_options::PixelGeometry,
-        rendered_layer::{FloatingLayer, group_windows},
-    },
-    settings::*,
-    units::{GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, to_skia_rect},
-    window::{EventPayload, ShouldRender},
-};
-
-#[cfg(target_os = "macos")]
-use crate::editor::ScrollbarSnapshot;
-
-#[cfg(feature = "profiling")]
-use crate::profiling::tracy_plot;
-#[cfg(feature = "profiling")]
-use skia_safe::graphics::{
-    font_cache_count_limit, font_cache_count_used, font_cache_limit, font_cache_used,
-    resource_cache_single_allocation_byte_limit, resource_cache_total_bytes_limit,
-    resource_cache_total_bytes_used,
-};
-
-#[cfg(feature = "gpu_profiling")]
-use crate::profiling::GpuCtx;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{RenderedWindow, WindowDrawCommand, WindowDrawDetails};
-
+use itertools::Itertools;
+use progress_bar::ProgressBar;
+use progress_bar::ProgressBarSettings;
+pub use rendered_window::RenderedWindow;
+pub use rendered_window::WindowDrawCommand;
+pub use rendered_window::WindowDrawDetails;
+use skia_safe::Canvas;
+use skia_safe::Color4f;
+use skia_safe::Paint;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::font_cache_count_limit;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::font_cache_count_used;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::font_cache_limit;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::font_cache_used;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::resource_cache_single_allocation_byte_limit;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::resource_cache_total_bytes_limit;
+#[cfg(feature = "profiling")]
+use skia_safe::graphics::resource_cache_total_bytes_used;
 pub use vsync::VSync;
+use winit::event::WindowEvent;
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::EventLoopProxy;
+use winit::window::Window;
+use winit::window::WindowAttributes;
 
 use self::fonts::font_options::FontOptions;
+use crate::WindowSettings;
+use crate::bridge::EditorMode;
+use crate::bridge::StartupMessage;
+use crate::cmd_line::CmdLineSettings;
+use crate::editor::Cursor;
+#[cfg(target_os = "macos")]
+use crate::editor::ScrollbarSnapshot;
+use crate::editor::Style;
+use crate::editor::WindowType;
+#[cfg(feature = "gpu_profiling")]
+use crate::profiling::GpuCtx;
+use crate::profiling::tracy_create_gpu_context;
+use crate::profiling::tracy_named_frame;
+#[cfg(feature = "profiling")]
+use crate::profiling::tracy_plot;
+use crate::profiling::tracy_zone;
+use crate::renderer::fonts::font_options::PixelGeometry;
+use crate::renderer::rendered_layer::FloatingLayer;
+use crate::renderer::rendered_layer::group_windows;
+use crate::settings::*;
+use crate::units::GridPos;
+use crate::units::GridRect;
+use crate::units::GridScale;
+use crate::units::GridSize;
+use crate::units::PixelPos;
+use crate::units::PixelRect;
+use crate::units::to_skia_rect;
+use crate::window::EventPayload;
+use crate::window::ShouldRender;
 
 const MESSAGE_SELECTION_ALPHA: f32 = 0.35;
 const STARTUP_MESSAGE_LIMIT: usize = 4;
@@ -256,17 +270,13 @@ impl Renderer {
         self.cursor_renderer.handle_event(event);
     }
 
-    pub fn font_names(&self) -> Vec<String> {
-        self.grid_renderer.font_names()
-    }
+    pub fn font_names(&self) -> Vec<String> { self.grid_renderer.font_names() }
 
     pub fn set_message_selection(&mut self, selection: Option<MessageSelection>) {
         self.message_selection = selection;
     }
 
-    pub fn prepare_frame(&mut self) -> ShouldRender {
-        self.cursor_renderer.prepare_frame()
-    }
+    pub fn prepare_frame(&mut self) -> ShouldRender { self.cursor_renderer.prepare_frame() }
 
     pub fn draw_frame(&mut self, root_canvas: &Canvas, content_region: &PixelRect<f32>, dt: f32) {
         tracy_zone!("renderer_draw_frame");
@@ -714,9 +724,7 @@ impl Renderer {
         self.startup_message_ui_restored = false;
     }
 
-    pub fn get_cursor_destination(&self) -> PixelPos<f32> {
-        self.cursor_renderer.get_destination()
-    }
+    pub fn get_cursor_destination(&self) -> PixelPos<f32> { self.cursor_renderer.get_destination() }
 
     pub fn get_grid_size(&self) -> GridSize<u32> {
         if let Some(main_grid) = self.rendered_windows.get(&1) {

@@ -1,8 +1,13 @@
 use std::time::Instant;
 
-use crate::{renderer::GridRenderer, settings::ParseFromValue};
 use neovide_derive::SettingGroup;
-use skia_safe::{Canvas, Color4f, Paint, Rect};
+use skia_safe::Canvas;
+use skia_safe::Color4f;
+use skia_safe::Paint;
+use skia_safe::Rect;
+
+use crate::renderer::GridRenderer;
+use crate::settings::ParseFromValue;
 
 /// Minimum active time required before the progress earns to be shown.
 const REVEAL_DELAY: f32 = 0.1;
@@ -55,9 +60,7 @@ impl ProgressBar {
         Self { current_percent: 0.0, target_percent: 0.0, id: None, state: ProgressBarState::Idle }
     }
 
-    pub fn is_active(&self) -> bool {
-        !matches!(self.state, ProgressBarState::Idle)
-    }
+    pub fn is_active(&self) -> bool { !matches!(self.state, ProgressBarState::Idle) }
 
     fn is_visible(&self) -> bool {
         matches!(self.state, ProgressBarState::Animating | ProgressBarState::Completing { .. })

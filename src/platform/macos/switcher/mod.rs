@@ -1,21 +1,28 @@
 use std::cell::RefCell;
 
-use objc2::{rc::Retained, runtime::Sel, sel};
-use objc2_app_kit::{NSApplication, NSEvent, NSEventModifierFlags, NSImage, NSTextField, NSWindow};
-use objc2_foundation::{MainThreadMarker, NSString};
+use objc2::rc::Retained;
+use objc2::runtime::Sel;
+use objc2::sel;
+use objc2_app_kit::NSApplication;
+use objc2_app_kit::NSEvent;
+use objc2_app_kit::NSEventModifierFlags;
+use objc2_app_kit::NSImage;
+use objc2_app_kit::NSTextField;
+use objc2_app_kit::NSWindow;
+use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSString;
 use winit::window::WindowId;
 
-use crate::window::macos::tab_navigation::KeyCombo;
-
-use self::appkit::{
-    EditorSwitcherActionHandler, EditorSwitcherDocumentView, EditorSwitcherSearchDelegate,
-};
+use self::appkit::EditorSwitcherActionHandler;
+use self::appkit::EditorSwitcherDocumentView;
+use self::appkit::EditorSwitcherSearchDelegate;
 pub use self::hotkey::editor_switcher_key_event_matches;
 pub use self::row::EditorSwitcherRow;
 use self::row::editor_switcher_row_matches;
 use self::ui::rebuild_editor_switcher_rows;
 pub use self::ui::show_editor_switcher_panel;
 use super::request_activate_window;
+use crate::window::macos::tab_navigation::KeyCombo;
 
 mod appkit;
 mod hotkey;
@@ -148,9 +155,7 @@ impl EditorSwitcherState {
         self.update_results_view();
     }
 
-    fn update_results_view(&self) {
-        rebuild_editor_switcher_rows(self);
-    }
+    fn update_results_view(&self) { rebuild_editor_switcher_rows(self); }
 }
 
 enum EditorSwitcherKeyAction {
@@ -360,9 +365,7 @@ pub fn close_editor_switcher_if_open() -> bool {
     })
 }
 
-fn close_editor_switcher() {
-    close_editor_switcher_if_open();
-}
+fn close_editor_switcher() { close_editor_switcher_if_open(); }
 
 fn activate_editor_switcher_row(row: usize) {
     let selected_window = EDITOR_SWITCHER_STATE.with(|cell| {

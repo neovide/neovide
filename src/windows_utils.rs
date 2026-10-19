@@ -1,8 +1,9 @@
-use windows::Win32::{
-    System::Console::{ATTACH_PARENT_PROCESS, AttachConsole},
-    UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
-};
-use windows_registry::{CURRENT_USER, Result};
+use windows::Win32::System::Console::ATTACH_PARENT_PROCESS;
+use windows::Win32::System::Console::AttachConsole;
+use windows::Win32::UI::HiDpi::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+use windows::Win32::UI::HiDpi::SetProcessDpiAwarenessContext;
+use windows_registry::CURRENT_USER;
+use windows_registry::Result;
 
 use crate::error_msg;
 

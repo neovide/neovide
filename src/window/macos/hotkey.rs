@@ -1,17 +1,20 @@
 use std::collections::HashSet;
-use std::{
-    env::{self, VarError},
-    fmt,
-    mem::{self, MaybeUninit},
-    os::raw::c_void,
-    ptr,
-};
+use std::env::VarError;
+use std::env::{self};
+use std::fmt;
+use std::mem::MaybeUninit;
+use std::mem::{self};
+use std::os::raw::c_void;
+use std::ptr;
 
-use log::{info, warn};
+use log::info;
+use log::warn;
 use objc2_app_kit::NSEventModifierFlags;
 use winit::event_loop::EventLoopProxy;
 
-use crate::window::{EventPayload, MacShortcutCommand, UserEvent};
+use crate::window::EventPayload;
+use crate::window::MacShortcutCommand;
+use crate::window::UserEvent;
 
 const PINNED_ENV_VAR: &str = "NEOVIDE_SYSTEM_PINNED_HOTKEY";
 const SWITCHER_ENV_VAR: &str = "NEOVIDE_SYSTEM_SWITCHER_HOTKEY";
@@ -357,13 +360,9 @@ fn shortcut_choice<'a>(env_vars: &'a [&str], default: &'a str) -> Option<String>
     Some(default.to_string())
 }
 
-fn is_disabled_keyword(value: &str) -> bool {
-    matches_ignore_case(value.trim(), "false")
-}
+fn is_disabled_keyword(value: &str) -> bool { matches_ignore_case(value.trim(), "false") }
 
-fn matches_ignore_case(value: &str, keyword: &str) -> bool {
-    value.eq_ignore_ascii_case(keyword)
-}
+fn matches_ignore_case(value: &str, keyword: &str) -> bool { value.eq_ignore_ascii_case(keyword) }
 
 #[derive(Clone, Copy)]
 struct ActivationShortcut {

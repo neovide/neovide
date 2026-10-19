@@ -7,46 +7,68 @@ mod scrollbar;
 mod style;
 mod window;
 
-use std::{collections::HashMap, sync::Arc, thread};
-
+use std::collections::HashMap;
 #[cfg(target_os = "macos")]
-use {
-    std::collections::HashSet,
-    std::time::{Duration, Instant},
-};
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::thread;
+#[cfg(target_os = "macos")]
+use std::time::Duration;
+#[cfg(target_os = "macos")]
+use std::time::Instant;
 
-use log::{error, trace, warn};
+pub use cursor::Cursor;
+pub use cursor::CursorMode;
+pub use cursor::CursorShape;
+pub use draw_command_batcher::DrawCommandBatcher;
+use intro::IntroMessageExtender;
+use intro::IntroProcessing;
+use log::error;
+use log::trace;
+use log::warn;
+#[cfg(target_os = "macos")]
+pub use scrollbar::ScrollbarGrid;
+#[cfg(target_os = "macos")]
+pub use scrollbar::ScrollbarSnapshot;
+#[cfg(target_os = "macos")]
+use scrollbar::retain_tiled_focus;
+#[cfg(target_os = "macos")]
+use scrollbar::update_window_metadata;
 use skia_safe::Color4f;
+pub use style::Colors;
+pub use style::Style;
+pub use style::UnderlineStyle;
 use tokio::sync::mpsc::unbounded_channel;
+pub use window::*;
 use winit::event_loop::EventLoopProxy;
 use winit::window::Theme;
 
-use crate::{
-    bridge::{
-        EditorMode, GridLineCell, GuiOption, MessageKind, NeovimHandler, RedrawEvent,
-        StartupMessage, StyledContent, WindowAnchor,
-    },
-    clipboard::ClipboardHandle,
-    profiling::{tracy_named_frame, tracy_zone},
-    renderer::{DrawCommand, WindowDrawCommand, rendered_window::BASE_GRID_ID},
-    running_tracker::RunningTracker,
-    settings::Settings,
-    units::{GridRect, GridSize},
-    window::{EventPayload, RouteId, UserEvent, WindowCommand, WindowSettings},
-};
-
+use crate::bridge::EditorMode;
+use crate::bridge::GridLineCell;
+use crate::bridge::GuiOption;
+use crate::bridge::MessageKind;
+use crate::bridge::NeovimHandler;
+use crate::bridge::RedrawEvent;
 #[cfg(target_os = "macos")]
 use crate::bridge::ScrollbarWindowMetadata;
-pub use cursor::{Cursor, CursorMode, CursorShape};
-pub use draw_command_batcher::DrawCommandBatcher;
-#[cfg(target_os = "macos")]
-pub use scrollbar::{ScrollbarGrid, ScrollbarSnapshot};
-#[cfg(target_os = "macos")]
-use scrollbar::{retain_tiled_focus, update_window_metadata};
-pub use style::{Colors, Style, UnderlineStyle};
-pub use window::*;
-
-use intro::{IntroMessageExtender, IntroProcessing};
+use crate::bridge::StartupMessage;
+use crate::bridge::StyledContent;
+use crate::bridge::WindowAnchor;
+use crate::clipboard::ClipboardHandle;
+use crate::profiling::tracy_named_frame;
+use crate::profiling::tracy_zone;
+use crate::renderer::DrawCommand;
+use crate::renderer::WindowDrawCommand;
+use crate::renderer::rendered_window::BASE_GRID_ID;
+use crate::running_tracker::RunningTracker;
+use crate::settings::Settings;
+use crate::units::GridRect;
+use crate::units::GridSize;
+use crate::window::EventPayload;
+use crate::window::RouteId;
+use crate::window::UserEvent;
+use crate::window::WindowCommand;
+use crate::window::WindowSettings;
 pub const MSG_ZINDEX: u64 = 200; // See the documenation for nvim_open_win
 
 fn styled_content_to_plain_text(content: StyledContent) -> String {
@@ -69,9 +91,7 @@ enum StartupFlushReason {
 }
 
 impl StartupMessageCapture {
-    fn is_active(self) -> bool {
-        self != Self::Finished
-    }
+    fn is_active(self) -> bool { self != Self::Finished }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -93,9 +113,7 @@ impl Ord for SortOrder {
 }
 
 impl PartialOrd for SortOrder {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -866,7 +884,7 @@ impl Editor {
     #[cfg(target_os = "macos")]
     fn grid_cell_text(&self, grid: u64, row: u64, column: u64) -> Option<String> {
         self.windows.get(&grid).and_then(|window| {
-            let (text, _, _) = window.get_cursor_grid_cell(column, row);
+            let (text, ..) = window.get_cursor_grid_cell(column, row);
             (!text.is_empty()).then_some(text)
         })
     }

@@ -1,4 +1,5 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 #[cfg(target_os = "macos")]
 use std::time::Duration;
 

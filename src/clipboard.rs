@@ -1,17 +1,23 @@
 use std::error::Error;
 use std::fmt;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::Weak;
 
-use copypasta::{ClipboardContext, ClipboardProvider};
+use copypasta::ClipboardContext;
+use copypasta::ClipboardProvider;
 #[cfg(target_os = "linux")]
-use copypasta::{
-    wayland_clipboard,
-    x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext},
-};
+use copypasta::wayland_clipboard;
+#[cfg(target_os = "linux")]
+use copypasta::x11_clipboard::Primary as X11SelectionClipboard;
+#[cfg(target_os = "linux")]
+use copypasta::x11_clipboard::X11ClipboardContext;
 use log::warn;
 use raw_window_handle::HasDisplayHandle;
 #[cfg(target_os = "linux")]
-use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
+use raw_window_handle::RawDisplayHandle;
+#[cfg(target_os = "linux")]
+use raw_window_handle::WaylandDisplayHandle;
 use winit::event_loop::EventLoop;
 
 use crate::window::EventPayload;
@@ -143,9 +149,7 @@ impl ProviderState {
         }
     }
 
-    fn is_available(&self) -> bool {
-        matches!(self, Self::Available(_))
-    }
+    fn is_available(&self) -> bool { matches!(self, Self::Available(_)) }
 
     #[cfg(test)]
     pub fn available_for_test(provider: impl ClipboardProvider + 'static) -> Self {
@@ -153,9 +157,7 @@ impl ProviderState {
     }
 
     #[cfg(test)]
-    pub fn unavailable_for_test(error: ClipboardError) -> Self {
-        Self::Unavailable(error)
-    }
+    pub fn unavailable_for_test(error: ClipboardError) -> Self { Self::Unavailable(error) }
 }
 
 pub struct Clipboard {
@@ -174,9 +176,7 @@ impl ClipboardHandle {
         Self { inner: Arc::downgrade(clipboard) }
     }
 
-    pub fn upgrade(&self) -> Option<Arc<Mutex<Clipboard>>> {
-        self.inner.upgrade()
-    }
+    pub fn upgrade(&self) -> Option<Arc<Mutex<Clipboard>>> { self.inner.upgrade() }
 }
 
 impl Clipboard {
@@ -270,9 +270,7 @@ impl Clipboard {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn has_any_provider(&self) -> bool {
-        self.clipboard.is_available()
-    }
+    fn has_any_provider(&self) -> bool { self.clipboard.is_available() }
 
     #[cfg(target_os = "linux")]
     fn provider_state(&mut self, register: &str) -> (&'static str, &mut ProviderState) {

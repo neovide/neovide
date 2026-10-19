@@ -1,4 +1,5 @@
-use swash::{CacheKey, FontRef};
+use swash::CacheKey;
+use swash::FontRef;
 
 pub struct SwashFont {
     data: Vec<u8>,

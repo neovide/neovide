@@ -1,79 +1,145 @@
-use std::{
-    cell::RefCell,
-    fmt,
-    mem::take,
-    path::{Path, PathBuf},
-    rc::Rc,
-    sync::Arc,
-};
-
-use log::trace;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use rustc_hash::FxHashMap;
-use winit::{
-    dpi,
-    event::{Ime, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Cursor, Fullscreen, Theme, UserAttentionType, Window, WindowId},
-};
+use std::cell::RefCell;
+#[cfg(target_os = "macos")]
+use std::collections::VecDeque;
+use std::fmt;
+use std::mem::take;
+use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use approx::AbsDiffEq;
+#[cfg(target_os = "macos")]
+use glamour::Point2;
+use log::trace;
+use raw_window_handle::HasWindowHandle;
+use raw_window_handle::RawWindowHandle;
+use rustc_hash::FxHashMap;
+use winit::dpi;
+use winit::event::Ime;
+use winit::event::WindowEvent;
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::EventLoopProxy;
+#[cfg(target_os = "macos")]
+use winit::platform::macos::WindowExtMacOS;
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{self};
+#[cfg(windows)]
+use winit::platform::windows::BackdropType;
+#[cfg(windows)]
+use winit::platform::windows::Color;
+#[cfg(windows)]
+use winit::platform::windows::WindowExtWindows;
+use winit::window::Cursor;
+use winit::window::Fullscreen;
+use winit::window::Theme;
+use winit::window::UserAttentionType;
+use winit::window::Window;
+use winit::window::WindowId;
 
+use super::EventPayload;
+use super::EventTarget;
+use super::KeyboardManager;
+use super::MessageSelectionEvent;
+use super::MouseManager;
+use super::OverlayEvent;
+use super::ProgressBarUpdate;
+use super::RouteId;
+use super::UserEvent;
+use super::WindowCommand;
+use super::WindowSettings;
+use super::WindowSettingsChanged;
+use super::WindowSize;
 #[cfg(target_os = "windows")]
 use super::settings::CornerPreference;
-use super::{
-    EventPayload, EventTarget, KeyboardManager, MessageSelectionEvent, MouseManager, OverlayEvent,
-    ProgressBarUpdate, RouteId, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
-    WindowSize,
-};
-
+use crate::CmdLineSettings;
+use crate::bridge::NeovimHandler;
+use crate::bridge::NeovimRuntime;
+use crate::bridge::OpenArgs;
+use crate::bridge::OpenMode;
+use crate::bridge::ParallelCommand;
+use crate::bridge::RestartDetails;
+use crate::bridge::SerialCommand;
+use crate::bridge::StartupMessage;
+use crate::bridge::send_ui;
+use crate::bridge::set_active_route_handler;
+use crate::bridge::unregister_route_handler;
+use crate::clipboard::ClipboardHandle;
+use crate::cmd_line::GeometryArgs;
+use crate::cmd_line::MouseCursorIcon;
 #[cfg(target_os = "macos")]
-use {
-    crate::units::{GridPos, Pixel},
-    crate::window::MacShortcutCommand,
-    crate::window::macos::tab_navigation::{TabNavigationAction, TabNavigationHotkeys},
-    crate::window::macos::{
-        EditorSwitcherRow, MacosWindowFeature, ScrollbarLayoutInput, TouchpadStage,
-        close_editor_switcher_if_open, editor_switcher_key_event_matches, hide_application,
-        native_tab_bar_enabled, show_editor_switcher_panel,
-    },
-    crate::{error_msg, window::settings},
-    glamour::Point2,
-    std::collections::VecDeque,
-    winit::platform::macos::{self, WindowExtMacOS},
-};
-
-use crate::{
-    CmdLineSettings,
-    bridge::{
-        NeovimHandler, NeovimRuntime, OpenArgs, OpenMode, ParallelCommand, RestartDetails,
-        SerialCommand, StartupMessage, send_ui, set_active_route_handler, unregister_route_handler,
-    },
-    clipboard::ClipboardHandle,
-    cmd_line::{GeometryArgs, MouseCursorIcon},
-    profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
-    renderer::{
-        DrawCommand, DrawCommandResult, MessageSelection, Renderer, RendererSettingsChanged,
-        SkiaRenderer, StartupMessageFlush, VSync, create_skia_renderer,
-    },
-    running_tracker::RunningTracker,
-    settings::{
-        Config, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, RendererHotReloadConfigs, Settings,
-        SettingsChanged, WindowHotReloadConfigs, clamped_grid_size, font::FontSettings,
-        load_last_window_settings,
-    },
-    units::{GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelSize},
-    window::{
-        PhysicalSize, ShouldRender, ThemeSettings, create_window, determine_grid_size,
-        determine_window_size,
-    },
-};
-
+use crate::error_msg;
+use crate::profiling::tracy_frame;
+use crate::profiling::tracy_gpu_collect;
+use crate::profiling::tracy_gpu_zone;
+use crate::profiling::tracy_plot;
+use crate::profiling::tracy_zone;
+use crate::renderer::DrawCommand;
+use crate::renderer::DrawCommandResult;
+use crate::renderer::MessageSelection;
+use crate::renderer::Renderer;
+use crate::renderer::RendererSettingsChanged;
+use crate::renderer::SkiaRenderer;
+use crate::renderer::StartupMessageFlush;
+use crate::renderer::VSync;
+use crate::renderer::create_skia_renderer;
+use crate::running_tracker::RunningTracker;
+use crate::settings::Config;
+use crate::settings::DEFAULT_GRID_SIZE;
+use crate::settings::MIN_GRID_SIZE;
+use crate::settings::RendererHotReloadConfigs;
+use crate::settings::Settings;
+use crate::settings::SettingsChanged;
+use crate::settings::WindowHotReloadConfigs;
+use crate::settings::clamped_grid_size;
+use crate::settings::font::FontSettings;
+use crate::settings::load_last_window_settings;
+#[cfg(target_os = "macos")]
+use crate::units::GridPos;
+use crate::units::GridRect;
+use crate::units::GridScale;
+use crate::units::GridSize;
+#[cfg(target_os = "macos")]
+use crate::units::Pixel;
+use crate::units::PixelPos;
+use crate::units::PixelRect;
+use crate::units::PixelSize;
+#[cfg(target_os = "macos")]
+use crate::window::MacShortcutCommand;
+use crate::window::PhysicalSize;
+use crate::window::ShouldRender;
+use crate::window::ThemeSettings;
+use crate::window::create_window;
+use crate::window::determine_grid_size;
+use crate::window::determine_window_size;
+#[cfg(target_os = "macos")]
+use crate::window::macos::EditorSwitcherRow;
+#[cfg(target_os = "macos")]
+use crate::window::macos::MacosWindowFeature;
+#[cfg(target_os = "macos")]
+use crate::window::macos::ScrollbarLayoutInput;
+#[cfg(target_os = "macos")]
+use crate::window::macos::TouchpadStage;
+#[cfg(target_os = "macos")]
+use crate::window::macos::close_editor_switcher_if_open;
+#[cfg(target_os = "macos")]
+use crate::window::macos::editor_switcher_key_event_matches;
+#[cfg(target_os = "macos")]
+use crate::window::macos::hide_application;
+#[cfg(target_os = "macos")]
+use crate::window::macos::native_tab_bar_enabled;
+#[cfg(target_os = "macos")]
+use crate::window::macos::show_editor_switcher_panel;
+#[cfg(target_os = "macos")]
+use crate::window::macos::tab_navigation::TabNavigationAction;
+#[cfg(target_os = "macos")]
+use crate::window::macos::tab_navigation::TabNavigationHotkeys;
+#[cfg(target_os = "macos")]
+use crate::window::settings;
 #[cfg(windows)]
-use {
-    crate::windows_utils::{register_right_click, unregister_right_click},
-    winit::platform::windows::{BackdropType, Color, WindowExtWindows},
-};
+use crate::windows_utils::register_right_click;
+#[cfg(windows)]
+use crate::windows_utils::unregister_right_click;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -436,9 +502,7 @@ impl WinitWindowWrapper {
         self.pending_window_creation_route.is_some()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.routes.is_empty() && self.route_cores.is_empty()
-    }
+    pub fn is_empty(&self) -> bool { self.routes.is_empty() && self.route_cores.is_empty() }
 
     pub fn exit(&mut self) {
         for route in self.routes.values_mut() {
@@ -1329,9 +1393,7 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(target_os = "macos")]
-    fn cleanup_window_mru(&mut self) {
-        self.window_mru.retain(|id| self.routes.contains_key(id));
-    }
+    fn cleanup_window_mru(&mut self) { self.window_mru.retain(|id| self.routes.contains_key(id)); }
 
     #[cfg(target_os = "macos")]
     fn handle_focus_gain_for_shortcuts(&mut self, window_id: WindowId) {

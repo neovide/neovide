@@ -1,19 +1,31 @@
 use objc2::rc::Retained;
-use objc2_app_kit::{
-    NSAutoresizingMaskOptions, NSScroller, NSScrollerPart, NSWindow, NSWindowOrderingMode,
-};
-use objc2_foundation::{MainThreadMarker, NSRect, NSSize};
+use objc2_app_kit::NSAutoresizingMaskOptions;
+use objc2_app_kit::NSScroller;
+use objc2_app_kit::NSScrollerPart;
+use objc2_app_kit::NSWindow;
+use objc2_app_kit::NSWindowOrderingMode;
+use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSRect;
+use objc2_foundation::NSSize;
 
-use super::{
-    appearance::{ScrollbarColors, sync_scrollbar_appearance},
-    appkit::{create_scrollbar, request_display},
-    interaction::{
-        cancel_tracking, drag_value, is_dragging_knob, retire_tracking, with_programmatic_update,
-    },
-    layout::{ScrollbarSide, ScrollbarTrackMetrics, left_scrollbar_bounds_origin, scrollbar_width},
-    registry::{register, set_scrollbar_colors, unregister},
-    state::{ScrollbarGridState, ScrollbarThumb},
-};
+use super::appearance::ScrollbarColors;
+use super::appearance::sync_scrollbar_appearance;
+use super::appkit::create_scrollbar;
+use super::appkit::request_display;
+use super::interaction::cancel_tracking;
+use super::interaction::drag_value;
+use super::interaction::is_dragging_knob;
+use super::interaction::retire_tracking;
+use super::interaction::with_programmatic_update;
+use super::layout::ScrollbarSide;
+use super::layout::ScrollbarTrackMetrics;
+use super::layout::left_scrollbar_bounds_origin;
+use super::layout::scrollbar_width;
+use super::registry::register;
+use super::registry::set_scrollbar_colors;
+use super::registry::unregister;
+use super::state::ScrollbarGridState;
+use super::state::ScrollbarThumb;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ScrollbarControlKey {
@@ -166,9 +178,7 @@ impl ScrollbarEntry {
         }
     }
 
-    pub fn dragged_value(&self) -> Option<f64> {
-        drag_value(&self.scroller)
-    }
+    pub fn dragged_value(&self) -> Option<f64> { drag_value(&self.scroller) }
 
     pub fn set_thumb(&self, thumb: Option<ScrollbarThumb>) {
         if thumb.is_none() {

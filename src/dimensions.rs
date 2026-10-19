@@ -1,10 +1,10 @@
-use std::{
-    fmt::Display,
-    ops::{Div, Mul},
-    str::FromStr,
-};
+use std::fmt::Display;
+use std::ops::Div;
+use std::ops::Mul;
+use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use winit::dpi::PhysicalSize;
 
 // Maybe this should be independent from serialization?

@@ -1,5 +1,6 @@
-use super::Value;
 use log::error;
+
+use super::Value;
 
 // Trait to allow for conversion from rmpv::Value to any other data type.
 // Note: Feel free to implement this trait for custom types in each subsystem.

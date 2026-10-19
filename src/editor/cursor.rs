@@ -1,10 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use skia_safe::Color4f;
 
-use crate::editor::style::{Colors, Style};
-
 use super::grid::GridCell;
+use crate::editor::style::Colors;
+use crate::editor::style::Style;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum CursorShape {
@@ -50,9 +51,7 @@ pub struct Cursor {
 }
 
 impl Default for Cursor {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 impl Cursor {

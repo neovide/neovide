@@ -8,52 +8,68 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{
-    io::Error,
-    ops::Add,
-    path::Path,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::io::Error;
+use std::ops::Add;
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Duration;
 
-use crate::{
-    clipboard::ClipboardHandle,
-    cmd_line::CmdLineSettings,
-    editor::start_editor_handler,
-    running_tracker::RunningTracker,
-    settings::*,
-    units::GridSize,
-    window::{EventPayload, RouteId, UserEvent, WindowSettings},
-};
-use anyhow::{Context, Result, bail};
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::bail;
+pub use command::OpenArgs;
+pub use command::OpenMode;
+pub use command::create_blocking_nvim_command;
+#[cfg(test)]
+pub use command::create_tokio_nvim_command;
+pub use events::*;
 use futures::StreamExt;
 pub use handler::NeovimHandler;
 use itertools::Itertools;
 use log::info;
-use mundy::{Interest, Preferences};
-use nvim_rs::{Neovim, UiAttachOptions, Value, call_args, error::CallError, rpc::model::IntoVal};
+use mundy::Interest;
+use mundy::Preferences;
+use nvim_rs::Neovim;
+use nvim_rs::UiAttachOptions;
+use nvim_rs::Value;
+use nvim_rs::call_args;
+use nvim_rs::error::CallError;
+use nvim_rs::rpc::model::IntoVal;
+pub use restart::RestartDetails;
 use rmpv::Utf8String;
-use session::{NeovimInstance, NeovimSession};
-use setup::{get_api_information, setup_neovide_specific_state};
-use tokio::{
-    runtime::{Builder, Runtime},
-    select,
-    time::timeout,
-};
+use session::NeovimInstance;
+use session::NeovimSession;
+pub use session::NeovimWriter;
+use setup::get_api_information;
+use setup::setup_neovide_specific_state;
+use tokio::runtime::Builder;
+use tokio::runtime::Runtime;
+use tokio::select;
+use tokio::time::timeout;
+pub use ui_commands::ParallelCommand;
+pub use ui_commands::SerialCommand;
+pub use ui_commands::get_active_handler;
+#[cfg(target_os = "macos")]
+pub use ui_commands::require_active_handler;
+#[cfg(target_os = "macos")]
+pub use ui_commands::send_or_queue_file_drop;
+pub use ui_commands::send_ui;
+pub use ui_commands::set_active_route_handler;
+pub use ui_commands::start_ui_command_handler;
+pub use ui_commands::unregister_route_handler;
 use winit::event_loop::EventLoopProxy;
 
-#[cfg(test)]
-pub use command::create_tokio_nvim_command;
-pub use command::{OpenArgs, OpenMode, create_blocking_nvim_command};
-pub use events::*;
-pub use restart::RestartDetails;
-pub use session::NeovimWriter;
-pub use ui_commands::{
-    ParallelCommand, SerialCommand, get_active_handler, send_ui, set_active_route_handler,
-    start_ui_command_handler, unregister_route_handler,
-};
-#[cfg(target_os = "macos")]
-pub use ui_commands::{require_active_handler, send_or_queue_file_drop};
+use crate::clipboard::ClipboardHandle;
+use crate::cmd_line::CmdLineSettings;
+use crate::editor::start_editor_handler;
+use crate::running_tracker::RunningTracker;
+use crate::settings::*;
+use crate::units::GridSize;
+use crate::window::EventPayload;
+use crate::window::RouteId;
+use crate::window::UserEvent;
+use crate::window::WindowSettings;
 
 const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 12, 0);
 
@@ -442,9 +458,7 @@ impl NeovimRuntime {
         Ok(editor_handler)
     }
 
-    pub fn shutdown(mut self, timeout: Duration) {
-        self.shutdown_timeout(timeout);
-    }
+    pub fn shutdown(mut self, timeout: Duration) { self.shutdown_timeout(timeout); }
 
     #[allow(clippy::too_many_arguments)]
     pub fn restart(

@@ -1,24 +1,42 @@
 use std::cell::RefCell;
 
-use objc2::{MainThreadOnly, define_class, msg_send, rc::Retained, sel};
-use objc2_app_kit::{
-    NSAutoresizingMaskOptions, NSCursor, NSEvent, NSEventTrackingRunLoopMode, NSScroller,
-    NSScrollerPart,
-};
+use objc2::MainThreadOnly;
+use objc2::define_class;
+use objc2::msg_send;
+use objc2::rc::Retained;
+use objc2::sel;
+use objc2_app_kit::NSAutoresizingMaskOptions;
+use objc2_app_kit::NSCursor;
+use objc2_app_kit::NSEvent;
+use objc2_app_kit::NSEventTrackingRunLoopMode;
+use objc2_app_kit::NSScroller;
+use objc2_app_kit::NSScrollerPart;
 use objc2_core_foundation::CGFloat;
-use objc2_foundation::{
-    MainThreadMarker, NSDate, NSDefaultRunLoopMode, NSObject, NSPoint, NSRect, NSRunLoop, NSSize,
-    NSTimer,
-};
+use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSDate;
+use objc2_foundation::NSDefaultRunLoopMode;
+use objc2_foundation::NSObject;
+use objc2_foundation::NSPoint;
+use objc2_foundation::NSRect;
+use objc2_foundation::NSRunLoop;
+use objc2_foundation::NSSize;
+use objc2_foundation::NSTimer;
 
-use super::{
-    appearance::{draw_scrollbar_thumb, draw_scrollbar_track},
-    controller::{Diagnostics, Drag, handle_scrollbar_action, send_scroll_to_for_scrollbar_value},
-    geometry::point_in_rect,
-    interaction::{ScrollbarTracking, drag_value, is_dragging_knob, with_programmatic_update},
-    layout::Scroller,
-    registry::{is_control, scrollbar_colors, scrollbar_state},
-};
+use super::appearance::draw_scrollbar_thumb;
+use super::appearance::draw_scrollbar_track;
+use super::controller::Diagnostics;
+use super::controller::Drag;
+use super::controller::handle_scrollbar_action;
+use super::controller::send_scroll_to_for_scrollbar_value;
+use super::geometry::point_in_rect;
+use super::interaction::ScrollbarTracking;
+use super::interaction::drag_value;
+use super::interaction::is_dragging_knob;
+use super::interaction::with_programmatic_update;
+use super::layout::Scroller;
+use super::registry::is_control;
+use super::registry::scrollbar_colors;
+use super::registry::scrollbar_state;
 
 thread_local! {
     static SCROLLBAR_TARGET: RefCell<Option<Retained<ScrollbarTarget>>> =

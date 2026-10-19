@@ -1,36 +1,61 @@
-use std::{
-    collections::VecDeque,
-    ffi::{CString, c_void},
-    mem,
-    ptr::null_mut,
-    slice::from_raw_parts,
-    sync::atomic::{AtomicU8, Ordering},
-};
+use std::collections::VecDeque;
+use std::ffi::CString;
+use std::ffi::c_void;
+use std::mem;
+use std::ptr::null_mut;
+use std::slice::from_raw_parts;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::Ordering;
 
-use windows::Win32::Graphics::Direct3D12::{
-    D3D12_COMMAND_LIST_TYPE_COPY, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-    D3D12_FEATURE_D3D12_OPTIONS3, D3D12_FEATURE_DATA_D3D12_OPTIONS3, D3D12_FENCE_FLAG_NONE,
-    D3D12_HEAP_FLAG_NONE, D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_READBACK,
-    D3D12_MEMORY_POOL_UNKNOWN, D3D12_QUERY_HEAP_DESC, D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP,
-    D3D12_QUERY_HEAP_TYPE_TIMESTAMP, D3D12_QUERY_TYPE_TIMESTAMP, D3D12_RANGE, D3D12_RESOURCE_DESC,
-    D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST,
-    D3D12_TEXTURE_LAYOUT_ROW_MAJOR, ID3D12CommandAllocator, ID3D12CommandQueue, ID3D12Device,
-    ID3D12Fence, ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12QueryHeap, ID3D12Resource,
-};
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC};
+use tracy_client_sys::___tracy_emit_gpu_calibration_serial;
+use tracy_client_sys::___tracy_emit_gpu_context_name;
+use tracy_client_sys::___tracy_emit_gpu_new_context;
+use tracy_client_sys::___tracy_emit_gpu_time_serial;
+use tracy_client_sys::___tracy_emit_gpu_zone_begin_serial;
+use tracy_client_sys::___tracy_emit_gpu_zone_end_serial;
+use tracy_client_sys::___tracy_gpu_calibration_data;
+use tracy_client_sys::___tracy_gpu_context_name_data;
+use tracy_client_sys::___tracy_gpu_new_context_data;
+use tracy_client_sys::___tracy_gpu_time_data;
+use tracy_client_sys::___tracy_gpu_zone_begin_data;
+use tracy_client_sys::___tracy_gpu_zone_end_data;
+use tracy_client_sys::___tracy_source_location_data;
+use windows::Win32::Graphics::Direct3D12::D3D12_COMMAND_LIST_TYPE_COPY;
+use windows::Win32::Graphics::Direct3D12::D3D12_COMMAND_LIST_TYPE_DIRECT;
+use windows::Win32::Graphics::Direct3D12::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+use windows::Win32::Graphics::Direct3D12::D3D12_FEATURE_D3D12_OPTIONS3;
+use windows::Win32::Graphics::Direct3D12::D3D12_FEATURE_DATA_D3D12_OPTIONS3;
+use windows::Win32::Graphics::Direct3D12::D3D12_FENCE_FLAG_NONE;
+use windows::Win32::Graphics::Direct3D12::D3D12_HEAP_FLAG_NONE;
+use windows::Win32::Graphics::Direct3D12::D3D12_HEAP_PROPERTIES;
+use windows::Win32::Graphics::Direct3D12::D3D12_HEAP_TYPE_READBACK;
+use windows::Win32::Graphics::Direct3D12::D3D12_MEMORY_POOL_UNKNOWN;
+use windows::Win32::Graphics::Direct3D12::D3D12_QUERY_HEAP_DESC;
+use windows::Win32::Graphics::Direct3D12::D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP;
+use windows::Win32::Graphics::Direct3D12::D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+use windows::Win32::Graphics::Direct3D12::D3D12_QUERY_TYPE_TIMESTAMP;
+use windows::Win32::Graphics::Direct3D12::D3D12_RANGE;
+use windows::Win32::Graphics::Direct3D12::D3D12_RESOURCE_DESC;
+use windows::Win32::Graphics::Direct3D12::D3D12_RESOURCE_DIMENSION_BUFFER;
+use windows::Win32::Graphics::Direct3D12::D3D12_RESOURCE_FLAG_NONE;
+use windows::Win32::Graphics::Direct3D12::D3D12_RESOURCE_STATE_COPY_DEST;
+use windows::Win32::Graphics::Direct3D12::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+use windows::Win32::Graphics::Direct3D12::ID3D12CommandAllocator;
+use windows::Win32::Graphics::Direct3D12::ID3D12CommandQueue;
+use windows::Win32::Graphics::Direct3D12::ID3D12Device;
+use windows::Win32::Graphics::Direct3D12::ID3D12Fence;
+use windows::Win32::Graphics::Direct3D12::ID3D12GraphicsCommandList;
+use windows::Win32::Graphics::Direct3D12::ID3D12PipelineState;
+use windows::Win32::Graphics::Direct3D12::ID3D12QueryHeap;
+use windows::Win32::Graphics::Direct3D12::ID3D12Resource;
+use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_UNKNOWN;
+use windows::Win32::Graphics::Dxgi::Common::DXGI_SAMPLE_DESC;
 use windows::Win32::System::Performance::QueryPerformanceFrequency;
 use windows::core::Interface;
 
-use tracy_client_sys::{
-    ___tracy_emit_gpu_calibration_serial, ___tracy_emit_gpu_context_name,
-    ___tracy_emit_gpu_new_context, ___tracy_emit_gpu_time_serial,
-    ___tracy_emit_gpu_zone_begin_serial, ___tracy_emit_gpu_zone_end_serial,
-    ___tracy_gpu_calibration_data, ___tracy_gpu_context_name_data, ___tracy_gpu_new_context_data,
-    ___tracy_gpu_time_data, ___tracy_gpu_zone_begin_data, ___tracy_gpu_zone_end_data,
-    ___tracy_source_location_data,
-};
-
-use crate::profiling::{GpuContextType, GpuCtx, is_connected};
+use crate::profiling::GpuContextType;
+use crate::profiling::GpuCtx;
+use crate::profiling::is_connected;
 use crate::renderer::d3d::D3DSkiaRenderer;
 
 static CONTEXT_ID: AtomicU8 = AtomicU8::new(0);

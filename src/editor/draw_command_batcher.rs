@@ -11,9 +11,7 @@ impl DrawCommandBatcher {
         Self { batch: Vec::new(), enabled: true, queued: Vec::new() }
     }
 
-    pub fn queue(&mut self, draw_command: DrawCommand) {
-        self.batch.push(draw_command);
-    }
+    pub fn queue(&mut self, draw_command: DrawCommand) { self.batch.push(draw_command); }
 
     pub fn set_enabled(&mut self, enabled: bool) -> Vec<Vec<DrawCommand>> {
         log::info!("Set redraw {enabled}");

@@ -1,15 +1,16 @@
 use objc2::msg_send;
 use objc2_app_kit::NSScroller;
 
-use crate::bridge::{SerialCommand, send_ui};
-
-use super::{
-    geometry::live_top_line,
-    interaction::{input_state, is_dragging_knob, track_knob, with_programmatic_update},
-    metrics::ScrollMetrics,
-    registry::update_pending_scroll,
-    state::ScrollbarState,
-};
+use super::geometry::live_top_line;
+use super::interaction::input_state;
+use super::interaction::is_dragging_knob;
+use super::interaction::track_knob;
+use super::interaction::with_programmatic_update;
+use super::metrics::ScrollMetrics;
+use super::registry::update_pending_scroll;
+use super::state::ScrollbarState;
+use crate::bridge::SerialCommand;
+use crate::bridge::send_ui;
 
 pub struct Part;
 impl Part {

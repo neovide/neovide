@@ -1,17 +1,15 @@
-use std::{
-    sync::mpsc::{Sender, channel},
-    thread::{JoinHandle, spawn},
-};
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::channel;
+use std::thread::JoinHandle;
+use std::thread::spawn;
 
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Threading::WaitForSingleObjectEx;
-
 use winit::event_loop::EventLoopProxy;
 
-use crate::{
-    profiling::tracy_zone,
-    window::{EventPayload, UserEvent},
-};
+use crate::profiling::tracy_zone;
+use crate::window::EventPayload;
+use crate::window::UserEvent;
 
 enum Message {
     RequestRedraw,
@@ -52,9 +50,7 @@ impl VSyncWinSwapChain {
 
     pub fn wait_for_vsync(&mut self) {}
 
-    pub fn request_redraw(&mut self) {
-        self.sender.send(Message::RequestRedraw).ok();
-    }
+    pub fn request_redraw(&mut self) { self.sender.send(Message::RequestRedraw).ok(); }
 }
 
 impl Drop for VSyncWinSwapChain {

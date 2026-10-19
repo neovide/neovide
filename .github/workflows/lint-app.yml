@@ -17,5 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pinned rustfmt toolchain
+        run: rustup toolchain install --no-self-update --component rustfmt
+
       - name: Run rustfmt
         run: cargo fmt --all --check

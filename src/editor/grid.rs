@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::{editor::style::Style, utils::RingBuffer};
+use crate::editor::style::Style;
+use crate::utils::RingBuffer;
 
 pub type GridCell = (String, Option<Arc<Style>>);
 
@@ -17,9 +18,7 @@ struct GridLine {
 }
 
 impl GridLine {
-    pub fn new(length: usize) -> GridLine {
-        GridLine { characters: vec![default_cell!(); length] }
-    }
+    pub fn new(length: usize) -> GridLine { GridLine { characters: vec![default_cell!(); length] } }
 }
 
 pub struct CharacterGrid {
@@ -46,9 +45,7 @@ impl CharacterGrid {
         self.height = height;
     }
 
-    pub fn clear(&mut self) {
-        self.set_all_characters(default_cell!());
-    }
+    pub fn clear(&mut self) { self.set_all_characters(default_cell!()); }
 
     pub fn get_cell(&self, x: usize, y: usize) -> Option<&GridCell> {
         self.row(y).and_then(|row| row.get(x))
@@ -135,9 +132,10 @@ impl CharacterGrid {
 
 #[cfg(test)]
 mod tests {
+    use rand::*;
+
     use super::*;
     use crate::editor::style::Colors;
-    use rand::*;
 
     #[derive(Debug)]
     struct Context {

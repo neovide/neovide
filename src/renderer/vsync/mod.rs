@@ -8,22 +8,20 @@ mod vsync_win_swap_chain;
 
 use std::sync::Arc;
 
-use winit::{event_loop::EventLoopProxy, window::Window};
-
-use crate::{
-    renderer::SkiaRenderer,
-    settings::Settings,
-    window::{EventPayload, WindowSettings},
-};
+#[cfg(target_os = "macos")]
+pub use vsync_macos_display_link::VSyncMacosDisplayLink;
 use vsync_timer::VSyncTimer;
-
 #[cfg(target_os = "windows")]
 pub use vsync_win_dwm::VSyncWinDwm;
 #[cfg(target_os = "windows")]
 pub use vsync_win_swap_chain::VSyncWinSwapChain;
+use winit::event_loop::EventLoopProxy;
+use winit::window::Window;
 
-#[cfg(target_os = "macos")]
-pub use vsync_macos_display_link::VSyncMacosDisplayLink;
+use crate::renderer::SkiaRenderer;
+use crate::settings::Settings;
+use crate::window::EventPayload;
+use crate::window::WindowSettings;
 
 #[allow(dead_code)]
 pub enum VSync {

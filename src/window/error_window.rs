@@ -1,34 +1,50 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 
-use skia_safe::{
-    Color4f, FontMgr, Paint, Point, Rect, Size,
-    canvas::{Canvas, SaveLayerRec},
-    colors::{BLACK, WHITE},
-    textlayout::{
-        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextHeightBehavior, TextIndex,
-        TextStyle,
-    },
-};
+use skia_safe::Color4f;
+use skia_safe::FontMgr;
+use skia_safe::Paint;
+use skia_safe::Point;
+use skia_safe::Rect;
+use skia_safe::Size;
+use skia_safe::canvas::Canvas;
+use skia_safe::canvas::SaveLayerRec;
+use skia_safe::colors::BLACK;
+use skia_safe::colors::WHITE;
+use skia_safe::textlayout::FontCollection;
+use skia_safe::textlayout::Paragraph;
+use skia_safe::textlayout::ParagraphBuilder;
+use skia_safe::textlayout::ParagraphStyle;
+use skia_safe::textlayout::TextHeightBehavior;
+use skia_safe::textlayout::TextIndex;
+use skia_safe::textlayout::TextStyle;
+use strum::EnumCount;
+use strum::EnumIter;
 use strum::IntoEnumIterator;
-use strum::{EnumCount, EnumIter};
-use winit::{
-    application::ApplicationHandler,
-    dpi::PhysicalSize,
-    event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
-    keyboard::{Key, NamedKey},
-    window::Window,
-};
-
-use crate::{
-    clipboard::{Clipboard, ClipboardHandle},
-    cmd_line::{CmdLineSettings, SRGB_DEFAULT},
-    renderer::{SkiaRenderer, WindowConfig, build_window_config, create_skia_renderer},
-    settings::Settings,
-    window::load_icon,
-};
+use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalSize;
+use winit::event::ElementState;
+use winit::event::KeyEvent;
+use winit::event::Modifiers;
+use winit::event::MouseScrollDelta;
+use winit::event::WindowEvent;
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::EventLoop;
+use winit::keyboard::Key;
+use winit::keyboard::NamedKey;
+use winit::window::Window;
 
 use super::EventPayload;
+use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardHandle;
+use crate::cmd_line::CmdLineSettings;
+use crate::cmd_line::SRGB_DEFAULT;
+use crate::renderer::SkiaRenderer;
+use crate::renderer::WindowConfig;
+use crate::renderer::build_window_config;
+use crate::renderer::create_skia_renderer;
+use crate::settings::Settings;
+use crate::window::load_icon;
 
 const TEXT_COLOR: Color4f = WHITE;
 const BACKGROUND_COLOR: Color4f = BLACK;
@@ -167,9 +183,7 @@ impl State {
         }
     }
 
-    pub fn window_id(&self) -> winit::window::WindowId {
-        self.skia_renderer.window().id()
-    }
+    pub fn window_id(&self) -> winit::window::WindowId { self.skia_renderer.window().id() }
 
     pub fn handle_window_event(&mut self, event: WindowEvent, message: &str) {
         match event {

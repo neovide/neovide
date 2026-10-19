@@ -1,6 +1,7 @@
 use rmpv::Value;
 
-use crate::{error_msg, settings::*};
+use crate::error_msg;
+use crate::settings::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionAsMeta {

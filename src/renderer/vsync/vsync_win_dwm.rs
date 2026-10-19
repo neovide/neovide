@@ -1,22 +1,22 @@
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread::{JoinHandle, spawn},
-    time::Duration,
-};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::thread::JoinHandle;
+use std::thread::spawn;
+use std::time::Duration;
 
 use spin_sleep::SpinSleeper;
 use windows::Win32::Foundation::HWND;
-use windows::Win32::Graphics::Dwm::{DWM_TIMING_INFO, DwmGetCompositionTimingInfo};
-use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
+use windows::Win32::Graphics::Dwm::DWM_TIMING_INFO;
+use windows::Win32::Graphics::Dwm::DwmGetCompositionTimingInfo;
+use windows::Win32::System::Performance::QueryPerformanceCounter;
+use windows::Win32::System::Performance::QueryPerformanceFrequency;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{
-    profiling::{tracy_plot, tracy_zone},
-    window::{EventPayload, UserEvent},
-};
+use crate::profiling::tracy_plot;
+use crate::profiling::tracy_zone;
+use crate::window::EventPayload;
+use crate::window::UserEvent;
 
 pub struct VSyncWinDwm {
     should_exit: Arc<AtomicBool>,
@@ -26,9 +26,7 @@ pub struct VSyncWinDwm {
 
 /// Calculates the time until the vblank, taking into account that the vblank is cyclic, so this
 /// always finds the next vblank forward
-fn time_until_vblank_forward(delay: f64, period: f64) -> f64 {
-    delay.rem_euclid(period)
-}
+fn time_until_vblank_forward(delay: f64, period: f64) -> f64 { delay.rem_euclid(period) }
 
 /// Calculates the time to wait to hit the vblank + offset given a period
 ///
@@ -101,9 +99,7 @@ impl VSyncWinDwm {
 
     pub fn wait_for_vsync(&mut self) {}
 
-    pub fn request_redraw(&mut self) {
-        self.redraw_requested.store(true, Ordering::Relaxed);
-    }
+    pub fn request_redraw(&mut self) { self.redraw_requested.store(true, Ordering::Relaxed); }
 }
 
 impl Drop for VSyncWinDwm {

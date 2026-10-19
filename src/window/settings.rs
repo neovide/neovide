@@ -1,10 +1,9 @@
 use rmpv::Value;
 
 use crate::error_msg;
-use crate::settings::*;
-
 #[cfg(target_os = "macos")]
 pub use crate::platform::macos::settings::*;
+use crate::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {

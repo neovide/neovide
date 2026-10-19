@@ -1,24 +1,32 @@
-use std::{
-    fs,
-    io::{BufRead, BufReader, BufWriter, ErrorKind, Write},
-    os::unix::net::{UnixListener, UnixStream},
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread::{self, JoinHandle},
-};
-
-use anyhow::{Context, Result, bail};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::fs;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::BufWriter;
+use std::io::ErrorKind;
+use std::io::Write;
+use std::os::unix::net::UnixListener;
+use std::os::unix::net::UnixStream;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::thread::JoinHandle;
+use std::thread::{self};
 use std::time::Duration;
+
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::bail;
+use serde::Deserialize;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{
-    settings::neovide_std_datapath,
-    version::{BUILD_VERSION, release_channel},
-    window::{EventPayload, EventTarget, UserEvent},
-};
+use crate::settings::neovide_std_datapath;
+use crate::version::BUILD_VERSION;
+use crate::version::release_channel;
+use crate::window::EventPayload;
+use crate::window::EventTarget;
+use crate::window::UserEvent;
 
 const CLIENT_IO_TIMEOUT: Duration = Duration::from_secs(2);
 const LISTENER_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -284,9 +292,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{HandoffRequest, HandoffResponse, read_message, write_message};
-    use crate::version::BUILD_VERSION;
     use std::io::Cursor;
+
+    use super::HandoffRequest;
+    use super::HandoffResponse;
+    use super::read_message;
+    use super::write_message;
+    use crate::version::BUILD_VERSION;
 
     #[test]
     fn handoff_request_new_sets_build_version() {

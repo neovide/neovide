@@ -1,23 +1,29 @@
 use std::sync::Arc;
 
-use crate::{
-    bridge::{NeovimHandler, SerialCommand, send_ui},
-    settings::Settings,
-};
-
+use winit::event::ElementState;
+use winit::event::Ime;
+use winit::event::KeyEvent;
+use winit::event::Modifiers;
+use winit::event::WindowEvent;
+use winit::keyboard::Key;
+use winit::keyboard::KeyCode;
+use winit::keyboard::KeyLocation;
+#[cfg(target_os = "macos")]
+use winit::keyboard::ModifiersKeyState;
+use winit::keyboard::NamedKey;
+use winit::keyboard::PhysicalKey;
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-use winit::{
-    event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
-    keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
-};
-#[cfg(target_os = "macos")]
-use {
-    crate::{window::WindowSettings, window::settings::OptionAsMeta},
-    winit::keyboard::ModifiersKeyState,
-};
 
+use crate::bridge::NeovimHandler;
+use crate::bridge::SerialCommand;
+use crate::bridge::send_ui;
 use crate::profiling::tracy_named_frame;
+use crate::settings::Settings;
+#[cfg(target_os = "macos")]
+use crate::window::WindowSettings;
+#[cfg(target_os = "macos")]
+use crate::window::settings::OptionAsMeta;
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
     text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
@@ -42,9 +48,7 @@ impl KeyboardManager {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn current_modifiers(&self) -> Modifiers {
-        self.modifiers
-    }
+    pub fn current_modifiers(&self) -> Modifiers { self.modifiers }
 
     pub fn handle_event(&mut self, event: &WindowEvent, neovim_handler: &NeovimHandler) {
         match event {

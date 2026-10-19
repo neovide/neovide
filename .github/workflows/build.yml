@@ -41,6 +41,8 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
 
     steps:
       - uses: actions/checkout@v4
@@ -104,6 +106,8 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
 
     steps:
       - uses: actions/checkout@v4
@@ -143,6 +147,8 @@ jobs:
         # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
         os: [windows-latest, macos-latest, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTUP_TOOLCHAIN: stable
 
     steps:
       - uses: actions/checkout@v4
