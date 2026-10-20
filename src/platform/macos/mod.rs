@@ -1,5 +1,3 @@
-mod switcher;
-
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::os::raw::c_void;
@@ -45,10 +43,6 @@ use objc2_foundation::NSUserDefaults;
 use objc2_foundation::ns_string;
 use raw_window_handle::HasWindowHandle;
 use raw_window_handle::RawWindowHandle;
-pub use switcher::EditorSwitcherRow;
-pub use switcher::close_editor_switcher_if_open;
-pub use switcher::editor_switcher_key_event_matches;
-pub use switcher::show_editor_switcher_panel;
 use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 use winit::window::WindowId;
