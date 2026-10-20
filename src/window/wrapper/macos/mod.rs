@@ -1,3 +1,5 @@
+mod feature;
+
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -12,6 +14,9 @@ use winit::platform::macos::WindowExtMacOS;
 use winit::window::Window;
 use winit::window::WindowId;
 
+pub(crate) use self::feature::MacosWindowFeature;
+use self::feature::TouchpadStage;
+use self::feature::scrollbar::ScrollbarLayoutInput;
 use super::EventPayload;
 use super::Route;
 use super::RouteWindow;
@@ -35,9 +40,6 @@ use crate::units::PixelSize;
 use crate::window::ForceClickKind;
 use crate::window::MacShortcutCommand;
 use crate::window::macos::EditorSwitcherRow;
-use crate::window::macos::MacosWindowFeature;
-use crate::window::macos::ScrollbarLayoutInput;
-use crate::window::macos::TouchpadStage;
 use crate::window::macos::close_editor_switcher_if_open;
 use crate::window::macos::editor_switcher_key_event_matches;
 use crate::window::macos::hide_application;

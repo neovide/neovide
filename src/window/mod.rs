@@ -37,4 +37,6 @@ pub use setup::create_window;
 pub use setup::determine_grid_size;
 pub use setup::determine_window_size;
 pub use setup::load_icon;
+#[cfg(target_os = "macos")]
+pub(crate) use wrapper::MacosWindowFeature;
 pub use wrapper::WinitWindowWrapper;
