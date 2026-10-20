@@ -1,6 +1,4 @@
 use std::cell::RefCell;
-#[cfg(target_os = "macos")]
-use std::collections::VecDeque;
 use std::fmt;
 use std::mem::take;
 use std::path::Path;
@@ -9,8 +7,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use approx::AbsDiffEq;
-#[cfg(target_os = "macos")]
-use glamour::Point2;
 use log::trace;
 use raw_window_handle::HasWindowHandle;
 use raw_window_handle::RawWindowHandle;
@@ -20,16 +16,6 @@ use winit::event::Ime;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::EventLoopProxy;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::WindowExtMacOS;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::{self};
-#[cfg(windows)]
-use winit::platform::windows::BackdropType;
-#[cfg(windows)]
-use winit::platform::windows::Color;
-#[cfg(windows)]
-use winit::platform::windows::WindowExtWindows;
 use winit::window::Cursor;
 use winit::window::Fullscreen;
 use winit::window::Theme;
@@ -50,8 +36,6 @@ use super::WindowCommand;
 use super::WindowSettings;
 use super::WindowSettingsChanged;
 use super::WindowSize;
-#[cfg(target_os = "windows")]
-use super::settings::CornerPreference;
 use crate::CmdLineSettings;
 use crate::bridge::NeovimHandler;
 use crate::bridge::NeovimRuntime;
@@ -67,8 +51,6 @@ use crate::bridge::unregister_route_handler;
 use crate::clipboard::ClipboardHandle;
 use crate::cmd_line::GeometryArgs;
 use crate::cmd_line::MouseCursorIcon;
-#[cfg(target_os = "macos")]
-use crate::error_msg;
 use crate::profiling::tracy_frame;
 use crate::profiling::tracy_gpu_collect;
 use crate::profiling::tracy_gpu_zone;
@@ -94,52 +76,23 @@ use crate::settings::WindowHotReloadConfigs;
 use crate::settings::clamped_grid_size;
 use crate::settings::font::FontSettings;
 use crate::settings::load_last_window_settings;
-#[cfg(target_os = "macos")]
-use crate::units::GridPos;
 use crate::units::GridRect;
 use crate::units::GridScale;
 use crate::units::GridSize;
-#[cfg(target_os = "macos")]
-use crate::units::Pixel;
 use crate::units::PixelPos;
 use crate::units::PixelRect;
 use crate::units::PixelSize;
-#[cfg(target_os = "macos")]
-use crate::window::MacShortcutCommand;
 use crate::window::PhysicalSize;
 use crate::window::ShouldRender;
 use crate::window::ThemeSettings;
 use crate::window::create_window;
 use crate::window::determine_grid_size;
 use crate::window::determine_window_size;
-#[cfg(target_os = "macos")]
-use crate::window::macos::EditorSwitcherRow;
-#[cfg(target_os = "macos")]
-use crate::window::macos::MacosWindowFeature;
-#[cfg(target_os = "macos")]
-use crate::window::macos::ScrollbarLayoutInput;
-#[cfg(target_os = "macos")]
-use crate::window::macos::TouchpadStage;
-#[cfg(target_os = "macos")]
-use crate::window::macos::close_editor_switcher_if_open;
-#[cfg(target_os = "macos")]
-use crate::window::macos::editor_switcher_key_event_matches;
-#[cfg(target_os = "macos")]
-use crate::window::macos::hide_application;
-#[cfg(target_os = "macos")]
-use crate::window::macos::native_tab_bar_enabled;
-#[cfg(target_os = "macos")]
-use crate::window::macos::show_editor_switcher_panel;
-#[cfg(target_os = "macos")]
-use crate::window::macos::tab_navigation::TabNavigationAction;
-#[cfg(target_os = "macos")]
-use crate::window::macos::tab_navigation::TabNavigationHotkeys;
-#[cfg(target_os = "macos")]
-use crate::window::settings;
-#[cfg(windows)]
-use crate::windows_utils::register_right_click;
-#[cfg(windows)]
-use crate::windows_utils::unregister_right_click;
+
+#[cfg_attr(target_os = "macos", path = "macos.rs")]
+#[cfg_attr(target_os = "linux", path = "linux.rs")]
+#[cfg_attr(target_os = "windows", path = "windows.rs")]
+mod platform;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -201,25 +154,10 @@ enum GeometryTarget {
     None,
 }
 
-#[cfg(target_os = "macos")]
 #[derive(Default)]
-struct RouteLaunchConfig {
-    neovim_bin: Option<String>,
-    neovim_args: Option<Vec<String>>,
-}
-
-#[cfg(target_os = "macos")]
-impl RouteLaunchConfig {
-    fn from_open_args(args: &OpenArgs) -> Self {
-        Self { neovim_bin: args.neovim_bin.clone(), neovim_args: args.neovim_args.clone() }
-    }
-
-    fn from_cmdline(cmdline: CmdLineSettings) -> Self {
-        Self {
-            neovim_bin: cmdline.neovim_bin,
-            neovim_args: (!cmdline.neovim_args.is_empty()).then_some(cmdline.neovim_args),
-        }
-    }
+struct ShortcutHandling {
+    overlay_consumed: bool,
+    keyboard_consumed: bool,
 }
 
 pub struct RouteWindow {
@@ -229,32 +167,12 @@ pub struct RouteWindow {
     pub mouse_manager: Rc<RefCell<Box<MouseManager>>>,
     pub renderer: Rc<RefCell<Box<Renderer>>>,
     #[cfg(target_os = "macos")]
-    pub macos_feature: Option<Rc<RefCell<Box<MacosWindowFeature>>>>,
+    pub macos_feature: Option<Rc<RefCell<Box<crate::window::macos::MacosWindowFeature>>>>,
     pub title: String,
     #[cfg(target_os = "macos")]
-    pub document_path: String,
-    #[cfg(target_os = "macos")]
-    pub document_modified: bool,
+    document: platform::DocumentState,
     pub last_applied_window_size: dpi::PhysicalSize<u32>,
     pub last_synced_grid_size: Option<GridSize<u32>>,
-}
-
-#[cfg(target_os = "macos")]
-impl RouteWindow {
-    fn with_macos_feature<R>(&self, read: impl FnOnce(&MacosWindowFeature) -> R) -> Option<R> {
-        let feature = self.macos_feature.as_ref()?;
-
-        Some(read(feature.borrow().as_ref()))
-    }
-
-    fn with_macos_feature_mut<R>(
-        &self,
-        update: impl FnOnce(&mut MacosWindowFeature) -> R,
-    ) -> Option<R> {
-        let feature = self.macos_feature.as_ref()?;
-
-        Some(update(feature.borrow_mut().as_mut()))
-    }
 }
 
 impl fmt::Debug for RouteWindow {
@@ -274,9 +192,7 @@ pub struct Route {
     pub pending_initial_window_size: Option<WindowSize>,
     state: RouteState,
     #[cfg(target_os = "macos")]
-    pub neovim_bin: Option<String>,
-    #[cfg(target_os = "macos")]
-    pub neovim_args: Option<Vec<String>>,
+    launch_config: platform::RouteLaunchConfig,
 }
 
 impl fmt::Debug for Route {
@@ -324,9 +240,7 @@ struct RouteCore {
     cwd: Option<PathBuf>,
     title: String,
     #[cfg(target_os = "macos")]
-    document_path: String,
-    #[cfg(target_os = "macos")]
-    document_modified: bool,
+    document: platform::DocumentState,
     mouse_enabled: bool,
     pending_initial_window_size: Option<WindowSize>,
     last_synced_grid_size: Option<GridSize<u32>>,
@@ -358,13 +272,7 @@ pub struct WinitWindowWrapper {
     startup_error: Option<String>,
 
     #[cfg(target_os = "macos")]
-    window_mru: VecDeque<WindowId>,
-    #[cfg(target_os = "macos")]
-    focus_return_target: Option<WindowId>,
-    #[cfg(target_os = "macos")]
-    ignore_next_focus_gain: bool,
-    #[cfg(target_os = "macos")]
-    tab_navigation_hotkeys: TabNavigationHotkeys,
+    window_navigation: platform::WindowNavigationState,
 }
 
 impl WinitWindowWrapper {
@@ -396,13 +304,7 @@ impl WinitWindowWrapper {
             clipboard: clipboard_handle,
             startup_error,
             #[cfg(target_os = "macos")]
-            window_mru: VecDeque::new(),
-            #[cfg(target_os = "macos")]
-            focus_return_target: None,
-            #[cfg(target_os = "macos")]
-            ignore_next_focus_gain: false,
-            #[cfg(target_os = "macos")]
-            tab_navigation_hotkeys: TabNavigationHotkeys::new(settings.as_ref()),
+            window_navigation: platform::WindowNavigationState::new(settings.as_ref()),
         }
     }
 
@@ -468,9 +370,7 @@ impl WinitWindowWrapper {
                 cwd: None,
                 title: String::from("Neovide"),
                 #[cfg(target_os = "macos")]
-                document_path: String::new(),
-                #[cfg(target_os = "macos")]
-                document_modified: false,
+                document: platform::DocumentState::default(),
                 mouse_enabled: true,
                 pending_initial_window_size,
                 last_synced_grid_size: None,
@@ -479,23 +379,6 @@ impl WinitWindowWrapper {
                 font_changed_last_frame: false,
             },
         );
-    }
-
-    #[cfg(target_os = "macos")]
-    fn route_launch_config_for_window_creation(
-        &self,
-        args: Option<&OpenArgs>,
-        creating_initial_window: bool,
-    ) -> RouteLaunchConfig {
-        if let Some(args) = args {
-            return RouteLaunchConfig::from_open_args(args);
-        }
-
-        if !creating_initial_window {
-            return RouteLaunchConfig::default();
-        }
-
-        RouteLaunchConfig::from_cmdline(self.settings.get::<CmdLineSettings>())
     }
 
     pub fn has_pending_window_creation(&self) -> bool {
@@ -523,59 +406,6 @@ impl WinitWindowWrapper {
         }
     }
 
-    #[cfg(target_os = "windows")]
-    fn set_corner_preference(&self, window_id: WindowId, option: CornerPreference) {
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let skia_renderer = route.window.skia_renderer.borrow();
-        skia_renderer.window().set_corner_preference(option.into());
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn set_macos_option_as_meta(
-        &mut self,
-        window_id: WindowId,
-        option: settings::OptionAsMeta,
-    ) {
-        let winit_option = match option {
-            settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
-            settings::OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
-            settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
-            settings::OptionAsMeta::None => macos::OptionAsAlt::None,
-        };
-
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-        let window = route.window.winit_window.clone();
-        if winit_option != window.option_as_alt() {
-            window.set_option_as_alt(winit_option);
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn set_simple_fullscreen(&mut self, window_id: WindowId, fullscreen: bool) {
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let window = route.window.winit_window.clone();
-        let Some(feature) = &route.window.macos_feature else {
-            window.set_simple_fullscreen(fullscreen);
-            return;
-        };
-
-        if fullscreen {
-            feature.borrow_mut().set_simple_fullscreen_mode(true);
-            window.set_simple_fullscreen(true);
-        } else {
-            window.set_simple_fullscreen(false);
-            feature.borrow_mut().set_simple_fullscreen_mode(false);
-        }
-    }
-
     pub fn minimize_window(&mut self) {
         let Some(route) = self.focused_route() else {
             return;
@@ -590,21 +420,6 @@ impl WinitWindowWrapper {
         };
         let window = route.window.winit_window.clone();
         window.set_ime_allowed(ime_enabled);
-    }
-
-    #[cfg(target_os = "macos")]
-    fn apply_document_state(&self, window_id: WindowId) {
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let Some(feature) = self.macos_feature_for_window(window_id) else {
-            return;
-        };
-
-        feature
-            .borrow()
-            .set_document_state(&route.window.document_path, route.window.document_modified);
     }
 
     pub fn handle_window_command(&mut self, target: EventTarget, command: WindowCommand) {
@@ -652,66 +467,30 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             WindowCommand::DocumentStateChanged { path, modified } => {
                 if let Some(route) = self.routes.get_mut(&target_window_id) {
-                    route.window.document_path = path;
-                    route.window.document_modified = modified;
+                    route.window.document = platform::DocumentState { path, modified };
                 }
                 self.apply_document_state(target_window_id);
             }
             #[cfg(target_os = "macos")]
             WindowCommand::TouchpadPressure { col, row, entity, guifont, kind } => {
-                let Some(macos_feature) = self.macos_feature_for_window(target_window_id) else {
-                    log::warn!("Touchpad pressure received before macOS feature initialization");
-                    return;
-                };
-
-                let titlebar_height = macos_feature.borrow().system_titlebar_height as f32;
-                let window_padding = self.calculate_window_padding(target_window_id);
-                let pixel_position = self.grid_to_pixel_position(target_window_id, col, row);
-                let Some(grid_scale_height) = self.routes.get(&target_window_id).map(|route| {
-                    let renderer = route.window.renderer.borrow();
-                    renderer.grid_renderer.grid_scale.height()
-                }) else {
-                    return;
-                };
-                let point =
-                    self.apply_padding_to_position(pixel_position, window_padding, titlebar_height);
-
-                macos_feature.borrow_mut().handle_force_click_target(
-                    &entity,
-                    kind,
-                    point,
+                self.handle_touchpad_pressure_command(
+                    target_window_id,
+                    col,
+                    row,
+                    entity,
                     guifont,
-                    grid_scale_height,
+                    kind,
                 );
             }
             #[cfg(target_os = "macos")]
             WindowCommand::HighlightMatchingPair { grid, row, column, text } => {
-                use crate::renderer::rendered_window::BASE_GRID_ID;
-                use crate::renderer::rendered_window::NO_MULTIGRID_GRID_ID;
-                let target_grid = if grid == NO_MULTIGRID_GRID_ID { BASE_GRID_ID } else { grid };
-
-                let Some(route) = self.routes.get(&target_window_id) else {
-                    return;
-                };
-
-                let rect = {
-                    let renderer = route.window.renderer.borrow();
-                    let grid_scale = renderer.grid_renderer.grid_scale;
-                    let cell_size = PixelSize::new(grid_scale.width(), grid_scale.height());
-                    let grid_pos = GridPos::new(column as f32, row as f32);
-                    renderer.rendered_windows.get(&target_grid).map(|window| {
-                        let mut adjusted_grid = grid_pos + window.grid_current_position.to_vector();
-                        adjusted_grid.y -= window.scroll_animation.position;
-                        let origin = adjusted_grid * grid_scale;
-                        PixelRect::from_origin_and_size(origin, cell_size)
-                    })
-                };
-
-                if let (Some(rect), Some(macos_feature)) =
-                    (rect, self.macos_feature_for_window(target_window_id))
-                {
-                    macos_feature.borrow_mut().show_find_indicator_for_rect(rect, text.as_deref());
-                }
+                self.handle_highlight_matching_pair_command(
+                    target_window_id,
+                    grid,
+                    row,
+                    column,
+                    text,
+                );
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
@@ -731,9 +510,9 @@ impl WinitWindowWrapper {
                 }
             }
             #[cfg(windows)]
-            WindowCommand::RegisterRightClick => register_right_click(),
+            WindowCommand::RegisterRightClick => platform::register_right_click(),
             #[cfg(windows)]
-            WindowCommand::UnregisterRightClick => unregister_right_click(),
+            WindowCommand::UnregisterRightClick => platform::unregister_right_click(),
         }
     }
 
@@ -748,8 +527,7 @@ impl WinitWindowWrapper {
             }
             #[cfg(target_os = "macos")]
             WindowCommand::DocumentStateChanged { path, modified } => {
-                route_core.document_path = path;
-                route_core.document_modified = modified;
+                route_core.document = platform::DocumentState { path, modified };
             }
             WindowCommand::SetMouseEnabled(mouse_enabled) => {
                 route_core.mouse_enabled = mouse_enabled;
@@ -856,67 +634,9 @@ impl WinitWindowWrapper {
                     self.apply_theme_for_window(*window_id);
                 }
             }
-            #[cfg(target_os = "windows")]
-            WindowSettingsChanged::TitleBackgroundColor(color) => {
-                for window_id in window_ids.iter() {
-                    self.handle_title_background_color(*window_id, &color);
-                }
-            }
-
-            #[cfg(target_os = "windows")]
-            WindowSettingsChanged::TitleTextColor(color) => {
-                for window_id in window_ids.iter() {
-                    self.handle_title_text_color(*window_id, &color);
-                }
-            }
-            #[cfg(target_os = "windows")]
-            WindowSettingsChanged::CornerPreference(option) => {
-                for window_id in window_ids.iter() {
-                    self.set_corner_preference(*window_id, option);
-                }
-            }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
-                for window_id in window_ids.iter() {
-                    self.set_macos_option_as_meta(*window_id, option);
-                }
-            }
-
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::InputMacosAltIsMeta(enabled) if enabled => {
-                error_msg!(concat!(
-                    "neovide_input_macos_alt_is_meta has now been removed. ",
-                    "Use neovide_input_macos_option_key_is_meta instead. ",
-                    "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
-                ));
-            }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::MacosSimpleFullscreen(fullscreen) => {
-                for window_id in window_ids.iter() {
-                    self.set_simple_fullscreen(*window_id, fullscreen);
-                }
-            }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::SystemScrollbar(_) => {
-                for window_id in window_ids.iter() {
-                    if let Some(route) = self.routes.get(window_id) {
-                        let renderer = route.window.renderer.borrow();
-                        route.window.with_macos_feature_mut(|feature| {
-                            feature.apply_scrollbar_snapshot(&renderer);
-                        });
-                    }
-                }
-            }
             _ => {}
         }
-        #[cfg(target_os = "macos")]
-        {
-            for window_id in window_ids.iter() {
-                if let Some(macos_feature) = self.macos_feature_for_window(*window_id) {
-                    macos_feature.borrow_mut().handle_settings_changed(changed_setting.clone());
-                }
-            }
-        }
+        self.handle_platform_window_settings_changed(&window_ids, changed_setting);
     }
 
     fn handle_render_settings_changed(
@@ -1021,41 +741,13 @@ impl WinitWindowWrapper {
         window_id: WindowId,
         event: &WindowEvent,
     ) -> Option<OverlayEvent> {
-        #[cfg(target_os = "macos")]
-        if let WindowEvent::KeyboardInput { event: key_event, is_synthetic: false, .. } = event {
-            let modifiers = self.keyboard_manager.current_modifiers();
-            if editor_switcher_key_event_matches(key_event, &modifiers) {
-                self.show_editor_switcher();
-                return Some(OverlayEvent::Unchanged);
-            }
+        let shortcut_handling = self.handle_platform_shortcuts(window_id, event);
+        if shortcut_handling.overlay_consumed {
+            return Some(OverlayEvent::Unchanged);
         }
 
         let route = self.routes.get_mut(&window_id)?;
         let neovim_handler = &route.window.neovim_handler;
-
-        #[cfg(target_os = "macos")]
-        let mut consumed_key_event = false;
-
-        #[cfg(target_os = "macos")]
-        {
-            if native_tab_bar_enabled()
-                && let WindowEvent::KeyboardInput { event: key_event, .. } = event
-            {
-                let modifiers = self.keyboard_manager.current_modifiers();
-                if let Some(action) = self.tab_navigation_hotkeys.action_for(key_event, &modifiers)
-                    && let Some(feature) = &route.window.macos_feature
-                {
-                    let feature_ref = feature.borrow();
-                    if feature_ref.can_navigate_tabs() {
-                        match action {
-                            TabNavigationAction::Next => feature_ref.select_next_tab(),
-                            TabNavigationAction::Previous => feature_ref.select_previous_tab(),
-                        }
-                        consumed_key_event = true;
-                    }
-                }
-            }
-        }
 
         let mouse_result = {
             let mut mouse_manager = route.window.mouse_manager.borrow_mut();
@@ -1070,13 +762,9 @@ impl WinitWindowWrapper {
             )
         };
 
-        #[cfg(target_os = "macos")]
-        if !consumed_key_event {
+        if !shortcut_handling.keyboard_consumed {
             self.keyboard_manager.handle_event(event, neovim_handler);
         }
-
-        #[cfg(not(target_os = "macos"))]
-        self.keyboard_manager.handle_event(event, neovim_handler);
 
         {
             let mut renderer = route.window.renderer.borrow_mut();
@@ -1171,16 +859,7 @@ impl WinitWindowWrapper {
                 #[cfg(target_os = "macos")]
                 WindowEvent::TouchpadPressure { stage, .. } => {
                     tracy_zone!("TouchpadPressure");
-                    if let Some(macos_feature) = &route.window.macos_feature {
-                        match TouchpadStage::from_stage(stage) {
-                            TouchpadStage::Soft | TouchpadStage::Click => {
-                                macos_feature.borrow_mut().set_definition_is_active(false)
-                            }
-                            TouchpadStage::ForceClick => {
-                                macos_feature.borrow_mut().handle_touchpad_force_click()
-                            }
-                        }
-                    }
+                    route.window.handle_touchpad_pressure(stage);
                 }
                 WindowEvent::Ime(Ime::Enabled) => {
                     log::info!("Ime enabled");
@@ -1215,42 +894,6 @@ impl WinitWindowWrapper {
         }
 
         self.ui_state >= UIState::FirstFrame && should_render
-    }
-
-    #[cfg(target_os = "macos")]
-    fn sync_native_tabs_resize(&mut self, source_window_id: WindowId) {
-        if !native_tab_bar_enabled() || !self.settings.get::<CmdLineSettings>().system_native_tabs {
-            return;
-        }
-
-        if self.routes.len() <= 1 {
-            return;
-        }
-
-        let Some(source_route) = self.routes.get(&source_window_id) else {
-            return;
-        };
-
-        let shared_inner_size = source_route.window.winit_window.inner_size();
-        let window_ids: Vec<WindowId> = self.routes.keys().copied().collect();
-
-        // System native tabs share one visual surface. Keep all routes in sync so
-        // fullscreen transitions trigger immediate grid updates for every tab.
-        for window_id in window_ids {
-            if let Some(route) = self.routes.get_mut(&window_id)
-                && let Some(macos_feature) = &mut route.window.macos_feature
-            {
-                macos_feature.borrow_mut().handle_size_changed();
-            }
-
-            let window_padding = self.calculate_window_padding(window_id);
-            if let Some(route) = self.routes.get_mut(&window_id) {
-                route.state.saved_inner_size = shared_inner_size;
-                route.state.window_padding = window_padding;
-            }
-
-            self.update_grid_size_from_window(window_id);
-        }
     }
 
     fn apply_message_selection_event(
@@ -1376,179 +1019,6 @@ impl WinitWindowWrapper {
                 feature.apply_scrollbar_snapshot(&renderer);
             });
         }
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn handle_mac_shortcut(&mut self, command: MacShortcutCommand) {
-        match command {
-            MacShortcutCommand::TogglePinnedWindow => self.toggle_pinned_window(),
-            MacShortcutCommand::ShowEditorSwitcher => self.show_editor_switcher(),
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn record_window_usage(&mut self, window_id: WindowId) {
-        self.window_mru.retain(|id| *id != window_id);
-        self.window_mru.push_front(window_id);
-    }
-
-    #[cfg(target_os = "macos")]
-    fn cleanup_window_mru(&mut self) { self.window_mru.retain(|id| self.routes.contains_key(id)); }
-
-    #[cfg(target_os = "macos")]
-    fn handle_focus_gain_for_shortcuts(&mut self, window_id: WindowId) {
-        if self.ignore_next_focus_gain {
-            self.ignore_next_focus_gain = false;
-        } else {
-            self.record_window_usage(window_id);
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn pinned_candidate(&mut self) -> Option<WindowId> {
-        self.cleanup_window_mru();
-        if let Some(id) = self.window_mru.front().copied() {
-            Some(id)
-        } else {
-            self.routes.keys().next().copied()
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn editor_switcher_rows(&mut self) -> Vec<EditorSwitcherRow> {
-        let focused_route = self.get_focused_route();
-        self.cleanup_window_mru();
-
-        let mut ordered_windows: Vec<WindowId> = self.window_mru.iter().copied().collect();
-        for window_id in self.routes.keys().copied() {
-            if !ordered_windows.contains(&window_id) {
-                ordered_windows.push(window_id);
-            }
-        }
-
-        ordered_windows
-            .into_iter()
-            .filter_map(|window_id| {
-                let route = self.routes.get(&window_id)?;
-                let title = if route.window.title.is_empty() {
-                    "Untitled".to_string()
-                } else {
-                    route.window.title.clone()
-                };
-
-                let subtitle = Self::editor_switcher_subtitle(route);
-
-                Some(EditorSwitcherRow {
-                    window_id,
-                    title,
-                    subtitle,
-                    modified: route.window.document_modified,
-                    is_current: focused_route == Some(window_id),
-                })
-            })
-            .collect()
-    }
-
-    #[cfg(target_os = "macos")]
-    fn editor_switcher_subtitle(route: &Route) -> String {
-        if !route.window.document_path.is_empty() {
-            route.window.document_path.clone()
-        } else if let Some(cwd) = &route.cwd {
-            cwd.to_string_lossy().into_owned()
-        } else {
-            String::new()
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn capture_focus_target(&mut self, pinned_id: WindowId) {
-        let current = self.get_focused_route();
-        if current != Some(pinned_id) {
-            self.focus_return_target = current;
-        } else {
-            self.focus_return_target = None;
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn restore_focus_target(&mut self) -> bool {
-        let Some(target_id) = self.focus_return_target.take() else {
-            return false;
-        };
-
-        let Some(window) =
-            self.routes.get(&target_id).map(|route| route.window.winit_window.clone())
-        else {
-            return false;
-        };
-
-        if let Some(feature) = self.macos_feature_for_window(target_id) {
-            feature.borrow().activate_application();
-        }
-
-        window.focus_window();
-
-        true
-    }
-
-    #[cfg(target_os = "macos")]
-    fn toggle_pinned_window(&mut self) {
-        let Some(window_id) = self.pinned_candidate() else {
-            return;
-        };
-
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let window = route.window.winit_window.clone();
-        let macos_feature = self.macos_feature_for_window(window_id);
-        let is_active = {
-            if let Some(feature) = &macos_feature {
-                feature.borrow().is_key_window()
-            } else {
-                window.has_focus()
-            }
-        };
-
-        self.ignore_next_focus_gain = true;
-
-        if is_active {
-            let uses_native_tabs = native_tab_bar_enabled()
-                && self.settings.get::<CmdLineSettings>().system_native_tabs;
-
-            if uses_native_tabs {
-                hide_application();
-                return;
-            }
-
-            if !self.restore_focus_target() {
-                hide_application();
-            }
-        } else {
-            if let Some(feature) = &macos_feature {
-                feature.borrow().activate_application();
-            }
-            #[cfg(target_os = "macos")]
-            self.capture_focus_target(window_id);
-            window.focus_window();
-            self.record_window_usage(window_id);
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn show_editor_switcher(&mut self) {
-        if self.routes.is_empty() {
-            return;
-        }
-
-        if close_editor_switcher_if_open() {
-            return;
-        }
-
-        let rows = self.editor_switcher_rows();
-        let icon = self.settings.get::<CmdLineSettings>().icon;
-        show_editor_switcher_panel(rows, icon.as_ref());
     }
 
     pub fn draw_frame(&mut self, window_id: WindowId, dt: f32) {
@@ -1683,9 +1153,7 @@ impl WinitWindowWrapper {
         let window = Rc::new(window_config.window.clone());
         let mut route_title = String::from("Neovide");
         #[cfg(target_os = "macos")]
-        let mut route_document_path = String::new();
-        #[cfg(target_os = "macos")]
-        let mut route_document_modified = false;
+        let mut route_document = platform::DocumentState::default();
         let mut route_last_synced_grid_size = None;
         let mut route_inferred_theme = None;
         let mut route_mouse_enabled = true;
@@ -1732,8 +1200,7 @@ impl WinitWindowWrapper {
                 route_title = route_core.title;
                 #[cfg(target_os = "macos")]
                 {
-                    route_document_path = route_core.document_path;
-                    route_document_modified = route_core.document_modified;
+                    route_document = route_core.document;
                 }
                 route_last_synced_grid_size = route_core.last_synced_grid_size;
                 route_inferred_theme = route_core.inferred_theme;
@@ -1863,16 +1330,12 @@ impl WinitWindowWrapper {
         window.set_title(&route_title);
 
         #[cfg(target_os = "windows")]
-        {
-            window.set_corner_preference(corner_preference.into());
-            if let Some(winit_color) = Self::parse_winit_color(&title_background_color) {
-                window.set_title_background_color(Some(winit_color));
-            }
-
-            if let Some(winit_color) = Self::parse_winit_color(&title_text_color) {
-                window.set_title_text_color(winit_color);
-            }
-        }
+        platform::set_initial_window_appearance(
+            &window,
+            corner_preference,
+            &title_background_color,
+            &title_text_color,
+        );
 
         let saved_inner_size = window.inner_size();
 
@@ -1885,9 +1348,7 @@ impl WinitWindowWrapper {
         window.set_blur(window_blurred && opacity.min(normal_opacity) < 1.0);
 
         #[cfg(target_os = "windows")]
-        if window_blurred {
-            window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
-        }
+        platform::set_window_backdrop(&window, window_blurred);
 
         if fullscreen {
             let handle = window.current_monitor();
@@ -1895,15 +1356,7 @@ impl WinitWindowWrapper {
         }
 
         #[cfg(target_os = "windows")]
-        {
-            if let Some(winit_color) = Self::parse_winit_color(&title_background_color) {
-                window.set_title_background_color(Some(winit_color));
-            }
-
-            if let Some(winit_color) = Self::parse_winit_color(&title_text_color) {
-                window.set_title_text_color(winit_color);
-            }
-        }
+        platform::set_title_colors(&window, &title_background_color, &title_text_color);
 
         let skia_renderer_ref: &dyn SkiaRenderer = &**skia_renderer.borrow();
         let vsync =
@@ -1911,22 +1364,14 @@ impl WinitWindowWrapper {
 
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
-        let macos_feature = {
-            let mut feature = MacosWindowFeature::from_winit_window(
-                &window,
-                self.settings.clone(),
-                proxy.clone(),
-                neovim_handler.clone(),
-            );
-
-            feature.apply_scrollbar_snapshot(&renderer.borrow());
-
-            if creating_initial_window {
-                feature.activate_and_focus();
-            }
-
-            feature
-        };
+        let macos_feature = platform::create_window_feature(
+            &window,
+            self.settings.clone(),
+            proxy.clone(),
+            neovim_handler.clone(),
+            &renderer,
+            creating_initial_window,
+        );
 
         if creating_initial_window {
             self.ui_state = if should_apply_initial_window_size {
@@ -1956,9 +1401,7 @@ impl WinitWindowWrapper {
                 macos_feature: Some(Rc::new(RefCell::new(Box::new(macos_feature)))),
                 title: route_title,
                 #[cfg(target_os = "macos")]
-                document_path: route_document_path,
-                #[cfg(target_os = "macos")]
-                document_modified: route_document_modified,
+                document: route_document,
                 last_applied_window_size: saved_inner_size,
                 last_synced_grid_size: route_last_synced_grid_size,
             },
@@ -1966,9 +1409,7 @@ impl WinitWindowWrapper {
             pending_initial_window_size,
             state,
             #[cfg(target_os = "macos")]
-            neovim_bin: route_launch_config.neovim_bin,
-            #[cfg(target_os = "macos")]
-            neovim_args: route_launch_config.neovim_args,
+            launch_config: route_launch_config,
         };
         self.routes.insert(window.id(), route);
         #[cfg(target_os = "macos")]
@@ -1976,11 +1417,11 @@ impl WinitWindowWrapper {
         self.apply_theme_for_window(window.id());
         set_active_route_handler(route_id);
         #[cfg(target_os = "macos")]
-        self.record_window_usage(window.id());
-        #[cfg(target_os = "macos")]
-        self.set_macos_option_as_meta(window.id(), input_macos_option_key_is_meta);
-        #[cfg(target_os = "macos")]
-        self.set_simple_fullscreen(window.id(), macos_simple_fullscreen);
+        {
+            self.record_window_usage(window.id());
+            self.set_macos_option_as_meta(window.id(), input_macos_option_key_is_meta);
+            self.set_simple_fullscreen(window.id(), macos_simple_fullscreen);
+        }
 
         if should_apply_initial_window_size {
             self.apply_pending_initial_window_size(window.id());
@@ -2201,9 +1642,9 @@ impl WinitWindowWrapper {
 
             #[cfg(target_os = "macos")]
             {
-                self.window_mru.retain(|id| *id != window_id);
-                if self.focus_return_target == Some(window_id) {
-                    self.focus_return_target = None;
+                self.window_navigation.window_mru.retain(|id| *id != window_id);
+                if self.window_navigation.focus_return_target == Some(window_id) {
+                    self.window_navigation.focus_return_target = None;
                 }
             }
 
@@ -2444,48 +1885,6 @@ impl WinitWindowWrapper {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    pub fn grid_to_pixel_position(
-        &mut self,
-        window_id: WindowId,
-        col: i64,
-        row: i64,
-    ) -> Point2<Pixel<f32>> {
-        let grid_position = GridPos::new(col, row);
-        let mut renderer = {
-            let route = self.routes.get(&window_id).expect("window must exist");
-            route.window.renderer.borrow_mut()
-        };
-        let root_region_offset = renderer.window_regions.first().map(|region| region.region.min);
-
-        // Align the lookup point with the actual font baseline instead of a heuristic offset.
-        let grid_scale = renderer.grid_renderer.grid_scale;
-        let baseline_offset = renderer.grid_renderer.shaper.baseline_offset();
-        drop(renderer);
-
-        let mut position = grid_position * grid_scale;
-
-        if let Some(offset) = root_region_offset {
-            position.x += offset.x;
-            position.y += offset.y;
-        }
-
-        position.y += baseline_offset;
-
-        position
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn apply_padding_to_position(
-        &self,
-        position: Point2<Pixel<f32>>,
-        padding: WindowPadding,
-        titlebar_height: f32,
-    ) -> Point2<Pixel<f32>> {
-        let _ = (padding, titlebar_height);
-        position
-    }
-
     pub fn get_focused_route(&self) -> Option<WindowId> {
         if let Some(id) = self.routes.iter().find_map(|(key, val)| {
             if (!val.window.winit_window.has_focus() && self.routes.len() == 1)
@@ -2502,6 +1901,7 @@ impl WinitWindowWrapper {
         #[cfg(target_os = "macos")]
         {
             if let Some(id) = self
+                .window_navigation
                 .window_mru
                 .iter()
                 .copied()
@@ -2512,31 +1912,6 @@ impl WinitWindowWrapper {
         }
 
         self.routes.keys().next().copied()
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn focused_route_launch_context(&self) -> Option<(Option<PathBuf>, OpenArgs)> {
-        let focused_id = self.get_focused_route()?;
-        let route = self.routes.get(&focused_id)?;
-        Some((
-            route.cwd.clone(),
-            OpenArgs {
-                files_to_open: vec![],
-                tabs: false,
-                neovim_bin: route.neovim_bin.clone(),
-                neovim_args: route.neovim_args.clone(),
-            },
-        ))
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn activate_and_focus_window(&self, window_id: WindowId) -> bool {
-        let Some(feature) = self.macos_feature_for_window(window_id) else {
-            return false;
-        };
-
-        feature.borrow().activate_and_focus();
-        true
     }
 
     pub fn window_id_for_route(&self, route_id: RouteId) -> Option<WindowId> {
@@ -2557,53 +1932,6 @@ impl WinitWindowWrapper {
             .or_else(|| {
                 self.route_cores.get(&route_id).map(|route_core| route_core.neovim_handler.clone())
             })
-    }
-
-    #[cfg(target_os = "macos")]
-    fn fullscreen_for_new_window(&self, creating_initial_window: bool, fullscreen: bool) -> bool {
-        if !self.should_handle_tabbed_fullscreen(creating_initial_window, fullscreen) {
-            return fullscreen;
-        }
-
-        // cmd-n creates another top-level NSWindow. if system tabs are enabled,
-        // AppKit then merges that new window into the focused fullscreen
-        // window's tab group. If we also apply the global fullscreen
-        // setting to the newly created window, AppKit tries to perform a
-        // second fullscreen transition for a window that is about to become a
-        // tab in the existing fullscreen group, which triggers
-        // NSWindowStackController assertions. So, we keep the host window fullscreen,
-        // but skip the initial fullscreen transition on the new window to avoid that.
-        let opening_fullscreen_tab = self
-            .get_focused_route()
-            .and_then(|window_id| self.macos_feature_for_window(window_id))
-            .is_some_and(|feature| feature.borrow().is_native_fullscreen_enabled());
-
-        if opening_fullscreen_tab {
-            log::info!("Skipping initial fullscreen for new tab window from fullscreen host");
-            return false;
-        }
-
-        fullscreen
-    }
-
-    #[cfg(target_os = "macos")]
-    fn should_handle_tabbed_fullscreen(
-        &self,
-        creating_initial_window: bool,
-        fullscreen: bool,
-    ) -> bool {
-        !creating_initial_window
-            && fullscreen
-            && native_tab_bar_enabled()
-            && self.settings.get::<CmdLineSettings>().system_native_tabs
-    }
-
-    #[cfg(target_os = "macos")]
-    fn macos_feature_for_window(
-        &self,
-        window_id: WindowId,
-    ) -> Option<Rc<RefCell<Box<MacosWindowFeature>>>> {
-        self.routes.get(&window_id).and_then(|route| route.window.macos_feature.as_ref().cloned())
     }
 
     fn resolve_target_window_id(&self, target: EventTarget) -> Option<WindowId> {
@@ -2948,57 +2276,6 @@ impl WinitWindowWrapper {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    fn update_scrollbar_layout_from_window(&self, window_id: WindowId) {
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let window_padding = route.state.window_padding;
-
-        let Some(macos_feature) = self.macos_feature_for_window(window_id) else {
-            return;
-        };
-
-        let reserved_width = {
-            let macos_feature = macos_feature.borrow();
-            macos_feature.scrollbar_reserved_width_in_pixels()
-        };
-
-        if reserved_width == 0 {
-            macos_feature.borrow_mut().set_scrollbar_layout(ScrollbarLayoutInput::default());
-            return;
-        }
-
-        let content_size = self.content_pixel_size_from_window(window_id);
-
-        // a resize request is not yet drawable state so we keep the track at the
-        // committed root edge until neovim acknowledges the new grid size.
-        let renderer = route.window.renderer.borrow();
-        let grid_scale = renderer.grid_renderer.grid_scale;
-        let root_grid_size = renderer
-            .scrollbar_snapshot
-            .as_ref()
-            .and_then(|snapshot| snapshot.root_grid_size)
-            .unwrap_or_else(|| renderer.get_grid_size().as_());
-        let left_lane_enabled =
-            macos_feature.borrow().scrollbar_left_reserved_width_in_pixels() > 0;
-
-        macos_feature.borrow_mut().set_scrollbar_layout(ScrollbarLayoutInput {
-            root_grid_size,
-            grid_origin: PixelPos::new(
-                f64::from(window_padding.left),
-                f64::from(window_padding.top),
-            ),
-            content_size: window_padding.content_size(content_size).as_(),
-            cell_size: PixelSize::new(
-                f64::from(grid_scale.width()),
-                f64::from(grid_scale.height()),
-            ),
-            left_lane_enabled,
-        });
-    }
-
     fn update_ime_position(&mut self, window_id: WindowId, force: bool) {
         let (window, grid_scale, position, current_area) = {
             let route = match self.routes.get(&window_id) {
@@ -3036,55 +2313,16 @@ impl WinitWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, window_id: WindowId, scale_factor: f64) {
-        #[cfg(target_os = "macos")]
-        let macos_feature = self.macos_feature_for_window(window_id);
-
         let Some(route) = self.routes.get(&window_id) else {
             return;
         };
         let mut renderer = route.window.renderer.borrow_mut();
         let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         #[cfg(target_os = "macos")]
-        {
-            if let Some(macos_feature) = macos_feature {
-                macos_feature.borrow_mut().handle_scale_factor_update(scale_factor);
-            }
+        if let Some(feature) = self.macos_feature_for_window(window_id) {
+            feature.borrow_mut().handle_scale_factor_update(scale_factor);
         }
         renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
-    }
-
-    #[cfg(windows)]
-    fn parse_winit_color(color: &str) -> Option<Color> {
-        match csscolorparser::parse(color) {
-            Ok(color) => {
-                let color = color.to_rgba8();
-                Some(Color::from_rgb(color[0], color[1], color[2]))
-            }
-            _ => None,
-        }
-    }
-
-    #[cfg(windows)]
-    fn handle_title_background_color(&self, window_id: WindowId, color: &str) {
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let skia_renderer = route.window.skia_renderer.borrow();
-        let winit_color = Self::parse_winit_color(color);
-        skia_renderer.window().set_title_background_color(winit_color);
-    }
-
-    #[cfg(windows)]
-    fn handle_title_text_color(&self, window_id: WindowId, color: &str) {
-        let Some(route) = self.routes.get(&window_id) else {
-            return;
-        };
-
-        let skia_renderer = route.window.skia_renderer.borrow();
-        if let Some(winit_color) = Self::parse_winit_color(color) {
-            skia_renderer.window().set_title_text_color(winit_color);
-        }
     }
 }

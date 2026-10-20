@@ -5,7 +5,7 @@ mod keyboard_manager;
 pub mod macos;
 mod mouse_manager;
 mod settings;
-mod window_wrapper;
+mod wrapper;
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -28,7 +28,6 @@ pub use mouse_manager::OverlayEvent;
 pub use settings::ThemeSettings;
 pub use settings::WindowSettings;
 pub use settings::WindowSettingsChanged;
-pub use window_wrapper::WinitWindowWrapper;
 use winit::dpi::PhysicalSize;
 use winit::dpi::Size;
 use winit::event::DeviceId;
@@ -54,6 +53,7 @@ use winit::window::Cursor;
 use winit::window::Icon;
 use winit::window::Theme;
 use winit::window::Window;
+pub use wrapper::WinitWindowWrapper;
 
 use crate::bridge::RestartDetails;
 use crate::cmd_line::CmdLineSettings;
