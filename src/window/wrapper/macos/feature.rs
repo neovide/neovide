@@ -52,14 +52,6 @@ use crate::bridge::SerialCommand;
 use crate::bridge::send_ui;
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
-use crate::platform::macos::ENABLE_NATIVE_TAB_BAR;
-use crate::platform::macos::NEOVIDE_TABBING_IDENTIFIER;
-use crate::platform::macos::SHOW_NATIVE_TAB_BAR;
-use crate::platform::macos::ensure_app_initialized;
-use crate::platform::macos::get_ns_window;
-use crate::platform::macos::merge_all_windows_if_native_tabs;
-use crate::platform::macos::should_show_native_tab_bar;
-use crate::platform::macos::store_event_loop_proxy;
 use crate::renderer::fonts::font_options::FontOptions;
 use crate::settings::Settings;
 use crate::units::Pixel;
@@ -69,13 +61,22 @@ use crate::window::EventPayload;
 use crate::window::ForceClickKind;
 use crate::window::WindowSettings;
 use crate::window::WindowSettingsChanged;
+use crate::window::application::macos::ensure_app_initialized;
+use crate::window::application::macos::store_event_loop_proxy;
+use crate::window::macos::appkit::get_ns_window;
 use crate::window::macos::hotkey::GlobalHotkeys;
+use crate::window::macos::native_tabs::ENABLE_NATIVE_TAB_BAR;
+use crate::window::macos::native_tabs::SHOW_NATIVE_TAB_BAR;
+use crate::window::macos::native_tabs::merge_all_windows_if_native_tabs;
+use crate::window::macos::native_tabs::should_show_native_tab_bar;
 
 thread_local! {
     static QUICKLOOK_PREVIEW_ITEM: RefCell<Option<Retained<NSURL>>> = const { RefCell::new(None) };
     static QUICKLOOK_CONTROLLER: RefCell<Option<Retained<QuickLookPreviewController>>> =
         const { RefCell::new(None) };
 }
+
+const NEOVIDE_TABBING_IDENTIFIER: &str = "NeovideWindowTabGroup";
 
 pub enum TouchpadStage {
     Soft,

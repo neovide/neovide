@@ -32,6 +32,8 @@ pub use settings::ThemeSettings;
 pub use settings::WindowSettings;
 pub use settings::WindowSettingsChanged;
 pub use setup::WindowSize;
+#[cfg(target_os = "windows")]
+pub(crate) use setup::configure_process_dpi;
 pub use setup::create_event_loop;
 pub use setup::create_window;
 pub use setup::determine_grid_size;

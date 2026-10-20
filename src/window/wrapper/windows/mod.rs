@@ -1,3 +1,5 @@
+mod context_menu;
+
 use winit::event::WindowEvent;
 use winit::platform::windows::BackdropType;
 use winit::platform::windows::Color;
@@ -5,11 +7,11 @@ use winit::platform::windows::WindowExtWindows;
 use winit::window::Window;
 use winit::window::WindowId;
 
+pub(super) use self::context_menu::register_right_click;
+pub(super) use self::context_menu::unregister_right_click;
 use super::ShortcutHandling;
 use super::WindowSettingsChanged;
 use super::WinitWindowWrapper;
-pub(super) use crate::platform::windows::register_right_click;
-pub(super) use crate::platform::windows::unregister_right_click;
 use crate::window::settings::platform::CornerPreference;
 
 pub(super) fn set_initial_window_appearance(

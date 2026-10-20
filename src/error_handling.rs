@@ -19,6 +19,9 @@ use crate::settings::Settings;
 use crate::window::EventPayload;
 use crate::window::show_error_window;
 
+#[cfg(target_os = "windows")]
+mod windows;
+
 pub enum StartupErrorOutput {
     Stderr,
     Logger,
@@ -80,7 +83,7 @@ This is the error that caused the crash. In case you don't know what to do with 
 fn handle_clap_startup_error(err: &Error) -> Option<ExitCode> {
     let clap_error = err.downcast_ref::<ClapError>()?;
     #[cfg(target_os = "windows")]
-    crate::platform::windows::windows_attach_to_console();
+    windows::attach_to_console();
     let _ = clap_error.print();
     Some(ExitCode::from(clap_error.exit_code() as u8))
 }

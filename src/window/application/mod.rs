@@ -1,4 +1,7 @@
 #[cfg(target_os = "macos")]
+pub(super) mod macos;
+
+#[cfg(target_os = "macos")]
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;

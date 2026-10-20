@@ -30,12 +30,12 @@ use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
 use super::Settings;
-use crate::platform::macos::get_ns_window;
 use crate::profiling::tracy_gpu_zone;
 use crate::renderer::RendererSettings;
 use crate::renderer::SkiaRenderer;
 use crate::renderer::VSync;
 use crate::window::EventPayload;
+use crate::window::macos::appkit::get_ns_window;
 
 struct MetalDrawableSurface {
     pub drawable: Retained<ProtocolObject<dyn CAMetalDrawable>>,

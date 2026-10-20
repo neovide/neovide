@@ -21,7 +21,7 @@ pub use self::row::EditorSwitcherRow;
 use self::row::editor_switcher_row_matches;
 use self::ui::rebuild_editor_switcher_rows;
 pub use self::ui::show_editor_switcher_panel;
-use crate::platform::macos::request_activate_window;
+use crate::window::application::macos::request_activate_window;
 use crate::window::macos::tab_navigation::KeyCombo;
 
 mod appkit;

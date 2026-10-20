@@ -1,3 +1,5 @@
+use windows::Win32::UI::HiDpi::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+use windows::Win32::UI::HiDpi::SetProcessDpiAwarenessContext;
 use winit::dpi::PhysicalPosition;
 use winit::event_loop::ActiveEventLoop;
 use winit::platform::windows::WindowAttributesExtWindows;
@@ -6,6 +8,13 @@ use winit::window::WindowAttributes;
 
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
+
+pub(crate) fn configure_process_dpi() {
+    unsafe {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+            .expect("Failed to set DPI awareness!");
+    }
+}
 
 pub(super) fn create_window_attributes(
     _event_loop: &ActiveEventLoop,

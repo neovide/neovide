@@ -1,36 +1,20 @@
-use std::cell::RefCell;
-use std::ffi::CString;
-use std::os::raw::c_void;
-use std::str;
-use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-
-use objc2::AnyThread;
 use objc2::MainThreadOnly;
 use objc2::define_class;
 use objc2::msg_send;
 use objc2::rc::Retained;
-use objc2::runtime::AnyClass;
 use objc2::runtime::AnyObject;
-use objc2::runtime::ClassBuilder;
 use objc2::runtime::ProtocolObject;
 use objc2::sel;
 use objc2_app_kit::NSApplication;
 use objc2_app_kit::NSEvent;
-use objc2_app_kit::NSImage;
 use objc2_app_kit::NSMenu;
 use objc2_app_kit::NSMenuDelegate;
 use objc2_app_kit::NSMenuItem;
-use objc2_app_kit::NSView;
 use objc2_app_kit::NSWindow;
 use objc2_app_kit::NSWindowDidBecomeKeyNotification;
 use objc2_app_kit::NSWindowDidBecomeMainNotification;
 use objc2_app_kit::NSWorkspace;
 use objc2_foundation::MainThreadMarker;
-use objc2_foundation::NSArray;
-use objc2_foundation::NSData;
-use objc2_foundation::NSDictionary;
 use objc2_foundation::NSNotification;
 use objc2_foundation::NSNotificationCenter;
 use objc2_foundation::NSObject;
@@ -39,86 +23,22 @@ use objc2_foundation::NSProcessInfo;
 use objc2_foundation::NSString;
 use objc2_foundation::NSTimer;
 use objc2_foundation::NSURL;
-use objc2_foundation::NSUserDefaults;
 use objc2_foundation::ns_string;
-use raw_window_handle::HasWindowHandle;
-use raw_window_handle::RawWindowHandle;
-use winit::event_loop::EventLoopProxy;
-use winit::window::Window;
-use winit::window::WindowId;
 
+use super::request_editor_switcher;
+use super::request_new_window;
 use crate::bridge::SerialCommand;
 use crate::bridge::require_active_handler;
-use crate::bridge::send_or_queue_file_drop;
 use crate::bridge::send_ui;
 use crate::cmd_line::CmdLineSettings;
 use crate::settings::Settings;
-use crate::utils::expand_tilde;
-use crate::window::EventPayload;
-use crate::window::MacShortcutCommand;
-use crate::window::MacosWindowFeature;
-use crate::window::UserEvent;
+use crate::window::macos::native_tabs::should_show_native_tab_bar;
 use crate::window::macos::tab_navigation::KeyCombo;
 
-thread_local! {
-    static APP_MENU: RefCell<Option<Menu>> = const { RefCell::new(None) };
-}
-
-pub(crate) static SHOW_NATIVE_TAB_BAR: AtomicBool = AtomicBool::new(false);
-pub(crate) static ENABLE_NATIVE_TAB_BAR: AtomicBool = AtomicBool::new(false);
-static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<EventPayload>> = OnceLock::new();
-
-pub(crate) const NEOVIDE_TABBING_IDENTIFIER: &str = "NeovideWindowTabGroup";
 const NEOVIDE_WEBSITE_URL: &str = "https://neovide.dev/";
 const NEOVIDE_SPONSOR_URL: &str = "https://github.com/sponsors/neovide";
 const NEOVIDE_CREATE_ISSUE_URL: &str =
     "https://github.com/neovide/neovide/issues/new?template=bug_report.md";
-static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
-    include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
-
-fn native_tabs_enabled() -> bool { ENABLE_NATIVE_TAB_BAR.load(Ordering::Relaxed) }
-
-pub(crate) fn should_show_native_tab_bar() -> bool {
-    native_tabs_enabled() && SHOW_NATIVE_TAB_BAR.load(Ordering::Relaxed)
-}
-
-pub(crate) fn store_event_loop_proxy(proxy: EventLoopProxy<EventPayload>) {
-    let _ = EVENT_LOOP_PROXY.set(proxy);
-}
-
-fn request_new_window() {
-    let Some(proxy) = EVENT_LOOP_PROXY.get() else {
-        log::warn!("New window requested before event loop proxy became available");
-        return;
-    };
-
-    if let Err(error) = proxy.send_event(EventPayload::all(UserEvent::CreateWindow)) {
-        log::error!("Failed to request a new window: {:?}", error);
-    }
-}
-
-fn request_editor_switcher() {
-    let Some(proxy) = EVENT_LOOP_PROXY.get() else {
-        log::warn!("Editor switcher requested before event loop proxy became available");
-        return;
-    };
-
-    let event = UserEvent::MacShortcut(MacShortcutCommand::ShowEditorSwitcher);
-    if let Err(error) = proxy.send_event(EventPayload::all(event)) {
-        log::error!("Failed to request editor switcher: {:?}", error);
-    }
-}
-
-pub fn request_activate_window(window_id: WindowId) {
-    let Some(proxy) = EVENT_LOOP_PROXY.get() else {
-        log::warn!("Window activation requested before event loop proxy became available");
-        return;
-    };
-
-    if let Err(error) = proxy.send_event(EventPayload::all(UserEvent::ActivateWindow(window_id))) {
-        log::error!("Failed to request window activation: {:?}", error);
-    }
-}
 
 fn refresh_windows_menu_for_ns_window(app: &NSApplication, window: &NSWindow) {
     let title = window.title();
@@ -137,74 +57,6 @@ fn refresh_windows_menu_for_app(app: &NSApplication) {
         refresh_windows_menu_for_ns_window(app, window.as_ref());
     }
     app.setWindowsNeedUpdate(true);
-}
-
-pub fn native_tab_bar_enabled() -> bool { native_tabs_enabled() }
-
-pub(crate) fn merge_all_windows_if_native_tabs(ns_window: &NSWindow) {
-    if should_show_native_tab_bar() {
-        ns_window.mergeAllWindows(None);
-        MacosWindowFeature::apply_tab_bar_preference(ns_window);
-    }
-}
-
-#[link(name = "Quartz", kind = "framework")]
-unsafe extern "C" {}
-
-pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
-    match window.window_handle().expect("Failed to fetch window handle").as_raw() {
-        RawWindowHandle::AppKit(handle) => {
-            let ns_view: Retained<NSView> = unsafe {
-                Retained::retain(handle.ns_view.as_ptr().cast())
-                    .expect("Failed to get NSView instance.")
-            };
-            ns_view.window().expect("NSView was not installed in a window")
-        }
-        _ => panic!("Not an AppKit window"),
-    }
-}
-
-fn load_icon_from_custom_path(icon_path: &str) -> Option<Retained<NSImage>> {
-    let path = NSString::from_str(icon_path);
-    NSImage::initWithContentsOfFile(NSImage::alloc(), &path)
-}
-
-fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
-    unsafe {
-        let data = NSData::dataWithBytes_length(
-            DEFAULT_NEOVIDE_ICON_BYTES.as_ptr() as *mut c_void,
-            DEFAULT_NEOVIDE_ICON_BYTES.len(),
-        );
-        NSImage::initWithData(NSImage::alloc(), data.as_ref())
-    }
-}
-
-pub fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
-    custom_icon_path
-        .and_then(|path| {
-            let expanded = expand_tilde(path);
-            load_icon_from_custom_path(&expanded)
-        })
-        .or_else(load_icon_from_default_bytes)
-}
-
-pub(crate) fn ensure_app_initialized(settings: &Settings) {
-    let mtm = MainThreadMarker::new().expect("Menu must be created on the main thread");
-    APP_MENU.with(|menu_cell| {
-        if menu_cell.borrow().is_some() {
-            return;
-        }
-
-        *menu_cell.borrow_mut() = Some(Menu::new(mtm, settings));
-        let app = NSApplication::sharedApplication(mtm);
-        #[allow(deprecated)]
-        app.activateIgnoringOtherApps(true);
-
-        // Make sure the icon is loaded when launched from terminal
-        let icon = load_neovide_icon(settings.get::<CmdLineSettings>().icon.as_ref());
-        let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
-        unsafe { app.setApplicationIconImage(icon_ref) }
-    });
 }
 
 fn open_external_url(url: &str) {
@@ -467,7 +319,7 @@ impl WindowMenuNotificationHandler {
     }
 }
 #[derive(Debug)]
-struct Menu {
+pub(super) struct Menu {
     quit_handler: Retained<QuitHandler>,
     help_menu_handler: Retained<HelpMenuHandler>,
     new_window_handler: Retained<NewWindowHandler>,
@@ -477,7 +329,7 @@ struct Menu {
 }
 
 impl Menu {
-    fn new(mtm: MainThreadMarker, settings: &Settings) -> Self {
+    pub(super) fn new(mtm: MainThreadMarker, settings: &Settings) -> Self {
         let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
             help_menu_handler: HelpMenuHandler::new(mtm),
@@ -695,113 +547,6 @@ impl Menu {
 
         for idx in indices_to_remove.into_iter().rev() {
             menu.removeItemAtIndex(idx);
-        }
-    }
-}
-
-pub fn register_file_handler() {
-    fn dispatch_file_drops(filenames: &NSArray<NSString>) {
-        for filename in filenames.iter() {
-            send_or_queue_file_drop(filename.to_string(), None);
-        }
-    }
-
-    unsafe extern "C-unwind" fn handle_create_window(
-        _this: &AnyObject,
-        _sel: objc2::runtime::Sel,
-        _sender: &AnyObject,
-    ) {
-        request_new_window();
-    }
-
-    // See signature at
-    // https://developer.apple.com/documentation/appkit/nsapplicationdelegate/applicationdockmenu(_:)?language=objc
-    unsafe extern "C-unwind" fn handle_application_dock_menu(
-        this: &AnyObject,
-        _sel: objc2::runtime::Sel,
-        _sender: &NSApplication,
-    ) -> *mut NSMenu {
-        let mtm = MainThreadMarker::new().expect("Dock menu must be built on main thread.");
-        let menu = NSMenu::new(mtm);
-        let create_new_window = NSMenuItem::new(mtm);
-        create_new_window.setTitle(ns_string!("New Window"));
-        unsafe {
-            create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
-            create_new_window.setTarget(Some(this));
-        }
-        menu.addItem(&create_new_window);
-        Retained::autorelease_return(menu)
-    }
-
-    // See signature at
-    // https://developer.apple.com/documentation/appkit/nsapplicationdelegate/application(_:openfiles:)?language=objc
-    unsafe extern "C-unwind" fn handle_open_files(
-        _this: &mut AnyObject,
-        _sel: objc2::runtime::Sel,
-        _sender: &objc2::runtime::AnyObject,
-        filenames: &NSArray<NSString>,
-    ) {
-        dispatch_file_drops(filenames);
-        MacosWindowFeature::activate_and_focus_existing_window();
-    }
-
-    let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");
-
-    unsafe {
-        let app = NSApplication::sharedApplication(mtm);
-        let delegate = app.delegate().unwrap();
-
-        // Find out class of the NSApplicationDelegate
-        let class: &AnyClass = AnyObject::class(delegate.as_ref());
-
-        // register subclass of whatever was in delegate
-        let class_name = CString::new("NeovideApplicationDelegate").unwrap();
-        let mut my_class = ClassBuilder::new(class_name.as_c_str(), class).unwrap();
-        my_class.add_method(
-            sel!(application:openFiles:),
-            handle_open_files as unsafe extern "C-unwind" fn(_, _, _, _) -> _,
-        );
-
-        my_class.add_method(
-            sel!(applicationDockMenu:),
-            handle_application_dock_menu as unsafe extern "C-unwind" fn(_, _, _) -> _,
-        );
-
-        my_class.add_method(
-            sel!(neovideCreateWindow:),
-            handle_create_window as unsafe extern "C-unwind" fn(_, _, _) -> _,
-        );
-
-        let class = my_class.register();
-        // this should be safe as:
-        //  * our class is a subclass
-        //  * no new ivars
-        //  * overridden methods are compatible with old (we implement protocol method)
-        AnyObject::set_class(delegate.as_ref(), class);
-    }
-
-    // Prevent AppKit from interpreting our command line.
-    let keys = &[ns_string!("NSTreatUnknownArgumentsAsOpen")];
-    // API requires `AnyObject[]` not `NSString[]`.
-    let objects = &[ns_string!("NO") as &AnyObject];
-    let dict = NSDictionary::from_slices(keys, objects);
-    unsafe {
-        NSUserDefaults::standardUserDefaults().registerDefaults(&dict);
-    }
-}
-pub fn hide_application() {
-    match MainThreadMarker::new() {
-        Some(mtm) => {
-            let app = NSApplication::sharedApplication(mtm);
-            let app_ref: &NSApplication = app.as_ref();
-            unsafe {
-                let _: () = msg_send![app_ref, hide: None::<&AnyObject>];
-            }
-        }
-        None => {
-            log::warn!(
-                "macOS pinned shortcut attempted to hide application outside the main thread"
-            );
         }
     }
 }
