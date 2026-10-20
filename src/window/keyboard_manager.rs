@@ -23,7 +23,7 @@ use crate::settings::Settings;
 #[cfg(target_os = "macos")]
 use crate::window::WindowSettings;
 #[cfg(target_os = "macos")]
-use crate::window::settings::OptionAsMeta;
+use crate::window::settings::platform::OptionAsMeta;
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
     text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
