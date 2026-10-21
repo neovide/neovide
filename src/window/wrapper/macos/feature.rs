@@ -43,7 +43,6 @@ use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::NSURL;
 use objc2_foundation::ns_string;
-use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
 use self::scrollbar::WindowScrollbars;
@@ -57,17 +56,13 @@ use crate::settings::Settings;
 use crate::units::Pixel;
 use crate::units::PixelRect;
 use crate::utils::expand_tilde;
-use crate::window::EventPayload;
 use crate::window::ForceClickKind;
 use crate::window::WindowSettings;
 use crate::window::WindowSettingsChanged;
-use crate::window::application::macos::ensure_app_initialized;
-use crate::window::application::macos::store_event_loop_proxy;
+use crate::window::application::platform::ensure_app_initialized;
 use crate::window::macos::appkit::get_ns_window;
-use crate::window::macos::hotkey::GlobalHotkeys;
 use crate::window::macos::native_tabs::ENABLE_NATIVE_TAB_BAR;
 use crate::window::macos::native_tabs::SHOW_NATIVE_TAB_BAR;
-use crate::window::macos::native_tabs::merge_all_windows_if_native_tabs;
 use crate::window::macos::native_tabs::should_show_native_tab_bar;
 
 thread_local! {
@@ -77,6 +72,13 @@ thread_local! {
 }
 
 const NEOVIDE_TABBING_IDENTIFIER: &str = "NeovideWindowTabGroup";
+
+fn merge_all_windows_if_native_tabs(ns_window: &NSWindow) {
+    if should_show_native_tab_bar() {
+        ns_window.mergeAllWindows(None);
+        MacosWindowFeature::apply_tab_bar_preference(ns_window);
+    }
+}
 
 pub enum TouchpadStage {
     Soft,
@@ -203,8 +205,6 @@ pub struct MacosWindowFeature {
     settings: Arc<Settings>,
     pub definition_is_active: bool,
     match_paren_indicator_view: Option<Retained<MatchParenIndicatorView>>,
-    #[allow(dead_code)]
-    activation_hotkey: Option<GlobalHotkeys>,
     neovim_handler: NeovimHandler,
     simple_fullscreen: bool,
     has_transparent_titlebar: bool,
@@ -215,7 +215,6 @@ impl MacosWindowFeature {
     pub fn from_winit_window(
         window: &Window,
         settings: Arc<Settings>,
-        proxy: EventLoopProxy<EventPayload>,
         neovim_handler: NeovimHandler,
     ) -> Self {
         let mtm =
@@ -280,9 +279,6 @@ impl MacosWindowFeature {
 
         let is_fullscreen = ns_window.styleMask().contains(NSWindowStyleMask::FullScreen);
 
-        store_event_loop_proxy(proxy.clone());
-        let activation_hotkey = GlobalHotkeys::register(proxy, true);
-
         let macos_window_feature = MacosWindowFeature {
             ns_window,
             system_titlebar_height,
@@ -293,7 +289,6 @@ impl MacosWindowFeature {
             settings: settings.clone(),
             definition_is_active: false,
             match_paren_indicator_view: None,
-            activation_hotkey,
             neovim_handler,
             simple_fullscreen,
             has_transparent_titlebar,

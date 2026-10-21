@@ -2,7 +2,7 @@ use winit::event::ElementState;
 use winit::event::KeyEvent;
 use winit::event::Modifiers;
 
-use crate::window::macos::tab_navigation::KeyCombo;
+use crate::window::macos::shortcut::KeyCombo;
 
 const SWITCHER_ENV_VAR: &str = "NEOVIDE_SYSTEM_SWITCHER_HOTKEY";
 const DEFAULT_SWITCHER_HOTKEY: &str = "cmd+ctrl+n";

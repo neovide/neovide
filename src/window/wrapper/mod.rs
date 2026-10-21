@@ -1369,7 +1369,6 @@ impl WinitWindowWrapper {
         let macos_feature = platform::create_window_feature(
             &window,
             self.settings.clone(),
-            proxy.clone(),
             neovim_handler.clone(),
             &renderer,
             creating_initial_window,

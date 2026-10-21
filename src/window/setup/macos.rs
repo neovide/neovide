@@ -10,13 +10,13 @@ use super::EventPayload;
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
 use crate::renderer::WindowConfig;
-use crate::window::application::macos;
+use crate::window::application::platform;
 
 pub(super) fn configure_event_loop(builder: &mut EventLoopBuilder<EventPayload>) {
     builder.with_default_menu(false);
 }
 
-pub(super) fn register_file_handler() { macos::register_file_handler(); }
+pub(super) fn register_file_handler() { platform::register_file_handler(); }
 
 pub(super) fn create_window_attributes(
     _event_loop: &ActiveEventLoop,

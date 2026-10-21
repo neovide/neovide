@@ -33,7 +33,7 @@ use crate::bridge::send_ui;
 use crate::cmd_line::CmdLineSettings;
 use crate::settings::Settings;
 use crate::window::macos::native_tabs::should_show_native_tab_bar;
-use crate::window::macos::tab_navigation::KeyCombo;
+use crate::window::macos::shortcut::KeyCombo;
 
 const NEOVIDE_WEBSITE_URL: &str = "https://neovide.dev/";
 const NEOVIDE_SPONSOR_URL: &str = "https://github.com/sponsors/neovide";

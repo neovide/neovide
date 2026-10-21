@@ -1,8 +1,3 @@
-#[cfg(target_os = "macos")]
-pub(super) mod macos;
-
-#[cfg(target_os = "macos")]
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -26,12 +21,6 @@ use super::WindowSettings;
 use super::WindowSize;
 use super::WinitWindowWrapper;
 use super::error_window;
-#[cfg(target_os = "macos")]
-use crate::bridge::OpenArgs;
-#[cfg(target_os = "macos")]
-use crate::bridge::send_or_queue_file_drop;
-#[cfg(target_os = "macos")]
-use crate::bridge::set_active_route_handler;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardHandle;
 use crate::cmd_line::CmdLineSettings;
@@ -45,9 +34,12 @@ use crate::settings::Settings;
 use crate::settings::font::FontSettings;
 use crate::settings::save_window_size;
 use crate::units::Grid;
-#[cfg(target_os = "macos")]
-use crate::utils::resolve_relative_path;
 use crate::window::UserEvent;
+
+#[cfg_attr(target_os = "macos", path = "macos/mod.rs")]
+#[cfg_attr(target_os = "linux", path = "linux.rs")]
+#[cfg_attr(target_os = "windows", path = "windows.rs")]
+pub(super) mod platform;
 
 #[derive(Clone, Copy)]
 enum FocusedState {
@@ -144,6 +136,7 @@ pub struct Application {
     pub window_wrapper: WinitWindowWrapper,
     create_window_allowed: bool,
     proxy: EventLoopProxy<EventPayload>,
+    platform: platform::State,
     pub runtime_tracker: RunningTracker,
 
     settings: Arc<Settings>,
@@ -165,6 +158,7 @@ impl Application {
         let idle = cmd_line_settings.idle;
 
         let runtime_tracker = RunningTracker::new();
+        let platform = platform::State::new(&proxy);
 
         let window_wrapper = WinitWindowWrapper::new(
             initial_font_settings,
@@ -182,6 +176,7 @@ impl Application {
             window_wrapper,
             create_window_allowed: false,
             proxy,
+            platform,
             runtime_tracker,
 
             settings,
@@ -255,51 +250,6 @@ impl Application {
             if let Some(state) = self.render_states.get_mut(&window_id) {
                 state.should_render = ShouldRender::Immediately;
             }
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    fn activate_focused_route(&self) {
-        let Some(window_id) = self.window_wrapper.get_focused_route() else {
-            return;
-        };
-
-        if let Some(route_id) = self.window_wrapper.route_id_for_window(window_id) {
-            set_active_route_handler(route_id);
-        }
-
-        self.window_wrapper.activate_and_focus_window(window_id);
-    }
-
-    #[cfg(target_os = "macos")]
-    fn prepare_open_files(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        new_window: bool,
-        cwd: Option<&Path>,
-        args: OpenArgs,
-    ) {
-        if !new_window {
-            self.activate_focused_route();
-            self.send_file_drops(args);
-            return;
-        }
-
-        if self.settings.get::<CmdLineSettings>().server.is_some() {
-            self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd, None);
-            self.mark_should_render_all();
-            self.send_file_drops(args);
-            return;
-        }
-
-        self.window_wrapper.try_create_window(event_loop, &self.proxy, cwd, Some(args));
-        self.mark_should_render_all();
-    }
-
-    #[cfg(target_os = "macos")]
-    fn send_file_drops(&self, args: OpenArgs) {
-        for path in args.files_to_open {
-            send_or_queue_file_drop(path, Some(args.tabs));
         }
     }
 
@@ -722,28 +672,8 @@ impl ApplicationHandler<EventPayload> for Application {
         match payload {
             UserEvent::ConfigsChanged(config) => self.handle_config_changed(target, *config),
             #[cfg(target_os = "macos")]
-            UserEvent::OpenFiles {
-                files,
-                cwd,
-                caller_cwd,
-                tabs,
-                new_window,
-                neovim_bin,
-                neovim_args,
-            } => {
-                let cwd = cwd.as_deref().map(Path::new);
-                let caller_cwd = caller_cwd.as_deref().map(Path::new);
-                let open_args = OpenArgs {
-                    files_to_open: files
-                        .into_iter()
-                        .map(|path| resolve_relative_path(&path, caller_cwd))
-                        .collect(),
-                    tabs,
-                    neovim_bin,
-                    neovim_args,
-                };
-
-                self.prepare_open_files(event_loop, new_window, cwd, open_args);
+            open_files @ UserEvent::OpenFiles { .. } => {
+                self.handle_open_files(event_loop, open_files);
             }
             UserEvent::NeovimExited => {
                 let route_id = self.route_id_for_target(target);
@@ -899,12 +829,14 @@ impl ApplicationHandler<EventPayload> for Application {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("resumed");
         self.create_window_allowed = true;
+        self.platform.resumed(&self.proxy);
         self.window_wrapper.request_window_creation(&self.proxy);
         self.schedule_next_event(event_loop);
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
+        self.platform.exiting();
         self.teardown();
         self.error_windows.clear();
         self.window_wrapper.exit();
@@ -913,7 +845,10 @@ impl ApplicationHandler<EventPayload> for Application {
 }
 
 impl Drop for Application {
-    fn drop(&mut self) { self.teardown(); }
+    fn drop(&mut self) {
+        self.platform.exiting();
+        self.teardown();
+    }
 }
 
 fn next_control_flow_for(deadline: Option<Instant>) -> ControlFlow {
