@@ -10,7 +10,7 @@ use super::EventPayload;
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
 use crate::renderer::WindowConfig;
-use crate::window::macos;
+use crate::window::application::macos;
 
 pub(super) fn configure_event_loop(builder: &mut EventLoopBuilder<EventPayload>) {
     builder.with_default_menu(false);

@@ -25,10 +25,10 @@ use objc2_foundation::ns_string;
 use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
-use crate::platform::macos::get_ns_window;
 use crate::profiling::tracy_zone;
 use crate::window::EventPayload;
 use crate::window::UserEvent;
+use crate::window::macos::appkit::get_ns_window;
 
 // Here is the doc about how to do this. https://developer.apple.com/documentation/appkit/nsscreen/1388360-devicedescription?language=objc
 pub fn get_display_id_of_window(window: &Window) -> Option<CGDirectDisplayID> {

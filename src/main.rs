@@ -24,7 +24,6 @@ mod error_handling;
 mod frame;
 #[cfg(target_os = "macos")]
 mod ipc;
-mod platform;
 mod profiling;
 mod renderer;
 mod running_tracker;
@@ -109,7 +108,7 @@ fn main() -> ExitCode {
 
     #[cfg(target_os = "windows")]
     {
-        platform::windows::windows_fix_dpi();
+        window::configure_process_dpi();
     }
 
     // This variable is set by the AppImage runtime and causes problems for child processes

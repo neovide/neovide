@@ -32,6 +32,9 @@ use crate::utils::expand_tilde;
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
 mod platform;
 
+#[cfg(target_os = "windows")]
+pub(crate) use platform::configure_process_dpi;
+
 static DEFAULT_ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 
 const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize { width: 500, height: 500 };

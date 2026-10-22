@@ -53,7 +53,7 @@ use super::layout::Results;
 use super::layout::Row;
 use super::layout::Search;
 use super::row::EditorSwitcherRow;
-use crate::platform::macos::load_neovide_icon;
+use crate::window::macos::icon::load_neovide_icon;
 
 const SEARCH_PLACEHOLDER: &str = "Search...";
 const EMPTY_RESULTS_TEXT: &str = "No matching windows";
