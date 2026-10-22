@@ -34,9 +34,6 @@ mod utils;
 mod version;
 mod window;
 
-#[cfg(target_os = "windows")]
-mod windows_utils;
-
 use std::env::args;
 use std::env::{self};
 use std::fs::File;
@@ -81,8 +78,6 @@ use window::WindowSettings;
 use window::create_event_loop;
 use window::determine_grid_size;
 use window::determine_window_size;
-#[cfg(target_os = "windows")]
-pub use windows_utils::*;
 use winit::error::EventLoopError;
 use winit::event_loop::EventLoopProxy;
 
@@ -114,7 +109,7 @@ fn main() -> ExitCode {
 
     #[cfg(target_os = "windows")]
     {
-        windows_fix_dpi();
+        platform::windows::windows_fix_dpi();
     }
 
     // This variable is set by the AppImage runtime and causes problems for child processes
