@@ -1,5 +1,6 @@
 mod feature;
 mod switcher;
+mod tab_navigation;
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -9,7 +10,6 @@ use std::sync::Arc;
 
 use glamour::Point2;
 use winit::event::WindowEvent;
-use winit::event_loop::EventLoopProxy;
 use winit::platform::macos;
 use winit::platform::macos::WindowExtMacOS;
 use winit::window::Window;
@@ -22,7 +22,8 @@ use self::switcher::EditorSwitcherRow;
 use self::switcher::close_editor_switcher_if_open;
 use self::switcher::editor_switcher_key_event_matches;
 use self::switcher::show_editor_switcher_panel;
-use super::EventPayload;
+use self::tab_navigation::TabNavigationAction;
+use self::tab_navigation::TabNavigationHotkeys;
 use super::Route;
 use super::RouteWindow;
 use super::ShortcutHandling;
@@ -44,22 +45,18 @@ use crate::units::PixelRect;
 use crate::units::PixelSize;
 use crate::window::ForceClickKind;
 use crate::window::MacShortcutCommand;
-use crate::window::application::macos::hide_application;
+use crate::window::application::platform::hide_application;
 use crate::window::macos::native_tabs::native_tab_bar_enabled;
-use crate::window::macos::tab_navigation::TabNavigationAction;
-use crate::window::macos::tab_navigation::TabNavigationHotkeys;
 use crate::window::settings::platform::OptionAsMeta;
 
 pub(super) fn create_window_feature(
     window: &Rc<Window>,
     settings: Arc<Settings>,
-    proxy: EventLoopProxy<EventPayload>,
     neovim_handler: NeovimHandler,
     renderer: &Rc<RefCell<Box<Renderer>>>,
     creating_initial_window: bool,
 ) -> MacosWindowFeature {
-    let mut feature =
-        MacosWindowFeature::from_winit_window(window, settings, proxy, neovim_handler);
+    let mut feature = MacosWindowFeature::from_winit_window(window, settings, neovim_handler);
     feature.apply_scrollbar_snapshot(&renderer.borrow());
     if creating_initial_window {
         feature.activate_and_focus();

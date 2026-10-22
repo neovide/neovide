@@ -9,7 +9,7 @@ use objc2_foundation::NSString;
 use crate::utils::expand_tilde;
 
 static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
-    include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+    include_bytes!("../../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 fn load_icon_from_custom_path(icon_path: &str) -> Option<Retained<NSImage>> {
     let path = NSString::from_str(icon_path);
