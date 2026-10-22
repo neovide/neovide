@@ -2,63 +2,104 @@ mod scrollbar;
 pub mod settings;
 mod switcher;
 
-pub use scrollbar::ScrollbarLayoutInput;
-pub use switcher::{
-    EditorSwitcherRow, close_editor_switcher_if_open, editor_switcher_key_event_matches,
-    show_editor_switcher_panel,
-};
-
-use std::sync::{
-    OnceLock,
-    atomic::{AtomicBool, Ordering},
-};
-use std::{cell::RefCell, ffi::CString, os::raw::c_void, path::Path, ptr, str, sync::Arc};
+use std::cell::RefCell;
+use std::ffi::CString;
+use std::os::raw::c_void;
+use std::path::Path;
+use std::ptr;
+use std::str;
+use std::sync::Arc;
+use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use glamour::Point2;
-use objc2::{
-    AnyThread, MainThreadOnly, class, define_class, msg_send,
-    rc::Retained,
-    runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
-    sel,
-};
-
-use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSFont, NSFontAttributeName,
-    NSFontDescriptor, NSFontWeight, NSFontWeightLight, NSImage, NSMenu, NSMenuDelegate, NSMenuItem,
-    NSTextView, NSView, NSWindow, NSWindowDidBecomeKeyNotification,
-    NSWindowDidBecomeMainNotification, NSWindowStyleMask, NSWindowTabbingMode,
-    NSWindowTitleVisibility, NSWorkspace,
-};
+use objc2::AnyThread;
+use objc2::MainThreadOnly;
+use objc2::class;
+use objc2::define_class;
+use objc2::msg_send;
+use objc2::rc::Retained;
+use objc2::runtime::AnyClass;
+use objc2::runtime::AnyObject;
+use objc2::runtime::ClassBuilder;
+use objc2::runtime::ProtocolObject;
+use objc2::sel;
+use objc2_app_kit::NSApplication;
+use objc2_app_kit::NSAutoresizingMaskOptions;
+use objc2_app_kit::NSColor;
+use objc2_app_kit::NSEvent;
+use objc2_app_kit::NSFont;
+use objc2_app_kit::NSFontAttributeName;
+use objc2_app_kit::NSFontDescriptor;
+use objc2_app_kit::NSFontWeight;
+use objc2_app_kit::NSFontWeightLight;
+use objc2_app_kit::NSImage;
+use objc2_app_kit::NSMenu;
+use objc2_app_kit::NSMenuDelegate;
+use objc2_app_kit::NSMenuItem;
+use objc2_app_kit::NSTextView;
+use objc2_app_kit::NSView;
+use objc2_app_kit::NSWindow;
+use objc2_app_kit::NSWindowDidBecomeKeyNotification;
+use objc2_app_kit::NSWindowDidBecomeMainNotification;
+use objc2_app_kit::NSWindowStyleMask;
+use objc2_app_kit::NSWindowTabbingMode;
+use objc2_app_kit::NSWindowTitleVisibility;
+use objc2_app_kit::NSWorkspace;
 use objc2_core_foundation::CGFloat;
-use objc2_foundation::{
-    MainThreadMarker, NSArray, NSAttributedString, NSData, NSDictionary, NSInteger, NSNotification,
-    NSNotificationCenter, NSObject, NSObjectProtocol, NSPoint, NSProcessInfo, NSRange, NSRect,
-    NSSize, NSString, NSTimer, NSURL, NSUserDefaults, ns_string,
-};
-
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
-use crate::bridge::{
-    NeovimHandler, SerialCommand, require_active_handler, send_or_queue_file_drop, send_ui,
-};
-use crate::renderer::fonts::font_options::FontOptions;
-use crate::settings::Settings;
-use crate::utils::expand_tilde;
-use crate::window::macos::tab_navigation::KeyCombo;
-use crate::{cmd_line::CmdLineSettings, frame::Frame};
-use winit::{
-    event_loop::EventLoopProxy,
-    window::{Window, WindowId},
-};
-
-use crate::units::{Pixel, PixelRect};
-use crate::window::macos::hotkey::GlobalHotkeys;
-use crate::window::{
-    EventPayload, ForceClickKind, MacShortcutCommand, UserEvent, WindowSettings,
-    WindowSettingsChanged,
-};
+use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSArray;
+use objc2_foundation::NSAttributedString;
+use objc2_foundation::NSData;
+use objc2_foundation::NSDictionary;
+use objc2_foundation::NSInteger;
+use objc2_foundation::NSNotification;
+use objc2_foundation::NSNotificationCenter;
+use objc2_foundation::NSObject;
+use objc2_foundation::NSObjectProtocol;
+use objc2_foundation::NSPoint;
+use objc2_foundation::NSProcessInfo;
+use objc2_foundation::NSRange;
+use objc2_foundation::NSRect;
+use objc2_foundation::NSSize;
+use objc2_foundation::NSString;
+use objc2_foundation::NSTimer;
+use objc2_foundation::NSURL;
+use objc2_foundation::NSUserDefaults;
+use objc2_foundation::ns_string;
+use raw_window_handle::HasWindowHandle;
+use raw_window_handle::RawWindowHandle;
+pub use scrollbar::ScrollbarLayoutInput;
+pub use switcher::EditorSwitcherRow;
+pub use switcher::close_editor_switcher_if_open;
+pub use switcher::editor_switcher_key_event_matches;
+pub use switcher::show_editor_switcher_panel;
+use winit::event_loop::EventLoopProxy;
+use winit::window::Window;
+use winit::window::WindowId;
 
 use self::scrollbar::WindowScrollbars;
+use crate::bridge::NeovimHandler;
+use crate::bridge::SerialCommand;
+use crate::bridge::require_active_handler;
+use crate::bridge::send_or_queue_file_drop;
+use crate::bridge::send_ui;
+use crate::cmd_line::CmdLineSettings;
+use crate::frame::Frame;
+use crate::renderer::fonts::font_options::FontOptions;
+use crate::settings::Settings;
+use crate::units::Pixel;
+use crate::units::PixelRect;
+use crate::utils::expand_tilde;
+use crate::window::EventPayload;
+use crate::window::ForceClickKind;
+use crate::window::MacShortcutCommand;
+use crate::window::UserEvent;
+use crate::window::WindowSettings;
+use crate::window::WindowSettingsChanged;
+use crate::window::macos::hotkey::GlobalHotkeys;
+use crate::window::macos::tab_navigation::KeyCombo;
 
 thread_local! {
     static APP_MENU: RefCell<Option<Menu>> = const { RefCell::new(None) };
@@ -79,9 +120,7 @@ const NEOVIDE_CREATE_ISSUE_URL: &str =
 static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
     include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
-fn native_tabs_enabled() -> bool {
-    ENABLE_NATIVE_TAB_BAR.load(Ordering::Relaxed)
-}
+fn native_tabs_enabled() -> bool { ENABLE_NATIVE_TAB_BAR.load(Ordering::Relaxed) }
 
 fn should_show_native_tab_bar() -> bool {
     native_tabs_enabled() && SHOW_NATIVE_TAB_BAR.load(Ordering::Relaxed)
@@ -144,9 +183,7 @@ fn refresh_windows_menu_for_app(app: &NSApplication) {
     app.setWindowsNeedUpdate(true);
 }
 
-pub fn native_tab_bar_enabled() -> bool {
-    native_tabs_enabled()
-}
+pub fn native_tab_bar_enabled() -> bool { native_tabs_enabled() }
 
 fn merge_all_windows_if_native_tabs(ns_window: &NSWindow) {
     if should_show_native_tab_bar() {
@@ -193,9 +230,7 @@ define_class!(
 );
 
 impl TitlebarClickHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        unsafe { msg_send![Self::alloc(mtm), init] }
-    }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> { unsafe { msg_send![Self::alloc(mtm), init] } }
 }
 
 define_class!(
@@ -258,9 +293,7 @@ define_class!(
 );
 
 impl QuickLookPreviewController {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        unsafe { msg_send![Self::alloc(mtm), init] }
-    }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> { unsafe { msg_send![Self::alloc(mtm), init] } }
 
     fn shared(mtm: MainThreadMarker) -> Retained<Self> {
         QUICKLOOK_CONTROLLER.with(|cell| {
@@ -478,9 +511,7 @@ impl MacosWindowFeature {
         window.makeKeyAndOrderFront(None);
     }
 
-    pub fn activate_and_focus(&self) {
-        Self::activate_app_and_focus_window(&self.ns_window);
-    }
+    pub fn activate_and_focus(&self) { Self::activate_app_and_focus_window(&self.ns_window); }
 
     fn focus_target_window(app: &NSApplication) -> Option<Retained<NSWindow>> {
         app.mainWindow().or_else(|| app.keyWindow()).or_else(|| app.windows().firstObject())
@@ -685,9 +716,7 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn is_native_fullscreen_enabled(&self) -> bool {
-        self.is_fullscreen
-    }
+    pub fn is_native_fullscreen_enabled(&self) -> bool { self.is_fullscreen }
 
     pub fn show_definition_at_point(
         &self,
@@ -1008,9 +1037,7 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn is_key_window(&self) -> bool {
-        self.ns_window.isKeyWindow()
-    }
+    pub fn is_key_window(&self) -> bool { self.ns_window.isKeyWindow() }
 
     pub fn can_navigate_tabs(&self) -> bool {
         if !should_show_native_tab_bar() {
@@ -1078,9 +1105,7 @@ define_class!(
 );
 
 impl QuitHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        unsafe { msg_send![Self::alloc(mtm), init] }
-    }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> { unsafe { msg_send![Self::alloc(mtm), init] } }
 }
 
 define_class!(
@@ -1108,9 +1133,7 @@ define_class!(
 );
 
 impl HelpMenuHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        unsafe { msg_send![Self::alloc(mtm), init] }
-    }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> { unsafe { msg_send![Self::alloc(mtm), init] } }
 }
 
 define_class!(
@@ -1128,9 +1151,7 @@ define_class!(
 );
 
 impl NewWindowHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        unsafe { msg_send![Self::alloc(mtm), init] }
-    }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> { unsafe { msg_send![Self::alloc(mtm), init] } }
 }
 
 #[derive(Clone, Debug)]

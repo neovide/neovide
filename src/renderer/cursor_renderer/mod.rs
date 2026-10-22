@@ -1,33 +1,48 @@
 mod blink;
 mod cursor_vfx;
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use approx::AbsDiffEq;
+use blink::*;
 use itertools::Itertools;
-use skia_safe::{Canvas, Paint, Path, PathBuilder, op};
+use skia_safe::Canvas;
+use skia_safe::Paint;
+use skia_safe::Path;
+use skia_safe::PathBuilder;
+use skia_safe::op;
 use winit::event::WindowEvent;
 
-use crate::{
-    bridge::EditorMode,
-    editor::{Cursor, CursorShape, Word},
-    profiling::{tracy_plot, tracy_zone},
-    renderer::{GridRenderer, RenderedWindow, animation_utils::*},
-    settings::{ParseFromValue, Settings},
-    units::{
-        GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelSize, PixelVec, to_skia_point,
-    },
-    window::ShouldRender,
-};
-
-use blink::*;
+use crate::bridge::EditorMode;
+use crate::editor::Cursor;
+use crate::editor::CursorShape;
+use crate::editor::Word;
+use crate::profiling::tracy_plot;
+use crate::profiling::tracy_zone;
+use crate::renderer::GridRenderer;
+use crate::renderer::RenderedWindow;
+use crate::renderer::animation_utils::*;
+use crate::settings::ParseFromValue;
+use crate::settings::Settings;
+use crate::units::GridPos;
+use crate::units::GridScale;
+use crate::units::GridSize;
+use crate::units::PixelPos;
+use crate::units::PixelRect;
+use crate::units::PixelSize;
+use crate::units::PixelVec;
+use crate::units::to_skia_point;
+use crate::window::ShouldRender;
 
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
 #[cfg(feature = "profiling")]
-use std::ffi::{CStr, c_char};
+use std::ffi::CStr;
+#[cfg(feature = "profiling")]
+use std::ffi::c_char;
 #[cfg(feature = "profiling")]
 static PLOT_NAMES_X: [&CStr; 4] = [
     unsafe { CStr::from_ptr(b"Cursor top left x\0".as_ptr() as *const c_char) },
@@ -216,9 +231,7 @@ enum CmdlineCtx {
 }
 
 impl CmdlineCtx {
-    fn active(current_window: u64) -> Self {
-        Self::Active { window: current_window }
-    }
+    fn active(current_window: u64) -> Self { Self::Active { window: current_window } }
 
     fn exiting_or_inactive(window: u64, current_window: u64) -> Self {
         if current_window == window { Self::Exiting { window } } else { Self::Inactive }
@@ -283,9 +296,7 @@ impl CursorRenderer {
         }
     }
 
-    pub fn update_cursor(&mut self, new_cursor: Cursor) {
-        self.cursor = new_cursor;
-    }
+    pub fn update_cursor(&mut self, new_cursor: Cursor) { self.cursor = new_cursor; }
 
     fn set_cursor_shape(&mut self, cursor_shape: &CursorShape, cell_percentage: f32) {
         self.corners = self
@@ -621,7 +632,5 @@ impl CursorRenderer {
         path
     }
 
-    pub fn get_destination(&self) -> PixelPos<f32> {
-        self.destination
-    }
+    pub fn get_destination(&self) -> PixelPos<f32> { self.destination }
 }

@@ -1,12 +1,19 @@
 use std::collections::VecDeque;
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
+use std::sync::Arc;
 
-use crate::{
-    profiling::tracy_zone,
-    renderer::{RendererSettings, animation_utils::lerp, fonts::font_loader::*},
-    settings::Settings,
-};
-use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
+use skia_safe::Canvas;
+use skia_safe::Color;
+use skia_safe::Paint;
+use skia_safe::Point;
+use skia_safe::Rect;
+use skia_safe::Size;
+
+use crate::profiling::tracy_zone;
+use crate::renderer::RendererSettings;
+use crate::renderer::animation_utils::lerp;
+use crate::renderer::fonts::font_loader::*;
+use crate::settings::Settings;
 
 const FRAMETIMES_COUNT: usize = 48;
 

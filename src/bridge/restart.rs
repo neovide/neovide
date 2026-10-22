@@ -30,8 +30,9 @@ impl RestartDetails {
 
 #[cfg(test)]
 mod tests {
-    use super::RestartDetails;
     use rmpv::Value;
+
+    use super::RestartDetails;
 
     #[test]
     fn parses_listen_addr_restart_payload() {

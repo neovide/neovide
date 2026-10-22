@@ -1,12 +1,16 @@
 use std::path::PathBuf;
 
-use log::{error, warn};
-use serde::{Deserialize, Serialize};
-use winit::dpi::{PhysicalPosition, PhysicalSize};
+use log::error;
+use log::warn;
+use serde::Deserialize;
+use serde::Serialize;
+use winit::dpi::PhysicalPosition;
+use winit::dpi::PhysicalSize;
 
-use crate::{
-    settings::Settings, units::GridSize, window::WindowSettings, window::WinitWindowWrapper,
-};
+use crate::settings::Settings;
+use crate::units::GridSize;
+use crate::window::WindowSettings;
+use crate::window::WinitWindowWrapper;
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 

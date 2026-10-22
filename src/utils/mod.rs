@@ -3,12 +3,13 @@ mod ring_buffer;
 mod test;
 
 #[cfg(target_os = "macos")]
-use std::path::{Path, PathBuf};
-
-#[cfg(target_os = "windows")]
-use wslpath_rs::windows_to_wsl;
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::path::PathBuf;
 
 pub use ring_buffer::*;
+#[cfg(target_os = "windows")]
+use wslpath_rs::windows_to_wsl;
 
 #[cfg(not(target_os = "windows"))]
 pub fn is_tty() -> bool {
@@ -17,9 +18,7 @@ pub fn is_tty() -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool) -> Vec<String> {
-    paths
-}
+pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool) -> Vec<String> { paths }
 
 /// Convert a Vector of Windows path strings to a Vector of WSL paths if `wsl` is true.
 ///
@@ -157,7 +156,8 @@ mod tilde_tests {
 mod resolves_path_tests {
     use std::path::Path;
 
-    use super::{resolve_relative_path, resolved_cwd};
+    use super::resolve_relative_path;
+    use super::resolved_cwd;
 
     #[test]
     fn expands_tilde_chdir_to_home_directory() {

@@ -1,13 +1,16 @@
 use log::warn;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSEvent, NSEventModifierFlags};
+use objc2_app_kit::NSEvent;
+use objc2_app_kit::NSEventModifierFlags;
 use objc2_foundation::NSString;
-use winit::{
-    event::{ElementState, KeyEvent, Modifiers},
-    keyboard::{Key, NamedKey},
-};
+use winit::event::ElementState;
+use winit::event::KeyEvent;
+use winit::event::Modifiers;
+use winit::keyboard::Key;
+use winit::keyboard::NamedKey;
 
-use crate::{CmdLineSettings, settings::Settings};
+use crate::CmdLineSettings;
+use crate::settings::Settings;
 
 #[derive(Clone, Copy)]
 pub enum TabNavigationAction {
@@ -253,9 +256,7 @@ impl ParseState {
     }
 }
 
-fn is_disabled_keyword(value: &str) -> bool {
-    value.trim().eq_ignore_ascii_case("false")
-}
+fn is_disabled_keyword(value: &str) -> bool { value.trim().eq_ignore_ascii_case("false") }
 
 #[derive(Debug, Clone, Copy)]
 enum KeyMatch {

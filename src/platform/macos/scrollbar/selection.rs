@@ -1,4 +1,5 @@
-use crate::editor::{ScrollbarGrid, ScrollbarSnapshot};
+use crate::editor::ScrollbarGrid;
+use crate::editor::ScrollbarSnapshot;
 
 /// Grid assignments for the two outer scrollbar lanes, ordered from top to bottom.
 ///

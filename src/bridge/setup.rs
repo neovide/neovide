@@ -1,16 +1,19 @@
-use anyhow::{Context, Result};
-use nvim_rs::{Neovim, call_args, rpc::IntoVal};
+use anyhow::Context;
+use anyhow::Result;
+use nvim_rs::Neovim;
+use nvim_rs::call_args;
+use nvim_rs::rpc::IntoVal;
 use rmpv::Value;
 
-use super::{
-    api_info::{ApiInformation, parse_api_info},
-    nvim_dict, nvim_exec_output,
-};
-use crate::{
-    bridge::NeovimWriter,
-    settings::{SettingLocation, Settings, config::config_path},
-    version::BUILD_VERSION,
-};
+use super::api_info::ApiInformation;
+use super::api_info::parse_api_info;
+use super::nvim_dict;
+use super::nvim_exec_output;
+use crate::bridge::NeovimWriter;
+use crate::settings::SettingLocation;
+use crate::settings::Settings;
+use crate::settings::config::config_path;
+use crate::version::BUILD_VERSION;
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 

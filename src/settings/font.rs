@@ -2,10 +2,13 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::renderer::fonts::font_options::{
-    FontDescription, FontEdging, FontFeature, FontHinting, FontOptions, SecondaryFontDescription,
-    points_to_pixels,
-};
+use crate::renderer::fonts::font_options::FontDescription;
+use crate::renderer::fonts::font_options::FontEdging;
+use crate::renderer::fonts::font_options::FontFeature;
+use crate::renderer::fonts::font_options::FontHinting;
+use crate::renderer::fonts::font_options::FontOptions;
+use crate::renderer::fonts::font_options::SecondaryFontDescription;
+use crate::renderer::fonts::font_options::points_to_pixels;
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
@@ -133,9 +136,8 @@ impl From<FontSettings> for FontOptions {
 
 #[cfg(test)]
 mod tests {
-    use crate::renderer::fonts::font_options::CoarseStyle;
-
     use super::*;
+    use crate::renderer::fonts::font_options::CoarseStyle;
 
     #[test]
     fn test_normal_font_single() {

@@ -1,7 +1,7 @@
-use super::{
-    geometry::{knob_proportion, line_count_is_valid, visible_buffer_lines},
-    state::ScrollbarViewport,
-};
+use super::geometry::knob_proportion;
+use super::geometry::line_count_is_valid;
+use super::geometry::visible_buffer_lines;
+use super::state::ScrollbarViewport;
 
 /// Validated buffer and viewport lengths, both measured in buffer lines.
 ///
@@ -34,25 +34,15 @@ impl ScrollMetrics {
         Self::new(line_count, visible_lines)
     }
 
-    pub fn line_count(self) -> f64 {
-        self.line_count
-    }
+    pub fn line_count(self) -> f64 { self.line_count }
 
-    pub fn visible_lines(self) -> f64 {
-        self.visible_lines
-    }
+    pub fn visible_lines(self) -> f64 { self.visible_lines }
 
-    pub fn is_scrollable(self) -> bool {
-        self.line_count > self.visible_lines
-    }
+    pub fn is_scrollable(self) -> bool { self.line_count > self.visible_lines }
 
-    pub fn max_top(self) -> f64 {
-        (self.line_count - self.visible_lines).max(0.0)
-    }
+    pub fn max_top(self) -> f64 { (self.line_count - self.visible_lines).max(0.0) }
 
-    pub fn clamp_top_line(self, top_line: f64) -> f64 {
-        top_line.clamp(0.0, self.max_top())
-    }
+    pub fn clamp_top_line(self, top_line: f64) -> f64 { top_line.clamp(0.0, self.max_top()) }
 
     /// Fractional positions are kept within the scroll range so the thumb can
     /// follow the scroll animation.
@@ -65,7 +55,5 @@ impl ScrollMetrics {
         self.clamp_top_line((value.clamp(0.0, 1.0) * self.max_top()).round())
     }
 
-    pub fn knob_proportion(self) -> f64 {
-        knob_proportion(self.visible_lines, self.line_count)
-    }
+    pub fn knob_proportion(self) -> f64 { knob_proportion(self.visible_lines, self.line_count) }
 }

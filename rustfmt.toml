@@ -1,2 +1,15 @@
 style_edition = "2024"
+imports_granularity = "Item"
 use_small_heuristics = "Max"
+group_imports = "StdExternalCrate"
+max_width = 100
+chain_width = 100
+array_width = 100
+fn_call_width = 100
+attr_fn_like_width = 100
+single_line_let_else_max_width = 100
+single_line_if_else_max_width = 100
+fn_single_line = true
+where_single_line = true
+format_macro_matchers = true
+condense_wildcard_suffixes = true

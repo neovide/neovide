@@ -2,17 +2,36 @@ use std::collections::BTreeMap;
 use std::f32::consts::PI;
 use std::sync::LazyLock;
 
-use super::settings::{BoxDrawingMode, BoxDrawingSettings, LineSizes};
-use glamour::{Box2, Size2, Vector2};
+use glamour::Box2;
+use glamour::Size2;
+use glamour::Vector2;
 use itertools::Itertools;
-use num::{Integer, ToPrimitive};
-use skia_safe::{
-    BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathBuilder, PathEffect,
-    PathFillType, Point, Rect, paint::Cap,
-};
+use num::Integer;
+use num::ToPrimitive;
+use skia_safe::BlendMode;
+use skia_safe::Canvas;
+use skia_safe::ClipOp;
+use skia_safe::Color;
+use skia_safe::Paint;
+use skia_safe::PaintStyle;
+use skia_safe::Path;
+use skia_safe::PathBuilder;
+use skia_safe::PathEffect;
+use skia_safe::PathFillType;
+use skia_safe::Point;
+use skia_safe::Rect;
+use skia_safe::paint::Cap;
 
-use crate::units::{Pixel, PixelPos};
-use crate::units::{PixelRect, PixelSize, PixelVec, to_skia_point, to_skia_rect};
+use super::settings::BoxDrawingMode;
+use super::settings::BoxDrawingSettings;
+use super::settings::LineSizes;
+use crate::units::Pixel;
+use crate::units::PixelPos;
+use crate::units::PixelRect;
+use crate::units::PixelSize;
+use crate::units::PixelVec;
+use crate::units::to_skia_point;
+use crate::units::to_skia_rect;
 
 trait LineAlignment {
     fn align_mid_line(self, stroke_width: f32) -> Self;
@@ -26,9 +45,7 @@ impl LineAlignment for f32 {
         if rounded_stroke.to_i64().unwrap().is_odd() { rounded_pos + 0.5 } else { rounded_pos }
     }
 
-    fn align_outside(self) -> Self {
-        self.round()
-    }
+    fn align_outside(self) -> Self { self.round() }
 }
 
 impl LineAlignment for PixelPos<f32> {
@@ -36,9 +53,7 @@ impl LineAlignment for PixelPos<f32> {
         PixelPos::new(self.x.align_mid_line(stroke_width), self.y.align_mid_line(stroke_width))
     }
 
-    fn align_outside(self) -> Self {
-        self.round()
-    }
+    fn align_outside(self) -> Self { self.round() }
 }
 
 impl LineAlignment for PixelRect<f32> {
@@ -1419,7 +1434,8 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
 
     // T joints
     {
-        use Thickness::{Thick as t3, Thin as t1};
+        use Thickness::Thick as t3;
+        use Thickness::Thin as t1;
         macro_rules! t_or_cross_joint {
             ($($ch:literal -> $north:ident, $east:ident, $south:ident, $west:ident)+) => {
                 $(m.insert(
@@ -1705,9 +1721,7 @@ impl Renderer {
         self.em_size = em_size;
     }
 
-    pub fn update_settings(&mut self, settings: BoxDrawingSettings) {
-        self.settings = settings;
-    }
+    pub fn update_settings(&mut self, settings: BoxDrawingSettings) { self.settings = settings; }
 
     pub fn draw_glyph(
         &self,

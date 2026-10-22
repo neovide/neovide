@@ -1,24 +1,25 @@
-use std::{
-    io::{IsTerminal, stdout},
-    process::ExitCode,
-    sync::{Arc, Mutex},
-};
+use std::io::IsTerminal;
+use std::io::stdout;
+use std::process::ExitCode;
+use std::sync::Arc;
+use std::sync::Mutex;
 
-use anyhow::{Error, Result};
+use anyhow::Error;
+use anyhow::Result;
 use clap::error::Error as ClapError;
 use itertools::Itertools;
 use log::error;
 use winit::event_loop::EventLoop;
 
+use crate::bridge::ParallelCommand;
+use crate::bridge::get_active_handler;
+use crate::bridge::send_ui;
+use crate::clipboard::Clipboard;
+use crate::settings::Settings;
+use crate::window::EventPayload;
+use crate::window::show_error_window;
 #[cfg(target_os = "windows")]
 use crate::windows_attach_to_console;
-
-use crate::{
-    bridge::{ParallelCommand, get_active_handler, send_ui},
-    clipboard::Clipboard,
-    settings::Settings,
-    window::{EventPayload, show_error_window},
-};
 
 pub enum StartupErrorOutput {
     Stderr,

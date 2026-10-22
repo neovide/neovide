@@ -1,11 +1,11 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use spin_sleep::SpinSleeper;
 
-use crate::{settings::Settings, window::WindowSettings};
+use crate::settings::Settings;
+use crate::window::WindowSettings;
 
 pub struct VSyncTimer {
     sleeper: SpinSleeper,

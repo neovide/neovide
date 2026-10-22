@@ -1,38 +1,50 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
-
 #[cfg(target_os = "macos")]
-use {
-    crate::bridge::{OpenArgs, send_or_queue_file_drop, set_active_route_handler},
-    crate::utils::resolve_relative_path,
-    std::path::Path,
-};
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Duration;
+use std::time::Instant;
 
 use glamour::Size2;
 use rustc_hash::FxHashMap;
-use winit::{
-    application::ApplicationHandler,
-    error::EventLoopError,
-    event::WindowEvent,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
-    window::WindowId,
-};
+use winit::application::ApplicationHandler;
+use winit::error::EventLoopError;
+use winit::event::WindowEvent;
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::ControlFlow;
+use winit::event_loop::EventLoop;
+use winit::event_loop::EventLoopProxy;
+use winit::window::WindowId;
 
-use super::{
-    CmdLineSettings, EventPayload, EventTarget, RouteId, WindowSettings, WindowSize,
-    WinitWindowWrapper, error_window, save_window_size,
-};
-use crate::{
-    clipboard::{Clipboard, ClipboardHandle},
-    profiling::{tracy_plot, tracy_zone},
-    renderer::DrawCommand,
-    running_tracker::RunningTracker,
-    settings::{AppHotReloadConfigs, HotReloadConfigs, Settings, font::FontSettings},
-    units::Grid,
-    window::UserEvent,
-};
+use super::CmdLineSettings;
+use super::EventPayload;
+use super::EventTarget;
+use super::RouteId;
+use super::WindowSettings;
+use super::WindowSize;
+use super::WinitWindowWrapper;
+use super::error_window;
+use super::save_window_size;
+#[cfg(target_os = "macos")]
+use crate::bridge::OpenArgs;
+#[cfg(target_os = "macos")]
+use crate::bridge::send_or_queue_file_drop;
+#[cfg(target_os = "macos")]
+use crate::bridge::set_active_route_handler;
+use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardHandle;
+use crate::profiling::tracy_plot;
+use crate::profiling::tracy_zone;
+use crate::renderer::DrawCommand;
+use crate::running_tracker::RunningTracker;
+use crate::settings::AppHotReloadConfigs;
+use crate::settings::HotReloadConfigs;
+use crate::settings::Settings;
+use crate::settings::font::FontSettings;
+use crate::units::Grid;
+#[cfg(target_os = "macos")]
+use crate::utils::resolve_relative_path;
+use crate::window::UserEvent;
 
 #[derive(Clone, Copy)]
 enum FocusedState {
@@ -368,9 +380,7 @@ impl Application {
         self.render_states.values().map(|state| self.get_event_deadline_for(state)).min()
     }
 
-    fn next_control_flow(&self) -> ControlFlow {
-        next_control_flow_for(self.get_event_deadline())
-    }
+    fn next_control_flow(&self) -> ControlFlow { next_control_flow_for(self.get_event_deadline()) }
 
     fn schedule_next_event(&mut self, event_loop: &ActiveEventLoop) {
         self.sync_render_states();
@@ -900,9 +910,7 @@ impl ApplicationHandler<EventPayload> for Application {
 }
 
 impl Drop for Application {
-    fn drop(&mut self) {
-        self.teardown();
-    }
+    fn drop(&mut self) { self.teardown(); }
 }
 
 fn next_control_flow_for(deadline: Option<Instant>) -> ControlFlow {

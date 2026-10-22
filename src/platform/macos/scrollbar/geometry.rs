@@ -1,8 +1,10 @@
 use objc2::msg_send;
 use objc2_app_kit::NSScroller;
-use objc2_foundation::{NSPoint, NSRect};
+use objc2_foundation::NSPoint;
+use objc2_foundation::NSRect;
 
-use super::state::{ScrollbarState, ScrollbarViewport};
+use super::state::ScrollbarState;
+use super::state::ScrollbarViewport;
 
 pub struct Smooth;
 impl Smooth {

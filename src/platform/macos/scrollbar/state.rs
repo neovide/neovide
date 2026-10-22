@@ -1,17 +1,14 @@
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::sync::Arc;
+use std::sync::Mutex;
 
-use crate::{
-    bridge::NeovimHandler,
-    editor::{ScrollbarGrid, ScrollbarSnapshot},
-};
-
-use super::{
-    geometry::{Smooth, buffer_line_offset},
-    metrics::ScrollMetrics,
-};
+use super::geometry::Smooth;
+use super::geometry::buffer_line_offset;
+use super::metrics::ScrollMetrics;
+use crate::bridge::NeovimHandler;
+use crate::editor::ScrollbarGrid;
+use crate::editor::ScrollbarSnapshot;
 
 /// Callback data shared by a grid's controls and retained by an active drag.
 ///
@@ -24,24 +21,16 @@ pub struct SharedScrollbarState {
 
 impl SharedScrollbarState {
     /// Reads the current callback data without retaining the lock.
-    pub fn snapshot(&self) -> Option<ScrollbarState> {
-        self.inner.lock().unwrap().clone()
-    }
+    pub fn snapshot(&self) -> Option<ScrollbarState> { self.inner.lock().unwrap().clone() }
 
     /// Publishes the latest viewport for this handle's existing window and buffer.
-    pub fn publish(&self, state: ScrollbarState) {
-        *self.inner.lock().unwrap() = Some(state);
-    }
+    pub fn publish(&self, state: ScrollbarState) { *self.inner.lock().unwrap() = Some(state); }
 
     /// Makes callback data unavailable to every holder of this handle.
-    pub fn invalidate(&self) {
-        *self.inner.lock().unwrap() = None;
-    }
+    pub fn invalidate(&self) { *self.inner.lock().unwrap() = None; }
 
     /// Compares allocation identity, regardless of the currently published data.
-    pub fn same_instance(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.inner, &other.inner)
-    }
+    pub fn same_instance(&self, other: &Self) -> bool { Arc::ptr_eq(&self.inner, &other.inner) }
 
     /// Advances the pending view under one lock, without reviving invalidated data.
     pub fn update_pending_scroll(&self, target_top: f64) {
@@ -117,9 +106,7 @@ impl ThumbAnimation {
         value
     }
 
-    pub fn reset(&mut self) {
-        *self = Self::default();
-    }
+    pub fn reset(&mut self) { *self = Self::default(); }
 }
 
 /// The viewport and smoothing history belonging to one grid in one Neovim session.
@@ -136,9 +123,7 @@ pub struct ScrollbarGridState {
 }
 
 impl Drop for ScrollbarGridState {
-    fn drop(&mut self) {
-        self.callback.invalidate();
-    }
+    fn drop(&mut self) { self.callback.invalidate(); }
 }
 
 impl ScrollbarGridState {

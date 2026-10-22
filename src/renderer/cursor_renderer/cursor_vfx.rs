@@ -1,14 +1,21 @@
 use log::error;
 use nvim_rs::Value;
-use skia_safe::{BlendMode, Canvas, Color, Paint, Rect, paint::Style};
+use skia_safe::BlendMode;
+use skia_safe::Canvas;
+use skia_safe::Color;
+use skia_safe::Paint;
+use skia_safe::Rect;
+use skia_safe::paint::Style;
 
-use crate::{
-    editor::Cursor,
-    renderer::cursor_renderer::CursorSettings,
-    renderer::{animation_utils::*, grid_renderer::GridRenderer},
-    settings::*,
-    units::{GridSize, PixelPos, PixelSize, PixelVec},
-};
+use crate::editor::Cursor;
+use crate::renderer::animation_utils::*;
+use crate::renderer::cursor_renderer::CursorSettings;
+use crate::renderer::grid_renderer::GridRenderer;
+use crate::settings::*;
+use crate::units::GridSize;
+use crate::units::PixelPos;
+use crate::units::PixelSize;
+use crate::units::PixelVec;
 
 pub trait CursorVfx {
     fn update(
@@ -176,9 +183,7 @@ impl CursorVfx for PointHighlight {
         self.center_position = position;
     }
 
-    fn cursor_jumped(&mut self, position: PixelPos<f32>) {
-        self.restart(position);
-    }
+    fn cursor_jumped(&mut self, position: PixelPos<f32>) { self.restart(position); }
 
     fn render(
         &self,
@@ -381,9 +386,7 @@ impl CursorVfx for ParticleTrail {
         !self.particles.is_empty()
     }
 
-    fn restart(&mut self, _position: PixelPos<f32>) {
-        self.count_reminder = 0.0;
-    }
+    fn restart(&mut self, _position: PixelPos<f32>) { self.count_reminder = 0.0; }
 
     fn cursor_jumped(&mut self, _position: PixelPos<f32>) {}
 
@@ -490,9 +493,7 @@ impl RngState {
         PixelVec::new(x * 2.0 - 1.0, y * 2.0 - 1.0)
     }
 
-    fn rand_dir_normalized(&mut self) -> PixelVec<f32> {
-        self.rand_dir().normalize()
-    }
+    fn rand_dir_normalized(&mut self) -> PixelVec<f32> { self.rand_dir().normalize() }
 }
 
 fn rotate_vec(v: PixelVec<f32>, rot: f32) -> PixelVec<f32> {

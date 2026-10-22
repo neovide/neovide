@@ -1,28 +1,59 @@
-use objc2::{
-    MainThreadOnly,
-    rc::Retained,
-    runtime::{AnyObject, ProtocolObject, Sel},
-    sel,
-};
-use objc2_app_kit::{
-    NSApplication, NSBezelStyle, NSButton, NSButtonType, NSColor, NSControl, NSFloatingWindowLevel,
-    NSFocusRingType, NSFont, NSFontWeight, NSImage, NSImageScaling, NSImageView, NSLineBreakMode,
-    NSResponder, NSScrollView, NSTextAlignment, NSTextField, NSTextFieldDelegate, NSView, NSWindow,
-    NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility,
-};
-use objc2_foundation::{MainThreadMarker, NSInteger, NSPoint, NSRect, NSSize, NSString, ns_string};
+use objc2::MainThreadOnly;
+use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
+use objc2::runtime::ProtocolObject;
+use objc2::runtime::Sel;
+use objc2::sel;
+use objc2_app_kit::NSApplication;
+use objc2_app_kit::NSBezelStyle;
+use objc2_app_kit::NSButton;
+use objc2_app_kit::NSButtonType;
+use objc2_app_kit::NSColor;
+use objc2_app_kit::NSControl;
+use objc2_app_kit::NSFloatingWindowLevel;
+use objc2_app_kit::NSFocusRingType;
+use objc2_app_kit::NSFont;
+use objc2_app_kit::NSFontWeight;
+use objc2_app_kit::NSImage;
+use objc2_app_kit::NSImageScaling;
+use objc2_app_kit::NSImageView;
+use objc2_app_kit::NSLineBreakMode;
+use objc2_app_kit::NSResponder;
+use objc2_app_kit::NSScrollView;
+use objc2_app_kit::NSTextAlignment;
+use objc2_app_kit::NSTextField;
+use objc2_app_kit::NSTextFieldDelegate;
+use objc2_app_kit::NSView;
+use objc2_app_kit::NSWindow;
+use objc2_app_kit::NSWindowButton;
+use objc2_app_kit::NSWindowStyleMask;
+use objc2_app_kit::NSWindowTitleVisibility;
+use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSInteger;
+use objc2_foundation::NSPoint;
+use objc2_foundation::NSRect;
+use objc2_foundation::NSSize;
+use objc2_foundation::NSString;
+use objc2_foundation::ns_string;
 
 use super::super::load_neovide_icon;
-use super::appkit::{
-    EditorSwitcherActionHandler, EditorSwitcherDocumentView, EditorSwitcherSearchDelegate,
-    EditorSwitcherSearchField, EditorSwitcherView, EditorSwitcherWindow,
-};
+use super::EDITOR_SWITCHER_STATE;
+use super::EditorSwitcherState;
+use super::EditorSwitcherStateParts;
+use super::appkit::EditorSwitcherActionHandler;
+use super::appkit::EditorSwitcherDocumentView;
+use super::appkit::EditorSwitcherSearchDelegate;
+use super::appkit::EditorSwitcherSearchField;
+use super::appkit::EditorSwitcherView;
+use super::appkit::EditorSwitcherWindow;
+use super::close_editor_switcher;
 use super::hotkey::editor_switcher_toggle_shortcut;
-use super::layout::{BottomBar, Panel, Results, Row, Search};
+use super::layout::BottomBar;
+use super::layout::Panel;
+use super::layout::Results;
+use super::layout::Row;
+use super::layout::Search;
 use super::row::EditorSwitcherRow;
-use super::{
-    EDITOR_SWITCHER_STATE, EditorSwitcherState, EditorSwitcherStateParts, close_editor_switcher,
-};
 
 const SEARCH_PLACEHOLDER: &str = "Search...";
 const EMPTY_RESULTS_TEXT: &str = "No matching windows";

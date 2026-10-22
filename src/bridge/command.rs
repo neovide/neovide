@@ -3,12 +3,12 @@ use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command as StdCommand;
+
 use tokio::process::Command as TokioCommand;
 
-use crate::{
-    cmd_line::CmdLineSettings,
-    utils::{expand_tilde, handle_wslpaths},
-};
+use crate::cmd_line::CmdLineSettings;
+use crate::utils::expand_tilde;
+use crate::utils::handle_wslpaths;
 
 #[cfg(target_os = "macos")]
 const FORKED_FROM_TTY_ENV_VAR: &str = "NEOVIDE_FORKED_FROM_TTY";
@@ -287,11 +287,12 @@ fn create_command_spec(
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
-
-    use crate::{cmd_line::handle_command_line_arguments, settings::Settings};
+    use std::path::Path;
+    use std::path::PathBuf;
 
     use super::*;
+    use crate::cmd_line::handle_command_line_arguments;
+    use crate::settings::Settings;
 
     fn parse_cmdline_settings(args: &[&str]) -> CmdLineSettings {
         let settings = Settings::new();

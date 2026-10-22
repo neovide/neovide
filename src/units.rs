@@ -1,10 +1,16 @@
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    ops::{Div, Mul},
-};
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::ops::Div;
+use std::ops::Mul;
 
-use glamour::{Box2, Point2, Scalar, Size2, Transform2, TransformMap, Unit, Vector2};
+use glamour::Box2;
+use glamour::Point2;
+use glamour::Scalar;
+use glamour::Size2;
+use glamour::Transform2;
+use glamour::TransformMap;
+use glamour::Unit;
+use glamour::Vector2;
 
 /// Coordinates in grid units (multiplies of the font size)
 pub struct Grid<T> {
@@ -34,9 +40,7 @@ pub type PixelPos<T> = Point2<Pixel<T>>;
 pub type GridRect<T> = Box2<Grid<T>>;
 pub type PixelRect<T> = Box2<Pixel<T>>;
 
-pub fn to_skia_point(pos: PixelPos<f32>) -> skia_safe::Point {
-    skia_safe::Point::new(pos.x, pos.y)
-}
+pub fn to_skia_point(pos: PixelPos<f32>) -> skia_safe::Point { skia_safe::Point::new(pos.x, pos.y) }
 
 pub fn to_skia_rect(rect: &PixelRect<f32>) -> skia_safe::Rect {
     skia_safe::Rect { left: rect.min.x, top: rect.min.y, right: rect.max.x, bottom: rect.max.y }
@@ -52,19 +56,13 @@ impl GridScale {
         Self { transform: Transform2::from_scale(scale.as_vector().cast()) }
     }
 
-    pub fn height(&self) -> f32 {
-        self.transform.matrix.y_axis.y
-    }
+    pub fn height(&self) -> f32 { self.transform.matrix.y_axis.y }
 
-    pub fn width(&self) -> f32 {
-        self.transform.matrix.x_axis.x
-    }
+    pub fn width(&self) -> f32 { self.transform.matrix.x_axis.x }
 }
 
 impl From<PixelSize<f32>> for GridScale {
-    fn from(value: PixelSize<f32>) -> Self {
-        Self::new(value)
-    }
+    fn from(value: PixelSize<f32>) -> Self { Self::new(value) }
 }
 
 impl<T: Scalar> Mul<GridScale> for GridVec<T> {
@@ -81,18 +79,14 @@ impl<T: Scalar> Mul<GridScale> for GridSize<T> {
     type Output = PixelSize<f32>;
 
     #[inline]
-    fn mul(self, scale: GridScale) -> Self::Output {
-        (*self.as_vector() * scale).to_size()
-    }
+    fn mul(self, scale: GridScale) -> Self::Output { (*self.as_vector() * scale).to_size() }
 }
 
 impl<T: Scalar> Mul<GridScale> for GridPos<T> {
     type Output = PixelPos<f32>;
 
     #[inline]
-    fn mul(self, scale: GridScale) -> Self::Output {
-        (*self.as_vector() * scale).to_point()
-    }
+    fn mul(self, scale: GridScale) -> Self::Output { (*self.as_vector() * scale).to_point() }
 }
 
 impl<T: Scalar> Mul<GridScale> for GridRect<T> {
@@ -121,18 +115,14 @@ impl<T: Scalar> Div<GridScale> for PixelSize<T> {
     type Output = GridSize<f32>;
 
     #[inline]
-    fn div(self, scale: GridScale) -> Self::Output {
-        (*self.as_vector() / scale).to_size()
-    }
+    fn div(self, scale: GridScale) -> Self::Output { (*self.as_vector() / scale).to_size() }
 }
 
 impl<T: Scalar> Div<GridScale> for PixelPos<T> {
     type Output = GridPos<f32>;
 
     #[inline]
-    fn div(self, scale: GridScale) -> Self::Output {
-        (*self.as_vector() / scale).to_point()
-    }
+    fn div(self, scale: GridScale) -> Self::Output { (*self.as_vector() / scale).to_point() }
 }
 
 impl<T: Scalar> Div<GridScale> for PixelRect<T> {

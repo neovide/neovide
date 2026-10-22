@@ -83,9 +83,7 @@ fn format(version: &str, describe: &str) -> String {
     }
 }
 
-fn git_path(path: &str) -> Option<String> {
-    git_output(&["rev-parse", "--git-path", path])
-}
+fn git_path(path: &str) -> Option<String> { git_output(&["rev-parse", "--git-path", path]) }
 
 fn git_output(args: &[&str]) -> Option<String> {
     Command::new("git")

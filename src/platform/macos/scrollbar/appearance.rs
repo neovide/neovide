@@ -1,4 +1,8 @@
-use objc2_app_kit::{NSAppearanceCustomization, NSBezierPath, NSColor, NSScroller, NSWindow};
+use objc2_app_kit::NSAppearanceCustomization;
+use objc2_app_kit::NSBezierPath;
+use objc2_app_kit::NSColor;
+use objc2_app_kit::NSScroller;
+use objc2_app_kit::NSWindow;
 use objc2_core_foundation::CGFloat;
 use objc2_foundation::NSRect;
 use skia_safe::Color4f;

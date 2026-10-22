@@ -1,7 +1,11 @@
-use std::{collections::HashSet, fmt, hash::Hash};
+use std::collections::HashSet;
+use std::fmt;
+use std::hash::Hash;
 
 use itertools::Itertools;
-use rmpv::{Utf8StringRef, Value, ValueRef};
+use rmpv::Utf8StringRef;
+use rmpv::Value;
+use rmpv::ValueRef;
 
 #[cfg(test)]
 use crate::bridge::nvim_dict;
@@ -12,21 +16,15 @@ pub struct ApiInfoParseError(String);
 impl std::error::Error for ApiInfoParseError {}
 
 impl fmt::Display for ApiInfoParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.0) }
 }
 
 impl From<ValueRef<'_>> for ApiInfoParseError {
-    fn from(value: ValueRef) -> Self {
-        Self(format!("{value}"))
-    }
+    fn from(value: ValueRef) -> Self { Self(format!("{value}")) }
 }
 
 impl From<&str> for ApiInfoParseError {
-    fn from(value: &str) -> Self {
-        Self(value.to_owned())
-    }
+    fn from(value: &str) -> Self { Self(value.to_owned()) }
 }
 
 #[allow(unused)]
@@ -73,15 +71,11 @@ pub struct ApiFunction {
 }
 
 impl Hash for ApiFunction {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state)
-    }
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.name.hash(state) }
 }
 
 impl PartialEq for ApiFunction {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
+    fn eq(&self, other: &Self) -> bool { self.name == other.name }
 }
 
 impl Eq for ApiFunction {}
@@ -161,15 +155,11 @@ pub struct ApiEvent {
 }
 
 impl Hash for ApiEvent {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state)
-    }
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.name.hash(state) }
 }
 
 impl PartialEq for ApiEvent {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
+    fn eq(&self, other: &Self) -> bool { self.name == other.name }
 }
 
 impl Eq for ApiEvent {}

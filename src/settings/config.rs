@@ -1,25 +1,29 @@
 //! Config file handling
 
-use std::{env, fs, sync::mpsc, time::Duration};
+use std::env;
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::mpsc;
+use std::time::Duration;
 
-use notify_debouncer_full::{DebouncedEvent, new_debouncer, notify::RecursiveMode};
-use serde::{
-    Deserialize, Deserializer,
-    de::{Error as DeError, Unexpected},
-};
+use notify_debouncer_full::DebouncedEvent;
+use notify_debouncer_full::new_debouncer;
+use notify_debouncer_full::notify::RecursiveMode;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::de::Error as DeError;
+use serde::de::Unexpected;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{
-    cmd_line::{GeometryArgs, MouseCursorIcon},
-    error_msg,
-    frame::Frame,
-    renderer::box_drawing::BoxDrawingSettings,
-    window::{EventPayload, UserEvent},
-};
-
-use std::path::{Path, PathBuf};
-
 use super::font::FontSettings;
+use crate::cmd_line::GeometryArgs;
+use crate::cmd_line::MouseCursorIcon;
+use crate::error_msg;
+use crate::frame::Frame;
+use crate::renderer::box_drawing::BoxDrawingSettings;
+use crate::window::EventPayload;
+use crate::window::UserEvent;
 
 const CONFIG_FILE: &str = "config.toml";
 
@@ -56,9 +60,7 @@ enum HotkeyConfigValue {
 }
 
 fn deserialize_optional_hotkey<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
+where D: Deserializer<'de> {
     match Option::<HotkeyConfigValue>::deserialize(deserializer)? {
         None => Ok(None),
         Some(HotkeyConfigValue::String(value)) => Ok(Some(value)),
@@ -428,10 +430,10 @@ fn events_relevant_to_config(events: &[DebouncedEvent], config_path: &Path) -> b
 mod tests {
     use std::time::Instant;
 
-    use notify_debouncer_full::{
-        DebouncedEvent,
-        notify::{Event, EventKind, event::Flag},
-    };
+    use notify_debouncer_full::DebouncedEvent;
+    use notify_debouncer_full::notify::Event;
+    use notify_debouncer_full::notify::EventKind;
+    use notify_debouncer_full::notify::event::Flag;
 
     use super::*;
 

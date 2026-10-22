@@ -13,24 +13,24 @@ pub fn tracy_create_gpu_context(_name: &str, _skia_renderer: &dyn SkiaRenderer) 
 pub fn tracy_gpu_collect() {}
 
 macro_rules! tracy_zone {
-    ($name: expr, $color: expr) => {};
-    ($name: expr) => {};
+    ($name:expr, $color:expr) => {};
+    ($name:expr) => {};
 }
 macro_rules! tracy_dynamic_zone {
-    ($name: expr, $color: expr) => {};
-    ($name: expr) => {};
+    ($name:expr, $color:expr) => {};
+    ($name:expr) => {};
 }
 macro_rules! tracy_gpu_zone {
-    ($name: expr, $color: expr) => {};
-    ($name: expr) => {};
+    ($name:expr, $color:expr) => {};
+    ($name:expr) => {};
 }
 macro_rules! tracy_named_frame {
-    ($name: expr) => {};
+    ($name:expr) => {};
 }
 
 #[macro_export]
 macro_rules! tracy_plot {
-    ($name: expr, $dt: expr) => {};
+    ($name:expr, $dt:expr) => {};
 }
 
 pub(crate) use tracy_dynamic_zone;

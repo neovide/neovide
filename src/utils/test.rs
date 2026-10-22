@@ -1,8 +1,10 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use indoc::indoc;
-use skia_safe::{Point, Rect};
+use skia_safe::Point;
+use skia_safe::Rect;
 
 static IGNOREABLE_CHARACTERS: LazyLock<HashSet<char>> =
     LazyLock::new(|| ['-', '|', '*', '+', ' '].iter().cloned().collect());

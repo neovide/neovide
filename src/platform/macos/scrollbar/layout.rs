@@ -1,10 +1,13 @@
-use objc2::{class, msg_send};
-use objc2_foundation::{NSPoint, NSRect, NSSize};
+use objc2::class;
+use objc2::msg_send;
+use objc2_foundation::NSPoint;
+use objc2_foundation::NSRect;
+use objc2_foundation::NSSize;
 
-use crate::{
-    editor::ScrollbarGrid,
-    units::{GridSize, PixelPos, PixelSize},
-};
+use crate::editor::ScrollbarGrid;
+use crate::units::GridSize;
+use crate::units::PixelPos;
+use crate::units::PixelSize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ScrollbarSide {
@@ -230,9 +233,7 @@ pub fn left_scrollbar_bounds_origin(bounds: NSRect, slot: NSRect) -> NSPoint {
     NSPoint::new(slot_end - bounds.size.width, bounds.origin.y)
 }
 
-pub fn scrollbar_width() -> f64 {
-    appkit_scrollbar_width().unwrap_or(Scroller::WIDTH_FALLBACK)
-}
+pub fn scrollbar_width() -> f64 { appkit_scrollbar_width().unwrap_or(Scroller::WIDTH_FALLBACK) }
 
 fn appkit_scrollbar_width() -> Option<f64> {
     let width = unsafe {

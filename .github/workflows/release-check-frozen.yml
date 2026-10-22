@@ -10,6 +10,8 @@ on:
 jobs:
   check-frozen:
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
 
     steps:
       - uses: actions/checkout@v4

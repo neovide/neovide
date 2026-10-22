@@ -1,17 +1,14 @@
-use log::{error, trace, warn};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::ffi::c_void;
+use std::marker::PhantomPinned;
+use std::pin::Pin;
+use std::ptr::NonNull;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
-use winit::{event_loop::EventLoopProxy, window::Window};
-
-use crate::window::{EventPayload, UserEvent};
-
-use std::{ffi::c_void, marker::PhantomPinned, pin::Pin, ptr::NonNull};
-
-use crate::{platform::macos::get_ns_window, profiling::tracy_zone};
-
+use log::error;
+use log::trace;
+use log::warn;
 use objc2_core_foundation::CFRetained;
 use objc2_core_graphics::CGDirectDisplayID;
 // CVDisplayLink* functions are deprecated in the latest version of macOS in favor
@@ -23,7 +20,15 @@ use objc2_core_video::{
     CVDisplayLinkStart, CVDisplayLinkStop, CVReturn, CVTimeStamp,
     kCVReturnDisplayLinkAlreadyRunning, kCVReturnSuccess,
 };
-use objc2_foundation::{NSNumber, ns_string};
+use objc2_foundation::NSNumber;
+use objc2_foundation::ns_string;
+use winit::event_loop::EventLoopProxy;
+use winit::window::Window;
+
+use crate::platform::macos::get_ns_window;
+use crate::profiling::tracy_zone;
+use crate::window::EventPayload;
+use crate::window::UserEvent;
 
 // Here is the doc about how to do this. https://developer.apple.com/documentation/appkit/nsscreen/1388360-devicedescription?language=objc
 pub fn get_display_id_of_window(window: &Window) -> Option<CGDirectDisplayID> {
@@ -166,9 +171,7 @@ impl VSyncMacosDisplayLink {
 
     pub fn wait_for_vsync(&mut self) {}
 
-    pub fn request_redraw(&mut self) {
-        self.redraw_requested.store(true, Ordering::Relaxed);
-    }
+    pub fn request_redraw(&mut self) { self.redraw_requested.store(true, Ordering::Relaxed); }
 
     pub fn update(&mut self, window: &Window) {
         let new_display = get_display_id_of_window(window);
@@ -180,7 +183,5 @@ impl VSyncMacosDisplayLink {
 }
 
 impl Drop for VSyncMacosDisplayLink {
-    fn drop(&mut self) {
-        self.stop_display_link();
-    }
+    fn drop(&mut self) { self.stop_display_link(); }
 }

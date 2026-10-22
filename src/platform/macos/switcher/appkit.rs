@@ -1,15 +1,32 @@
-use objc2::{MainThreadOnly, define_class, msg_send, rc::Retained, runtime::Sel};
-use objc2_app_kit::{
-    NSBackingStoreType, NSControl, NSControlTextEditingDelegate, NSEvent, NSEventType, NSTextField,
-    NSTextFieldDelegate, NSTextView, NSView, NSWindow, NSWindowStyleMask,
-};
-use objc2_foundation::{MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSRect};
+use objc2::MainThreadOnly;
+use objc2::define_class;
+use objc2::msg_send;
+use objc2::rc::Retained;
+use objc2::runtime::Sel;
+use objc2_app_kit::NSBackingStoreType;
+use objc2_app_kit::NSControl;
+use objc2_app_kit::NSControlTextEditingDelegate;
+use objc2_app_kit::NSEvent;
+use objc2_app_kit::NSEventType;
+use objc2_app_kit::NSTextField;
+use objc2_app_kit::NSTextFieldDelegate;
+use objc2_app_kit::NSTextView;
+use objc2_app_kit::NSView;
+use objc2_app_kit::NSWindow;
+use objc2_app_kit::NSWindowStyleMask;
+use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSNotification;
+use objc2_foundation::NSObject;
+use objc2_foundation::NSObjectProtocol;
+use objc2_foundation::NSRect;
 
-use super::{
-    activate_editor_switcher_row, activate_selected_editor_switcher_row, close_editor_switcher,
-    handle_editor_switcher_command_selector, handle_editor_switcher_key,
-    handle_editor_switcher_toggle_key, update_editor_switcher_query_from_search_field,
-};
+use super::activate_editor_switcher_row;
+use super::activate_selected_editor_switcher_row;
+use super::close_editor_switcher;
+use super::handle_editor_switcher_command_selector;
+use super::handle_editor_switcher_key;
+use super::handle_editor_switcher_toggle_key;
+use super::update_editor_switcher_query_from_search_field;
 
 define_class!(
     #[derive(Debug)]

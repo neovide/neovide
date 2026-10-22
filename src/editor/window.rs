@@ -1,15 +1,21 @@
-use std::{collections::HashMap, ops::Range, sync::Arc};
+use std::collections::HashMap;
+use std::ops::Range;
+use std::sync::Arc;
 
 use log::warn;
 
+use crate::bridge::GridLineCell;
+use crate::editor::AnchorInfo;
+use crate::editor::DrawCommand;
+use crate::editor::DrawCommandBatcher;
+use crate::editor::grid::CharacterGrid;
+use crate::editor::style::Style;
+use crate::renderer::WindowDrawCommand;
+use crate::renderer::box_drawing;
 #[cfg(target_os = "macos")]
 use crate::renderer::rendered_window::BASE_GRID_ID;
-use crate::{
-    bridge::GridLineCell,
-    editor::{AnchorInfo, DrawCommand, DrawCommandBatcher, grid::CharacterGrid, style::Style},
-    renderer::{WindowDrawCommand, box_drawing},
-    units::{GridRect, GridSize},
-};
+use crate::units::GridRect;
+use crate::units::GridSize;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum WindowType {
@@ -84,9 +90,7 @@ impl Line {
         })
     }
 
-    pub fn cells(&self) -> Option<&[String]> {
-        self.cells.as_deref()
-    }
+    pub fn cells(&self) -> Option<&[String]> { self.cells.as_deref() }
 
     #[cfg(test)]
     pub(crate) fn empty() -> Self {
@@ -197,13 +201,9 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn viewport(&self) -> Option<WindowViewport> {
-        self.viewport
-    }
+    pub fn viewport(&self) -> Option<WindowViewport> { self.viewport }
 
-    pub fn set_viewport(&mut self, viewport: WindowViewport) {
-        self.viewport = Some(viewport);
-    }
+    pub fn set_viewport(&mut self, viewport: WindowViewport) { self.viewport = Some(viewport); }
 
     #[cfg(target_os = "macos")]
     pub fn clear_viewport_for_window(&mut self, window: u64) {
@@ -277,17 +277,11 @@ impl Window {
         (grid_cell.0, grid_cell.1, double_width)
     }
 
-    pub fn get_width(&self) -> u64 {
-        self.grid.width as u64
-    }
+    pub fn get_width(&self) -> u64 { self.grid.width as u64 }
 
-    pub fn get_height(&self) -> u64 {
-        self.grid.height as u64
-    }
+    pub fn get_height(&self) -> u64 { self.grid.height as u64 }
 
-    pub fn get_grid_position(&self) -> (f64, f64) {
-        self.grid_position
-    }
+    pub fn get_grid_position(&self) -> (f64, f64) { self.grid_position }
 
     #[cfg(target_os = "macos")]
     pub fn viewport_margins(&self) -> (u64, u64) {
@@ -616,10 +610,14 @@ impl Window {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::editor::style::{Colors, Style};
-    use skia_safe::{Color4f, colors};
     use std::sync::Arc;
+
+    use skia_safe::Color4f;
+    use skia_safe::colors;
+
+    use super::*;
+    use crate::editor::style::Colors;
+    use crate::editor::style::Style;
 
     fn make_style(color: Color4f) -> Arc<Style> {
         Arc::new(Style::new(Colors {

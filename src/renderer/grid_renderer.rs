@@ -1,25 +1,37 @@
-use std::{ops::Range, sync::Arc};
+use std::ops::Range;
+use std::sync::Arc;
 
 use log::trace;
-use skia_safe::{
-    BlendMode, Canvas, Color, Color4f, HSV, Paint, PathBuilder, colors, dash_path_effect,
-};
+use skia_safe::BlendMode;
+use skia_safe::Canvas;
+use skia_safe::Color;
+use skia_safe::Color4f;
+use skia_safe::HSV;
+use skia_safe::Paint;
+use skia_safe::PathBuilder;
+use skia_safe::colors;
+use skia_safe::dash_path_effect;
 
-use crate::{
-    editor::{Colors, LineFragment, Style, UnderlineStyle},
-    profiling::tracy_zone,
-    renderer::{
-        CachingShaper, RendererSettings,
-        box_drawing::{self},
-    },
-    settings::*,
-    units::{
-        GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec, to_skia_point, to_skia_rect,
-    },
-    window::WindowSettings,
-};
-
-use super::{box_drawing::BoxDrawingSettings, fonts::font_options::FontOptions};
+use super::box_drawing::BoxDrawingSettings;
+use super::fonts::font_options::FontOptions;
+use crate::editor::Colors;
+use crate::editor::LineFragment;
+use crate::editor::Style;
+use crate::editor::UnderlineStyle;
+use crate::profiling::tracy_zone;
+use crate::renderer::CachingShaper;
+use crate::renderer::RendererSettings;
+use crate::renderer::box_drawing::{self};
+use crate::settings::*;
+use crate::units::GridPos;
+use crate::units::GridScale;
+use crate::units::GridSize;
+use crate::units::PixelPos;
+use crate::units::PixelRect;
+use crate::units::PixelVec;
+use crate::units::to_skia_point;
+use crate::units::to_skia_rect;
+use crate::window::WindowSettings;
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
@@ -69,9 +81,7 @@ impl GridRenderer {
         }
     }
 
-    pub fn font_names(&self) -> Vec<String> {
-        self.shaper.font_names()
-    }
+    pub fn font_names(&self) -> Vec<String> { self.shaper.font_names() }
 
     pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.shaper.update_scale_factor(scale_factor as f32);

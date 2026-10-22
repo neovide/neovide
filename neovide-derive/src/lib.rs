@@ -4,12 +4,21 @@
 //! It will also generate an enum with the name `{StructName}Changed` that contains a variant for
 //! each field in the struct. The enum will be used to send events when a setting is changed.
 
-use convert_case::{Case, Casing};
+use convert_case::Case;
+use convert_case::Casing;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::{
-    Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta, parse_macro_input,
-};
+use quote::format_ident;
+use quote::quote;
+use syn::Attribute;
+use syn::Data;
+use syn::DataStruct;
+use syn::DeriveInput;
+use syn::Error;
+use syn::Field;
+use syn::Ident;
+use syn::Lit;
+use syn::Meta;
+use syn::parse_macro_input;
 
 #[proc_macro_derive(SettingGroup, attributes(setting_prefix, option, alias))]
 pub fn setting_group(item: TokenStream) -> TokenStream {

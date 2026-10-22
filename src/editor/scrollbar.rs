@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{
-    bridge::ScrollbarWindowMetadata, renderer::rendered_window::BASE_GRID_ID, units::GridSize,
-};
-
-use super::{TiledWindowLayout, Window, WindowViewport};
+use super::TiledWindowLayout;
+use super::Window;
+use super::WindowViewport;
+use crate::bridge::ScrollbarWindowMetadata;
+use crate::renderer::rendered_window::BASE_GRID_ID;
+use crate::units::GridSize;
 
 /// A visible tiled grid, including its layout when viewport data has not arrived yet.
 #[derive(Clone, Debug, PartialEq)]

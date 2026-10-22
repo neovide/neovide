@@ -1,20 +1,29 @@
-use gl::{
-    GenQueries, GetInteger64v, GetQueryObjectiv, GetQueryObjectui64v, QUERY_RESULT,
-    QUERY_RESULT_AVAILABLE, QueryCounter, TIMESTAMP,
-};
-use std::{
-    ffi::CString,
-    sync::atomic::{AtomicU8, Ordering},
-};
+use std::ffi::CString;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::Ordering;
 
-use tracy_client_sys::{
-    ___tracy_emit_gpu_context_name, ___tracy_emit_gpu_new_context, ___tracy_emit_gpu_time_serial,
-    ___tracy_emit_gpu_zone_begin_serial, ___tracy_emit_gpu_zone_end_serial,
-    ___tracy_gpu_context_name_data, ___tracy_gpu_new_context_data, ___tracy_gpu_time_data,
-    ___tracy_gpu_zone_begin_data, ___tracy_gpu_zone_end_data, ___tracy_source_location_data,
-};
+use gl::GenQueries;
+use gl::GetInteger64v;
+use gl::GetQueryObjectiv;
+use gl::GetQueryObjectui64v;
+use gl::QUERY_RESULT;
+use gl::QUERY_RESULT_AVAILABLE;
+use gl::QueryCounter;
+use gl::TIMESTAMP;
+use tracy_client_sys::___tracy_emit_gpu_context_name;
+use tracy_client_sys::___tracy_emit_gpu_new_context;
+use tracy_client_sys::___tracy_emit_gpu_time_serial;
+use tracy_client_sys::___tracy_emit_gpu_zone_begin_serial;
+use tracy_client_sys::___tracy_emit_gpu_zone_end_serial;
+use tracy_client_sys::___tracy_gpu_context_name_data;
+use tracy_client_sys::___tracy_gpu_new_context_data;
+use tracy_client_sys::___tracy_gpu_time_data;
+use tracy_client_sys::___tracy_gpu_zone_begin_data;
+use tracy_client_sys::___tracy_gpu_zone_end_data;
+use tracy_client_sys::___tracy_source_location_data;
 
-use crate::profiling::{GpuContextType, GpuCtx};
+use crate::profiling::GpuContextType;
+use crate::profiling::GpuCtx;
 
 static CONTEXT_ID: AtomicU8 = AtomicU8::new(0);
 

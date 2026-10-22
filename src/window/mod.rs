@@ -9,56 +9,69 @@ mod window_wrapper;
 
 #[cfg(target_os = "linux")]
 use std::env;
-
-use glamour::Size2;
-use winit::{
-    dpi::{PhysicalSize, Size},
-    event::DeviceId,
-    event_loop::{ActiveEventLoop, EventLoop},
-    window::{Cursor, Icon, Theme, Window},
-};
-
-#[cfg(target_os = "macos")]
-use winit::platform::macos::WindowAttributesExtMacOS;
-
-#[cfg(target_os = "linux")]
-use winit::platform::{
-    startup_notify::{self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify},
-    wayland::WindowAttributesExtWayland,
-    x11::WindowAttributesExtX11,
-};
-
-#[cfg(target_os = "windows")]
-use winit::platform::windows::WindowAttributesExtWindows;
-
-#[cfg(target_os = "macos")]
-use winit::platform::macos::EventLoopBuilderExtMacOS;
-
-use image::{GenericImageView, Pixel, load_from_memory};
-use keyboard_manager::KeyboardManager;
-use mouse_manager::MouseManager;
 use std::fs::File;
 use std::io::Read;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
-use crate::{
-    bridge::RestartDetails,
-    cmd_line::{CmdLineSettings, GeometryArgs},
-    frame::Frame,
-    renderer::{DrawCommand, WindowConfig, build_window_config},
-    settings::{
-        HotReloadConfigs, PersistentWindowSettings, Settings, SettingsChanged, clamped_grid_size,
-        load_last_window_settings, save_window_size,
-    },
-    units::{Grid, GridSize},
-    utils::expand_tilde,
-};
 pub use application::Application;
 pub use application::ShouldRender;
 pub use error_window::show_error_window;
-pub use mouse_manager::{MessageSelectionEvent, OverlayEvent};
-pub use settings::{ThemeSettings, WindowSettings, WindowSettingsChanged};
+use glamour::Size2;
+use image::GenericImageView;
+use image::Pixel;
+use image::load_from_memory;
+use keyboard_manager::KeyboardManager;
+pub use mouse_manager::MessageSelectionEvent;
+use mouse_manager::MouseManager;
+pub use mouse_manager::OverlayEvent;
+pub use settings::ThemeSettings;
+pub use settings::WindowSettings;
+pub use settings::WindowSettingsChanged;
 pub use window_wrapper::WinitWindowWrapper;
+use winit::dpi::PhysicalSize;
+use winit::dpi::Size;
+use winit::event::DeviceId;
+use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::EventLoop;
+#[cfg(target_os = "macos")]
+use winit::platform::macos::EventLoopBuilderExtMacOS;
+#[cfg(target_os = "macos")]
+use winit::platform::macos::WindowAttributesExtMacOS;
+#[cfg(target_os = "linux")]
+use winit::platform::startup_notify::EventLoopExtStartupNotify;
+#[cfg(target_os = "linux")]
+use winit::platform::startup_notify::WindowAttributesExtStartupNotify;
+#[cfg(target_os = "linux")]
+use winit::platform::startup_notify::{self};
+#[cfg(target_os = "linux")]
+use winit::platform::wayland::WindowAttributesExtWayland;
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowAttributesExtWindows;
+#[cfg(target_os = "linux")]
+use winit::platform::x11::WindowAttributesExtX11;
+use winit::window::Cursor;
+use winit::window::Icon;
+use winit::window::Theme;
+use winit::window::Window;
+
+use crate::bridge::RestartDetails;
+use crate::cmd_line::CmdLineSettings;
+use crate::cmd_line::GeometryArgs;
+use crate::frame::Frame;
+use crate::renderer::DrawCommand;
+use crate::renderer::WindowConfig;
+use crate::renderer::build_window_config;
+use crate::settings::HotReloadConfigs;
+use crate::settings::PersistentWindowSettings;
+use crate::settings::Settings;
+use crate::settings::SettingsChanged;
+use crate::settings::clamped_grid_size;
+use crate::settings::load_last_window_settings;
+use crate::settings::save_window_size;
+use crate::units::Grid;
+use crate::units::GridSize;
+use crate::utils::expand_tilde;
 
 static DEFAULT_ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
@@ -226,40 +239,28 @@ impl EventPayload {
         Self { payload, target: EventTarget::Route(route_id) }
     }
 
-    pub fn all(payload: UserEvent) -> Self {
-        Self { payload, target: EventTarget::All }
-    }
+    pub fn all(payload: UserEvent) -> Self { Self { payload, target: EventTarget::All } }
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
-    fn from(value: Vec<DrawCommand>) -> Self {
-        UserEvent::DrawCommandBatch(value)
-    }
+    fn from(value: Vec<DrawCommand>) -> Self { UserEvent::DrawCommandBatch(value) }
 }
 
 impl From<WindowCommand> for UserEvent {
-    fn from(value: WindowCommand) -> Self {
-        UserEvent::WindowCommand(value)
-    }
+    fn from(value: WindowCommand) -> Self { UserEvent::WindowCommand(value) }
 }
 
 #[cfg(target_os = "macos")]
 impl From<MacShortcutCommand> for EventPayload {
-    fn from(value: MacShortcutCommand) -> Self {
-        EventPayload::all(UserEvent::MacShortcut(value))
-    }
+    fn from(value: MacShortcutCommand) -> Self { EventPayload::all(UserEvent::MacShortcut(value)) }
 }
 
 impl From<SettingsChanged> for UserEvent {
-    fn from(value: SettingsChanged) -> Self {
-        UserEvent::SettingsChanged(value)
-    }
+    fn from(value: SettingsChanged) -> Self { UserEvent::SettingsChanged(value) }
 }
 
 impl From<HotReloadConfigs> for UserEvent {
-    fn from(value: HotReloadConfigs) -> Self {
-        UserEvent::ConfigsChanged(Box::new(value))
-    }
+    fn from(value: HotReloadConfigs) -> Self { UserEvent::ConfigsChanged(Box::new(value)) }
 }
 
 pub fn create_event_loop() -> EventLoop<EventPayload> {

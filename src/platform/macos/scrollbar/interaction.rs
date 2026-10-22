@@ -1,13 +1,14 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 use objc2::rc::Retained;
 use objc2_app_kit::NSScroller;
 
-use super::{
-    appkit::request_display,
-    registry::{scrollbar_key, shared_state},
-    state::{ScrollbarState, SharedScrollbarState},
-};
+use super::appkit::request_display;
+use super::registry::scrollbar_key;
+use super::registry::shared_state;
+use super::state::ScrollbarState;
+use super::state::SharedScrollbarState;
 
 thread_local! {
     /// AppKit callbacks run on the main thread and can reenter Rust during tracking,
@@ -57,9 +58,7 @@ impl Interaction {
         }
     }
 
-    fn is_dragging_knob(&self) -> bool {
-        self.state == InteractionState::Dragging
-    }
+    fn is_dragging_knob(&self) -> bool { self.state == InteractionState::Dragging }
 
     fn track_knob(&mut self) {
         if self.state == InteractionState::Pressed {
@@ -74,9 +73,7 @@ impl Interaction {
         };
     }
 
-    fn retire(&mut self) {
-        self.state = InteractionState::Retired;
-    }
+    fn retire(&mut self) { self.state = InteractionState::Retired; }
 }
 
 /// Keeps the mouse-down target and view alive through appkit nested tracking loop.
@@ -144,13 +141,9 @@ pub fn drag_value(scroller: &NSScroller) -> Option<f64> {
 }
 
 /// AppKit can turn a slot click into knob tracking after mouse-down.
-pub fn track_knob(scroller: &NSScroller) {
-    update_interaction(scroller, Interaction::track_knob);
-}
+pub fn track_knob(scroller: &NSScroller) { update_interaction(scroller, Interaction::track_knob); }
 
-pub fn cancel_tracking(scroller: &NSScroller) {
-    update_interaction(scroller, Interaction::cancel);
-}
+pub fn cancel_tracking(scroller: &NSScroller) { update_interaction(scroller, Interaction::cancel); }
 
 /// Returns whether an active tracking guard will detach the retired view later.
 pub fn retire_tracking(scroller: &NSScroller) -> bool {

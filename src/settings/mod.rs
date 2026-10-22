@@ -2,30 +2,39 @@ pub mod font;
 mod from_value;
 mod window_size;
 
-use anyhow::{Context, Result};
-use log::{trace, warn};
+use std::any::Any;
+use std::any::TypeId;
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::fmt::Debug;
+
+use anyhow::Context;
+use anyhow::Result;
+pub use from_value::ParseFromValue;
+use log::trace;
+use log::warn;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 use rmpv::Value;
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    convert::TryInto,
-    fmt::Debug,
-};
+pub use window_size::DEFAULT_GRID_SIZE;
+pub use window_size::MIN_GRID_SIZE;
+pub use window_size::PersistentWindowSettings;
+pub use window_size::clamped_grid_size;
+pub use window_size::load_last_window_settings;
+pub use window_size::neovide_std_datapath;
+pub use window_size::save_window_size;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{bridge::NeovimWriter, window::EventPayload, window::RouteId};
-pub use from_value::ParseFromValue;
-pub use window_size::{
-    DEFAULT_GRID_SIZE, MIN_GRID_SIZE, PersistentWindowSettings, clamped_grid_size,
-    load_last_window_settings, neovide_std_datapath, save_window_size,
-};
+use crate::bridge::NeovimWriter;
+use crate::window::EventPayload;
+use crate::window::RouteId;
 
 pub mod config;
-pub use config::{
-    AppHotReloadConfigs, Config, HotReloadConfigs, RendererHotReloadConfigs, WindowHotReloadConfigs,
-};
+pub use config::AppHotReloadConfigs;
+pub use config::Config;
+pub use config::HotReloadConfigs;
+pub use config::RendererHotReloadConfigs;
+pub use config::WindowHotReloadConfigs;
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
@@ -38,9 +47,7 @@ pub struct FontConfigState {
 }
 
 impl FontConfigState {
-    pub fn new() -> Self {
-        Self { has_font: false }
-    }
+    pub fn new() -> Self { Self { has_font: false } }
 }
 
 // Function types to handle settings updates
@@ -220,9 +227,7 @@ impl Settings {
         let _ = event_loop_proxy.send_event(EventPayload::for_route(event.into(), route_id));
     }
 
-    pub fn register<T: SettingGroup>(&self) {
-        T::register(self);
-    }
+    pub fn register<T: SettingGroup>(&self) { T::register(self); }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -258,17 +263,16 @@ mod tests {
     }
 
     use async_trait::async_trait;
-    use nvim_rs::{Handler, Neovim};
+    use nvim_rs::Handler;
+    use nvim_rs::Neovim;
 
     use super::*;
-    use crate::{
-        bridge::{
-            OpenMode, create_tokio_nvim_command,
-            session::{NeovimInstance, NeovimSession},
-        },
-        cmd_line::CmdLineSettings,
-        error_handling::ResultPanicExplanation,
-    };
+    use crate::bridge::OpenMode;
+    use crate::bridge::create_tokio_nvim_command;
+    use crate::bridge::session::NeovimInstance;
+    use crate::bridge::session::NeovimSession;
+    use crate::cmd_line::CmdLineSettings;
+    use crate::error_handling::ResultPanicExplanation;
 
     #[derive(Clone)]
     pub struct NeovimHandler();
@@ -295,9 +299,7 @@ mod tests {
         fn noop_update(_settings: &Settings, _value: Value) -> SettingsChanged {
             SettingsChanged::Test(TestSettingsChanged::Foo("hello".to_string()))
         }
-        fn noop_read(_settings: &Settings) -> Option<Value> {
-            None
-        }
+        fn noop_read(_settings: &Settings) -> Option<Value> { None }
 
         settings.set_setting_handlers(location.clone(), noop_update, noop_read);
         let listeners = settings.updaters.read();

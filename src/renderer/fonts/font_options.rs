@@ -1,15 +1,21 @@
-use std::{collections::HashMap, fmt, iter, num::ParseFloatError, sync::Arc};
+use std::collections::HashMap;
+use std::fmt;
+use std::iter;
+use std::num::ParseFloatError;
+use std::sync::Arc;
 
 use itertools::Itertools;
 use log::warn;
 use rmpv::Value;
 use serde::Deserialize;
-use skia_safe::{
-    FontStyle,
-    font_style::{Slant, Weight, Width},
-};
+use skia_safe::FontStyle;
+use skia_safe::font_style::Slant;
+use skia_safe::font_style::Weight;
+use skia_safe::font_style::Width;
 
-use crate::{editor, error_msg, settings::ParseFromValue};
+use crate::editor;
+use crate::error_msg;
+use crate::settings::ParseFromValue;
 
 pub const DEFAULT_FONT_SIZE: f32 = 14.0;
 const FONT_OPTS_SEPARATOR: char = ':';
@@ -88,9 +94,7 @@ impl From<&editor::Style> for CoarseStyle {
 
 // essentially just a convenience impl
 impl From<&Arc<editor::Style>> for CoarseStyle {
-    fn from(fine_style: &Arc<editor::Style>) -> Self {
-        Self::from(&**fine_style)
-    }
+    fn from(fine_style: &Arc<editor::Style>) -> Self { Self::from(&**fine_style) }
 }
 
 #[derive(Clone, Debug)]
@@ -178,9 +182,7 @@ impl FontOptions {
         Ok(font_options)
     }
 
-    pub fn primary_font(&self) -> Option<FontDescription> {
-        self.normal.first().cloned()
-    }
+    pub fn primary_font(&self) -> Option<FontDescription> { self.normal.first().cloned() }
 
     pub fn font_list(&self, style: CoarseStyle) -> Vec<FontDescription> {
         if style == CoarseStyle::default() {
