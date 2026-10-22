@@ -16,7 +16,6 @@ use winit::event_loop::EventLoop;
 use winit::event_loop::EventLoopProxy;
 use winit::window::WindowId;
 
-use super::CmdLineSettings;
 use super::EventPayload;
 use super::EventTarget;
 use super::RouteId;
@@ -24,7 +23,6 @@ use super::WindowSettings;
 use super::WindowSize;
 use super::WinitWindowWrapper;
 use super::error_window;
-use super::save_window_size;
 #[cfg(target_os = "macos")]
 use crate::bridge::OpenArgs;
 #[cfg(target_os = "macos")]
@@ -33,6 +31,7 @@ use crate::bridge::send_or_queue_file_drop;
 use crate::bridge::set_active_route_handler;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardHandle;
+use crate::cmd_line::CmdLineSettings;
 use crate::profiling::tracy_plot;
 use crate::profiling::tracy_zone;
 use crate::renderer::DrawCommand;
@@ -41,6 +40,7 @@ use crate::settings::AppHotReloadConfigs;
 use crate::settings::HotReloadConfigs;
 use crate::settings::Settings;
 use crate::settings::font::FontSettings;
+use crate::settings::save_window_size;
 use crate::units::Grid;
 #[cfg(target_os = "macos")]
 use crate::utils::resolve_relative_path;
