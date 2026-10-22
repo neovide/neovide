@@ -89,10 +89,12 @@ use crate::window::create_window;
 use crate::window::determine_grid_size;
 use crate::window::determine_window_size;
 
-#[cfg_attr(target_os = "macos", path = "macos.rs")]
+#[cfg_attr(target_os = "macos", path = "macos/mod.rs")]
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
 mod platform;
+#[cfg(target_os = "macos")]
+pub(crate) use platform::MacosWindowFeature;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -167,7 +169,7 @@ pub struct RouteWindow {
     pub mouse_manager: Rc<RefCell<Box<MouseManager>>>,
     pub renderer: Rc<RefCell<Box<Renderer>>>,
     #[cfg(target_os = "macos")]
-    pub macos_feature: Option<Rc<RefCell<Box<crate::window::macos::MacosWindowFeature>>>>,
+    pub macos_feature: Option<Rc<RefCell<Box<MacosWindowFeature>>>>,
     pub title: String,
     #[cfg(target_os = "macos")]
     document: platform::DocumentState,
