@@ -10,7 +10,7 @@ use super::WindowSettingsChanged;
 use super::WinitWindowWrapper;
 pub(super) use crate::platform::windows::register_right_click;
 pub(super) use crate::platform::windows::unregister_right_click;
-use crate::window::settings::CornerPreference;
+use crate::window::settings::platform::CornerPreference;
 
 pub(super) fn set_initial_window_appearance(
     window: &Window,

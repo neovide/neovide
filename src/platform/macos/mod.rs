@@ -1,5 +1,4 @@
 mod scrollbar;
-pub mod settings;
 mod switcher;
 
 use std::cell::RefCell;

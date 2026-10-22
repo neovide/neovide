@@ -45,7 +45,7 @@ use crate::window::macos::native_tab_bar_enabled;
 use crate::window::macos::show_editor_switcher_panel;
 use crate::window::macos::tab_navigation::TabNavigationAction;
 use crate::window::macos::tab_navigation::TabNavigationHotkeys;
-use crate::window::settings;
+use crate::window::settings::platform::OptionAsMeta;
 
 pub(super) fn create_window_feature(
     window: &Rc<Window>,
@@ -465,16 +465,12 @@ impl WinitWindowWrapper {
         RouteLaunchConfig::from_cmdline(self.settings.get::<CmdLineSettings>())
     }
 
-    pub fn set_macos_option_as_meta(
-        &mut self,
-        window_id: WindowId,
-        option: settings::OptionAsMeta,
-    ) {
+    pub fn set_macos_option_as_meta(&mut self, window_id: WindowId, option: OptionAsMeta) {
         let winit_option = match option {
-            settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
-            settings::OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
-            settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
-            settings::OptionAsMeta::None => macos::OptionAsAlt::None,
+            OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
+            OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
+            OptionAsMeta::Both => macos::OptionAsAlt::Both,
+            OptionAsMeta::None => macos::OptionAsAlt::None,
         };
 
         let Some(route) = self.routes.get(&window_id) else {
