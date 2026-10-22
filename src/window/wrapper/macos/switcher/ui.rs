@@ -36,7 +36,6 @@ use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::ns_string;
 
-use super::super::load_neovide_icon;
 use super::EDITOR_SWITCHER_STATE;
 use super::EditorSwitcherState;
 use super::EditorSwitcherStateParts;
@@ -54,6 +53,7 @@ use super::layout::Results;
 use super::layout::Row;
 use super::layout::Search;
 use super::row::EditorSwitcherRow;
+use crate::platform::macos::load_neovide_icon;
 
 const SEARCH_PLACEHOLDER: &str = "Search...";
 const EMPTY_RESULTS_TEXT: &str = "No matching windows";
