@@ -7,14 +7,14 @@ use winit::platform::windows::WindowExtWindows;
 use winit::window::Window;
 use winit::window::WindowId;
 
-pub(super) use self::context_menu::register_right_click;
-pub(super) use self::context_menu::unregister_right_click;
+pub use self::context_menu::register_right_click;
+pub use self::context_menu::unregister_right_click;
 use super::ShortcutHandling;
 use super::WindowSettingsChanged;
 use super::WinitWindowWrapper;
 use crate::window::settings::platform::CornerPreference;
 
-pub(super) fn set_initial_window_appearance(
+pub fn set_initial_window_appearance(
     window: &Window,
     corner_preference: CornerPreference,
     title_background_color: &str,
@@ -24,13 +24,13 @@ pub(super) fn set_initial_window_appearance(
     set_title_colors(window, title_background_color, title_text_color);
 }
 
-pub(super) fn set_window_backdrop(window: &Window, blurred: bool) {
+pub fn set_window_backdrop(window: &Window, blurred: bool) {
     if blurred {
         window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
     }
 }
 
-pub(super) fn set_title_colors(window: &Window, background: &str, text: &str) {
+pub fn set_title_colors(window: &Window, background: &str, text: &str) {
     if let Some(color) = WinitWindowWrapper::parse_winit_color(background) {
         window.set_title_background_color(Some(color));
     }
@@ -73,7 +73,7 @@ impl WinitWindowWrapper {
         ShortcutHandling::default()
     }
 
-    pub(super) fn set_corner_preference(&self, window_id: WindowId, option: CornerPreference) {
+    fn set_corner_preference(&self, window_id: WindowId, option: CornerPreference) {
         let Some(route) = self.routes.get(&window_id) else {
             return;
         };
@@ -82,7 +82,7 @@ impl WinitWindowWrapper {
         skia_renderer.window().set_corner_preference(option.into());
     }
 
-    pub(super) fn parse_winit_color(color: &str) -> Option<Color> {
+    fn parse_winit_color(color: &str) -> Option<Color> {
         match csscolorparser::parse(color) {
             Ok(color) => {
                 let color = color.to_rgba8();
@@ -92,7 +92,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub(super) fn handle_title_background_color(&self, window_id: WindowId, color: &str) {
+    fn handle_title_background_color(&self, window_id: WindowId, color: &str) {
         let Some(route) = self.routes.get(&window_id) else {
             return;
         };
@@ -102,7 +102,7 @@ impl WinitWindowWrapper {
         skia_renderer.window().set_title_background_color(winit_color);
     }
 
-    pub(super) fn handle_title_text_color(&self, window_id: WindowId, color: &str) {
+    fn handle_title_text_color(&self, window_id: WindowId, color: &str) {
         let Some(route) = self.routes.get(&window_id) else {
             return;
         };
