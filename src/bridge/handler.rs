@@ -29,7 +29,7 @@ use crate::bridge::events::parse_redraw_event;
 use crate::bridge::parse_progress_bar_event;
 use crate::bridge::send_ui;
 use crate::clipboard::ClipboardHandle;
-use crate::error_handling::ResultPanicExplanation;
+use crate::errors::ResultPanicExplanation;
 use crate::running_tracker::RunningTracker;
 use crate::settings::FontConfigState;
 use crate::settings::Settings;

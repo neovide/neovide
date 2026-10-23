@@ -272,7 +272,7 @@ mod tests {
     use crate::bridge::session::NeovimInstance;
     use crate::bridge::session::NeovimSession;
     use crate::cmd_line::CmdLineSettings;
-    use crate::error_handling::ResultPanicExplanation;
+    use crate::errors::ResultPanicExplanation;
 
     #[derive(Clone)]
     pub struct NeovimHandler();

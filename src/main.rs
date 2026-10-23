@@ -20,7 +20,7 @@ mod clipboard;
 mod cmd_line;
 mod dimensions;
 mod editor;
-mod error_handling;
+mod errors;
 mod frame;
 #[cfg(target_os = "macos")]
 mod ipc;
@@ -50,7 +50,7 @@ use anyhow::Result;
 use backtrace::Backtrace;
 pub use channel_utils::*;
 use cmd_line::CmdLineSettings;
-use error_handling::handle_startup_errors;
+use errors::handle_startup_errors;
 #[cfg(not(test))]
 use flexi_logger::Cleanup;
 #[cfg(not(test))]
@@ -80,8 +80,8 @@ use window::determine_window_size;
 use winit::error::EventLoopError;
 use winit::event_loop::EventLoopProxy;
 
-use crate::error_handling::StartupErrorOutput;
-use crate::error_handling::report_startup_error;
+use crate::errors::StartupErrorOutput;
+use crate::errors::report_startup_error;
 #[cfg(target_os = "macos")]
 use crate::frame::Frame;
 use crate::settings::Config;
