@@ -50,7 +50,7 @@ macro_rules! error_msg {
     ($($arg:tt)+) => {
         let msg = format!($($arg)+);
         log::error!("{}", msg);
-        $crate::error_handling::show_nvim_error(&msg);
+        $crate::errors::show_nvim_error(&msg);
     }
 }
 
