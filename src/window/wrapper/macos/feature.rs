@@ -1,5 +1,5 @@
 #[path = "scrollbar/mod.rs"]
-pub(super) mod scrollbar;
+pub mod scrollbar;
 
 use std::cell::RefCell;
 use std::path::Path;
@@ -60,6 +60,7 @@ use crate::window::ForceClickKind;
 use crate::window::WindowSettings;
 use crate::window::WindowSettingsChanged;
 use crate::window::application::platform::ensure_app_initialized;
+use crate::window::macos::appkit::activate_app_and_focus_window;
 use crate::window::macos::appkit::get_ns_window;
 use crate::window::macos::native_tabs::ENABLE_NATIVE_TAB_BAR;
 use crate::window::macos::native_tabs::SHOW_NATIVE_TAB_BAR;
@@ -307,7 +308,7 @@ impl MacosWindowFeature {
         Self::apply_tab_bar_preference(ns_window);
     }
 
-    pub(crate) fn apply_tab_bar_preference(ns_window: &NSWindow) {
+    fn apply_tab_bar_preference(ns_window: &NSWindow) {
         if let Some(tab_group) = ns_window.tabGroup() {
             // keep first window clean even when native tabs are enabled.
             // once multiple tabs are present, we can show the bar again.
@@ -318,30 +319,7 @@ impl MacosWindowFeature {
         }
     }
 
-    fn activate_app_and_focus_window(window: &NSWindow) {
-        let mtm = MainThreadMarker::new().expect("Window activation must be on the main thread.");
-        let app = NSApplication::sharedApplication(mtm);
-        #[allow(deprecated)]
-        app.activateIgnoringOtherApps(true);
-        window.makeKeyAndOrderFront(None);
-    }
-
-    pub fn activate_and_focus(&self) { Self::activate_app_and_focus_window(&self.ns_window); }
-
-    fn focus_target_window(app: &NSApplication) -> Option<Retained<NSWindow>> {
-        app.mainWindow().or_else(|| app.keyWindow()).or_else(|| app.windows().firstObject())
-    }
-
-    pub fn activate_and_focus_existing_window() -> bool {
-        let Some(mtm) = MainThreadMarker::new() else {
-            return false;
-        };
-
-        let app = NSApplication::sharedApplication(mtm);
-        Self::focus_target_window(&app)
-            .map(|window| Self::activate_app_and_focus_window(&window))
-            .is_some()
-    }
+    pub fn activate_and_focus(&self) { activate_app_and_focus_window(&self.ns_window); }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
     fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {

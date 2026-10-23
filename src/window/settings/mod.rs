@@ -5,7 +5,7 @@ use crate::error_msg;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
-pub(super) mod platform;
+pub mod platform;
 
 use crate::settings::*;
 

@@ -1,4 +1,4 @@
-mod feature;
+pub mod feature;
 mod switcher;
 mod tab_navigation;
 
@@ -15,7 +15,7 @@ use winit::platform::macos::WindowExtMacOS;
 use winit::window::Window;
 use winit::window::WindowId;
 
-pub(crate) use self::feature::MacosWindowFeature;
+use self::feature::MacosWindowFeature;
 use self::feature::TouchpadStage;
 use self::feature::scrollbar::ScrollbarLayoutInput;
 use self::switcher::EditorSwitcherRow;
@@ -49,7 +49,7 @@ use crate::window::application::platform::hide_application;
 use crate::window::macos::native_tabs::native_tab_bar_enabled;
 use crate::window::settings::platform::OptionAsMeta;
 
-pub(super) fn create_window_feature(
+pub fn create_window_feature(
     window: &Rc<Window>,
     settings: Arc<Settings>,
     neovim_handler: NeovimHandler,
@@ -64,15 +64,15 @@ pub(super) fn create_window_feature(
     feature
 }
 
-pub(super) struct WindowNavigationState {
-    pub(super) window_mru: VecDeque<WindowId>,
-    pub(super) focus_return_target: Option<WindowId>,
+pub struct WindowNavigationState {
+    pub window_mru: VecDeque<WindowId>,
+    pub focus_return_target: Option<WindowId>,
     ignore_next_focus_gain: bool,
     tab_navigation_hotkeys: TabNavigationHotkeys,
 }
 
 impl WindowNavigationState {
-    pub(super) fn new(settings: &Settings) -> Self {
+    pub fn new(settings: &Settings) -> Self {
         Self {
             window_mru: VecDeque::new(),
             focus_return_target: None,
@@ -83,7 +83,7 @@ impl WindowNavigationState {
 }
 
 impl WinitWindowWrapper {
-    pub(super) fn handle_platform_window_settings_changed(
+    pub fn handle_platform_window_settings_changed(
         &mut self,
         window_ids: &[WindowId],
         changed_setting: WindowSettingsChanged,
@@ -126,7 +126,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub(super) fn handle_touchpad_pressure_command(
+    pub fn handle_touchpad_pressure_command(
         &mut self,
         window_id: WindowId,
         col: i64,
@@ -160,7 +160,7 @@ impl WinitWindowWrapper {
         );
     }
 
-    pub(super) fn handle_highlight_matching_pair_command(
+    pub fn handle_highlight_matching_pair_command(
         &self,
         window_id: WindowId,
         grid: u64,
@@ -191,7 +191,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub(super) fn handle_platform_shortcuts(
+    pub fn handle_platform_shortcuts(
         &mut self,
         window_id: WindowId,
         event: &WindowEvent,
@@ -234,7 +234,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub(super) fn record_window_usage(&mut self, window_id: WindowId) {
+    pub fn record_window_usage(&mut self, window_id: WindowId) {
         self.window_navigation.window_mru.retain(|id| *id != window_id);
         self.window_navigation.window_mru.push_front(window_id);
     }
@@ -243,7 +243,7 @@ impl WinitWindowWrapper {
         self.window_navigation.window_mru.retain(|id| self.routes.contains_key(id));
     }
 
-    pub(super) fn handle_focus_gain_for_shortcuts(&mut self, window_id: WindowId) {
+    pub fn handle_focus_gain_for_shortcuts(&mut self, window_id: WindowId) {
         if self.window_navigation.ignore_next_focus_gain {
             self.window_navigation.ignore_next_focus_gain = false;
         } else {
@@ -393,15 +393,15 @@ impl WinitWindowWrapper {
 }
 
 #[derive(Default)]
-pub(super) struct RouteLaunchConfig {
+pub struct RouteLaunchConfig {
     neovim_bin: Option<String>,
     neovim_args: Option<Vec<String>>,
 }
 
 #[derive(Default)]
-pub(super) struct DocumentState {
-    pub(super) path: String,
-    pub(super) modified: bool,
+pub struct DocumentState {
+    pub path: String,
+    pub modified: bool,
 }
 
 impl RouteLaunchConfig {
@@ -418,7 +418,7 @@ impl RouteLaunchConfig {
 }
 
 impl RouteWindow {
-    pub(super) fn handle_touchpad_pressure(&self, stage: i64) {
+    pub fn handle_touchpad_pressure(&self, stage: i64) {
         if let Some(feature) = &self.macos_feature {
             match TouchpadStage::from_stage(stage) {
                 TouchpadStage::Soft | TouchpadStage::Click => {
@@ -429,16 +429,13 @@ impl RouteWindow {
         }
     }
 
-    pub(super) fn with_macos_feature<R>(
-        &self,
-        read: impl FnOnce(&MacosWindowFeature) -> R,
-    ) -> Option<R> {
+    pub fn with_macos_feature<R>(&self, read: impl FnOnce(&MacosWindowFeature) -> R) -> Option<R> {
         let feature = self.macos_feature.as_ref()?;
 
         Some(read(feature.borrow().as_ref()))
     }
 
-    pub(super) fn with_macos_feature_mut<R>(
+    pub fn with_macos_feature_mut<R>(
         &self,
         update: impl FnOnce(&mut MacosWindowFeature) -> R,
     ) -> Option<R> {
@@ -449,7 +446,7 @@ impl RouteWindow {
 }
 
 impl WinitWindowWrapper {
-    pub(super) fn route_launch_config_for_window_creation(
+    pub fn route_launch_config_for_window_creation(
         &self,
         args: Option<&OpenArgs>,
         creating_initial_window: bool,
@@ -502,7 +499,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub(super) fn apply_document_state(&self, window_id: WindowId) {
+    pub fn apply_document_state(&self, window_id: WindowId) {
         let Some(route) = self.routes.get(&window_id) else {
             return;
         };
@@ -516,7 +513,7 @@ impl WinitWindowWrapper {
             .set_document_state(&route.window.document.path, route.window.document.modified);
     }
 
-    pub(super) fn sync_native_tabs_resize(&mut self, source_window_id: WindowId) {
+    pub fn sync_native_tabs_resize(&mut self, source_window_id: WindowId) {
         if !native_tab_bar_enabled() || !self.settings.get::<CmdLineSettings>().system_native_tabs {
             return;
         }
@@ -614,7 +611,7 @@ impl WinitWindowWrapper {
         true
     }
 
-    pub(super) fn fullscreen_for_new_window(
+    pub fn fullscreen_for_new_window(
         &self,
         creating_initial_window: bool,
         fullscreen: bool,
@@ -655,14 +652,14 @@ impl WinitWindowWrapper {
             && self.settings.get::<CmdLineSettings>().system_native_tabs
     }
 
-    pub(super) fn macos_feature_for_window(
+    pub fn macos_feature_for_window(
         &self,
         window_id: WindowId,
     ) -> Option<Rc<RefCell<Box<MacosWindowFeature>>>> {
         self.routes.get(&window_id).and_then(|route| route.window.macos_feature.as_ref().cloned())
     }
 
-    pub(super) fn update_scrollbar_layout_from_window(&self, window_id: WindowId) {
+    pub fn update_scrollbar_layout_from_window(&self, window_id: WindowId) {
         let Some(route) = self.routes.get(&window_id) else {
             return;
         };

@@ -93,8 +93,6 @@ use crate::window::determine_window_size;
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows/mod.rs")]
 mod platform;
-#[cfg(target_os = "macos")]
-pub(crate) use platform::MacosWindowFeature;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -157,7 +155,7 @@ enum GeometryTarget {
 }
 
 #[derive(Default)]
-struct ShortcutHandling {
+pub struct ShortcutHandling {
     overlay_consumed: bool,
     keyboard_consumed: bool,
 }
@@ -169,7 +167,7 @@ pub struct RouteWindow {
     pub mouse_manager: Rc<RefCell<Box<MouseManager>>>,
     pub renderer: Rc<RefCell<Box<Renderer>>>,
     #[cfg(target_os = "macos")]
-    pub macos_feature: Option<Rc<RefCell<Box<MacosWindowFeature>>>>,
+    pub macos_feature: Option<Rc<RefCell<Box<platform::feature::MacosWindowFeature>>>>,
     pub title: String,
     #[cfg(target_os = "macos")]
     document: platform::DocumentState,

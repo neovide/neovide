@@ -1,6 +1,6 @@
-mod delegate;
+pub mod delegate;
 mod hotkey;
-pub(crate) mod icon;
+pub mod icon;
 mod menu;
 mod open_files;
 
@@ -15,7 +15,6 @@ use objc2_foundation::MainThreadMarker;
 use winit::event_loop::EventLoopProxy;
 use winit::window::WindowId;
 
-pub(crate) use self::delegate::register_file_handler;
 use self::hotkey::GlobalHotkeys;
 use self::icon::load_neovide_icon;
 use self::menu::Menu;
@@ -31,23 +30,23 @@ thread_local! {
 
 static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<EventPayload>> = OnceLock::new();
 
-pub(super) struct State {
+pub struct State {
     global_hotkeys: Option<GlobalHotkeys>,
 }
 
 impl State {
-    pub(super) fn new(proxy: &EventLoopProxy<EventPayload>) -> Self {
+    pub fn new(proxy: &EventLoopProxy<EventPayload>) -> Self {
         store_event_loop_proxy(proxy.clone());
         Self { global_hotkeys: None }
     }
 
-    pub(super) fn resumed(&mut self, proxy: &EventLoopProxy<EventPayload>) {
+    pub fn resumed(&mut self, proxy: &EventLoopProxy<EventPayload>) {
         if self.global_hotkeys.is_none() {
             self.global_hotkeys = GlobalHotkeys::register(proxy.clone(), true);
         }
     }
 
-    pub(super) fn exiting(&mut self) { self.global_hotkeys.take(); }
+    pub fn exiting(&mut self) { self.global_hotkeys.take(); }
 }
 
 fn store_event_loop_proxy(proxy: EventLoopProxy<EventPayload>) {
