@@ -812,6 +812,24 @@ some cases the hack itself is buggy and prevents the cursor from moving to the c
 should. In that case you can try to disable it, especially if you are not using cursor animations
 and the flickering does not bother as much.
 
+#### System Scrollbar (macOS only)
+
+**Available on [nightly](https://github.com/neovide/neovide/releases/tag/nightly).**
+
+vimscript:
+
+```vim
+let g:neovide_system_scrollbar = v:true
+```
+
+lua:
+
+```lua
+vim.g.neovide_system_scrollbar = true
+```
+
+Requires multigrid, which is on by default and isn't available with `--no-multigrid` extension.
+
 #### Highlight Matching Pair (macOS only)
 
 VimScript:
