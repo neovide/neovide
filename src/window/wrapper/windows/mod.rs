@@ -40,7 +40,7 @@ pub(super) fn set_title_colors(window: &Window, background: &str, text: &str) {
 }
 
 impl WinitWindowWrapper {
-    pub(super) fn handle_platform_window_settings_changed(
+    pub fn handle_platform_window_settings_changed(
         &mut self,
         window_ids: &[WindowId],
         changed_setting: WindowSettingsChanged,
@@ -65,7 +65,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub(super) fn handle_platform_shortcuts(
+    pub fn handle_platform_shortcuts(
         &mut self,
         _window_id: WindowId,
         _event: &WindowEvent,

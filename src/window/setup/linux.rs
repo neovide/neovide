@@ -13,7 +13,7 @@ use winit::window::WindowAttributes;
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
 
-pub(super) fn create_window_attributes(
+pub fn create_window_attributes(
     event_loop: &ActiveEventLoop,
     window_attributes: WindowAttributes,
     cmd_line_settings: &CmdLineSettings,

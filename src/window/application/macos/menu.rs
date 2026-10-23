@@ -319,7 +319,7 @@ impl WindowMenuNotificationHandler {
     }
 }
 #[derive(Debug)]
-pub(super) struct Menu {
+pub struct Menu {
     quit_handler: Retained<QuitHandler>,
     help_menu_handler: Retained<HelpMenuHandler>,
     new_window_handler: Retained<NewWindowHandler>,
@@ -329,7 +329,7 @@ pub(super) struct Menu {
 }
 
 impl Menu {
-    pub(super) fn new(mtm: MainThreadMarker, settings: &Settings) -> Self {
+    pub fn new(mtm: MainThreadMarker, settings: &Settings) -> Self {
         let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
             help_menu_handler: HelpMenuHandler::new(mtm),

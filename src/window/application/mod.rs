@@ -39,7 +39,7 @@ use crate::window::UserEvent;
 #[cfg_attr(target_os = "macos", path = "macos/mod.rs")]
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
-pub(super) mod platform;
+pub mod platform;
 
 #[derive(Clone, Copy)]
 enum FocusedState {

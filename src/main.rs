@@ -108,7 +108,7 @@ fn main() -> ExitCode {
 
     #[cfg(target_os = "windows")]
     {
-        window::configure_process_dpi();
+        window::platform::configure_process_dpi();
     }
 
     // This variable is set by the AppImage runtime and causes problems for child processes

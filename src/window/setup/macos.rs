@@ -12,13 +12,13 @@ use crate::frame::Frame;
 use crate::renderer::WindowConfig;
 use crate::window::application::platform;
 
-pub(super) fn configure_event_loop(builder: &mut EventLoopBuilder<EventPayload>) {
+pub fn configure_event_loop(builder: &mut EventLoopBuilder<EventPayload>) {
     builder.with_default_menu(false);
 }
 
-pub(super) fn register_file_handler() { platform::register_file_handler(); }
+pub fn register_file_handler() { platform::delegate::register_file_handler(); }
 
-pub(super) fn create_window_attributes(
+pub fn create_window_attributes(
     _event_loop: &ActiveEventLoop,
     window_attributes: WindowAttributes,
     cmd_line_settings: &CmdLineSettings,
@@ -48,7 +48,7 @@ pub(super) fn create_window_attributes(
     window_attributes.with_accepts_first_mouse(false)
 }
 
-pub(super) fn apply_previous_position(
+pub fn apply_previous_position(
     window_config: &WindowConfig,
     previous_position: Option<PhysicalPosition<i32>>,
 ) {

@@ -17,9 +17,9 @@ use objc2_foundation::ns_string;
 
 use super::request_new_window;
 use crate::bridge::send_or_queue_file_drop;
-use crate::window::MacosWindowFeature;
+use crate::window::macos::appkit::activate_and_focus_existing_window;
 
-pub(crate) fn register_file_handler() {
+pub fn register_file_handler() {
     fn dispatch_file_drops(filenames: &NSArray<NSString>) {
         for filename in filenames.iter() {
             send_or_queue_file_drop(filename.to_string(), None);
@@ -62,7 +62,7 @@ pub(crate) fn register_file_handler() {
         filenames: &NSArray<NSString>,
     ) {
         dispatch_file_drops(filenames);
-        MacosWindowFeature::activate_and_focus_existing_window();
+        activate_and_focus_existing_window();
     }
 
     let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");

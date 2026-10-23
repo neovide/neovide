@@ -30,10 +30,7 @@ use crate::utils::expand_tilde;
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
-mod platform;
-
-#[cfg(target_os = "windows")]
-pub(crate) use platform::configure_process_dpi;
+pub mod platform;
 
 static DEFAULT_ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 

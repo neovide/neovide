@@ -9,14 +9,14 @@ use winit::window::WindowAttributes;
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
 
-pub(crate) fn configure_process_dpi() {
+pub fn configure_process_dpi() {
     unsafe {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
             .expect("Failed to set DPI awareness!");
     }
 }
 
-pub(super) fn create_window_attributes(
+pub fn create_window_attributes(
     _event_loop: &ActiveEventLoop,
     window_attributes: WindowAttributes,
     cmd_line_settings: &CmdLineSettings,
