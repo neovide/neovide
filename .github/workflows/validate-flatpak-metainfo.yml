@@ -1,0 +1,23 @@
+name: Validate Flatpak Metainfo
+
+permissions:
+  checks: write
+  contents: read
+
+on:
+  push:
+    paths:
+      - "flatpak/dev.neovide.neovide.metainfo.xml"
+  pull_request:
+    paths:
+      - "flatpak/dev.neovide.neovide.metainfo.xml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container: ghcr.io/flathub/flatpak-builder-lint:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run flatpak-builder-lint
+        run: flatpak-builder-lint appstream flatpak/dev.neovide.neovide.metainfo.xml
