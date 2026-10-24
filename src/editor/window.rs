@@ -230,10 +230,14 @@ impl Window {
 
     pub fn position_tiled(&mut self, batcher: &mut DrawCommandBatcher, layout: TiledWindowLayout) {
         self.set_tiled_layout(layout);
+        // The grid's contents and size are owned by grid_resize. Neovim can emit win_pos with a
+        // window size that the grid has not been reallocated to yet, e.g. a temporary `:split`
+        // followed by a UI flush from `:write` and then `:close`. Resizing to that size would drop
+        // rows that Neovim considers drawn and will not resend.
         self.position(
             batcher,
             None,
-            (layout.rect.size().width, layout.rect.size().height),
+            (self.get_width(), self.get_height()),
             (layout.rect.min.x as f64, layout.rect.min.y as f64),
         );
 
@@ -726,6 +730,26 @@ mod tests {
         assert_eq!(fragment.words.len(), 1);
 
         assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn win_pos_with_stale_size_keeps_grid_rows() {
+        let mut window = make_window([[("a", None)], [("b", None)], [("c", None)], [("d", None)]]);
+        let mut batcher = DrawCommandBatcher::new();
+        let layout = |row, height| TiledWindowLayout {
+            window: 1000,
+            rect: GridRect::from_origin_and_size((0, row).into(), (1, height).into()),
+        };
+
+        // Temporary split: win_pos reports half the height, without a grid_resize.
+        window.position_tiled(&mut batcher, layout(2, 2));
+        assert_eq!(window.get_grid_position(), (0.0, 2.0));
+        // The split is closed again before Neovim redraws the window.
+        window.position_tiled(&mut batcher, layout(0, 4));
+
+        assert_eq!(window.get_height(), 4);
+        let rows: Vec<_> = (0..4).map(|row| window.row_cells(row).unwrap().concat()).collect();
+        assert_eq!(rows, ["a", "b", "c", "d"]);
     }
 
     #[test]
