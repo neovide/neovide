@@ -191,6 +191,12 @@ pub enum RedrawEvent {
     Restart {
         details: RestartDetails,
     },
+    /// The `connect` event sent by neovim to the current UI. It carries only
+    /// the destination. The handler forwards it to the window wrapper, which
+    /// waits for an exit report from this session before switching.
+    Connect {
+        address: String,
+    },
     ModeInfoSet {
         cursor_modes: Vec<CursorMode>,
     },
@@ -577,6 +583,14 @@ fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
 
 fn parse_restart(arguments: Vec<Value>) -> Result<RedrawEvent> {
     RestartDetails::from_values(arguments).map(|details| RedrawEvent::Restart { details })
+}
+
+fn parse_connect(arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let address = arguments
+        .into_iter()
+        .next()
+        .ok_or_else(|| ParseError::Format("connect event missing address".to_owned()))?;
+    Ok(RedrawEvent::Connect { address: parse_string(address)? })
 }
 
 fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
@@ -1103,6 +1117,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
         let possible_parsed_event = match event_name.as_str() {
             "set_title" => Some(parse_set_title(event_parameters)),
             "restart" => Some(parse_restart(event_parameters)),
+            "connect" => Some(parse_connect(event_parameters)),
             "set_icon" => None, // Ignore set icon for now
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)),
             "option_set" => Some(parse_option_set(event_parameters)),
@@ -1204,6 +1219,21 @@ mod tests {
     use super::MessageKind;
     use super::RedrawEvent;
     use super::parse_msg_show;
+    use super::parse_redraw_event;
+
+    #[test]
+    fn connect_ui_event_carries_destination_address() {
+        let event = Value::Array(vec![
+            Value::from("connect"),
+            Value::Array(vec![Value::from("/tmp/other-nvim.sock")]),
+        ]);
+
+        let parsed = parse_redraw_event(event).unwrap();
+        assert!(matches!(
+            parsed.as_slice(),
+            [RedrawEvent::Connect { address }] if address == "/tmp/other-nvim.sock"
+        ));
+    }
 
     #[test]
     fn message_kind_marks_error_variants() {

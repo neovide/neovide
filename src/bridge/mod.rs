@@ -1,11 +1,17 @@
+//! Starts neovim sessions and connects them to window routes. The window
+//! wrapper asks `NeovimRuntime` to launch or replace a session, while
+//! `NeovimHandler` turns RPC notifications into editor and window events.
+//! A replacement reuses the handler for the route after the old session
+//! reports exit.
+
 mod api_info;
 mod clipboard;
 mod command;
 mod events;
 mod handler;
-mod restart;
 pub mod session;
 mod setup;
+mod transition;
 mod ui_commands;
 
 use std::io::Error;
@@ -36,7 +42,6 @@ use nvim_rs::Value;
 use nvim_rs::call_args;
 use nvim_rs::error::CallError;
 use nvim_rs::rpc::model::IntoVal;
-pub use restart::RestartDetails;
 use rmpv::Utf8String;
 use session::NeovimInstance;
 use session::NeovimSession;
@@ -47,6 +52,9 @@ use tokio::runtime::Builder;
 use tokio::runtime::Runtime;
 use tokio::select;
 use tokio::time::timeout;
+pub use transition::RestartDetails;
+pub use transition::SessionTransition;
+pub use transition::TransitionFailure;
 pub use ui_commands::ParallelCommand;
 pub use ui_commands::SerialCommand;
 pub use ui_commands::get_active_handler;
@@ -103,27 +111,55 @@ async fn nvim_exec_output(
         .to_string())
 }
 
+/// Tokio runtime for neovim RPC loops and sessions for each route. The window
+/// wrapper owns this runtime. Each launch or transition starts `run`, which
+/// reports the session exit by `RouteId` to the window event loop.
 pub struct NeovimRuntime {
     pub runtime: Option<Runtime>,
     clipboard: ClipboardHandle,
     background_preference: Arc<Mutex<String>>,
 }
 
+/// Choose the source of the next neovim session for a route. `Startup` uses
+/// `--server` when it is set. A transition uses the address sent by neovim
+/// and can restore restart channel properties. `FreshEmbedded` starts a new
+/// process even when `--server` is set, so a failed connect can keep the route
+/// usable after the previous server stops.
+#[derive(Clone, Copy)]
+pub enum SessionTarget<'a> {
+    Startup,
+    Transition(&'a SessionTransition),
+    FreshEmbedded,
+}
+
 async fn neovim_instance(
     settings: &Settings,
-    restart: Option<&RestartDetails>,
+    target: SessionTarget<'_>,
     cwd: Option<&Path>,
     mode: OpenMode,
 ) -> Result<NeovimInstance> {
-    if let Some(info) = restart {
-        return Ok(NeovimInstance::Server { address: info.listen_addr.clone() });
-    }
+    let address = match target {
+        SessionTarget::Startup => settings.get::<CmdLineSettings>().server,
+        SessionTarget::Transition(transition) => Some(transition.address().to_owned()),
+        SessionTarget::FreshEmbedded => None,
+    };
 
-    if let Some(address) = settings.get::<CmdLineSettings>().server {
+    if let Some(address) = address {
         return Ok(NeovimInstance::Server { address });
     }
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
+    #[cfg(target_os = "windows")]
+    if !cmdline_settings.wsl {
+        // A Windows embedded stdio channel can close before its UI receives
+        // the connect event. Native children use a named pipe for UI RPC.
+        // The child keeps stdin open so ordinary :connect can leave it running.
+        let address = format!(r"\\.\pipe\neovide.{}.{}", std::process::id(), rand::random::<u64>());
+        let command =
+            command::create_listening_nvim_command(&cmdline_settings, &address, cwd, mode);
+        return Ok(NeovimInstance::SpawnedServer { command, address });
+    }
+
     Ok(NeovimInstance::Embedded(command::create_tokio_nvim_command(
         &cmdline_settings,
         true,
@@ -160,6 +196,18 @@ pub async fn show_error_message(
     Ok(())
 }
 
+/// Show one highlighted error line in a recovered session. Unlike the
+/// multiline error helper, this does not add a trailing newline.
+pub async fn show_error_status(
+    nvim: &Neovim<NeovimWriter>,
+    message: &str,
+) -> Result<(), Box<CallError>> {
+    let content = vec![Value::Array(vec![Value::from(message), Value::from("ErrorMsg")])];
+    let options: Vec<(Value, Value)> = nvim_dict! {};
+    nvim.call("nvim_echo", call_args![content, true, options]).await??;
+    Ok(())
+}
+
 pub async fn show_startup_message(
     nvim: &Neovim<NeovimWriter>,
     message: &StartupMessage,
@@ -187,22 +235,43 @@ async fn create_neovim_session(
     grid_size: Option<GridSize<u32>>,
     settings: Arc<Settings>,
     background: &str,
-    restart_details: Option<&RestartDetails>,
+    target: SessionTarget<'_>,
     cwd: Option<&Path>,
     mode: OpenMode,
 ) -> Result<NeovimSession> {
-    let neovim_instance = neovim_instance(settings.as_ref(), restart_details, cwd, mode).await?;
+    let neovim_instance = neovim_instance(settings.as_ref(), target, cwd, mode).await?;
+    let explicit_server_address = match &neovim_instance {
+        NeovimInstance::Server { address } => Some(address.clone()),
+        NeovimInstance::Embedded(_) => None,
+        #[cfg(target_os = "windows")]
+        NeovimInstance::SpawnedServer { .. } => None,
+    };
+    let is_wsl = settings.get::<CmdLineSettings>().wsl;
+    // `:connect` can change the transport without changing startup settings.
+    // Setup uses the transport selected for this session.
+    let remote = matches!(neovim_instance, NeovimInstance::Server { .. }) || is_wsl;
+    let channel_config = match target {
+        SessionTarget::Transition(transition) => transition.channel_config(),
+        SessionTarget::Startup | SessionTarget::FreshEmbedded => None,
+    };
+
     #[allow(unused_mut)]
-    let mut session = NeovimSession::new(
-        neovim_instance,
-        handler.clone(),
-        restart_details.and_then(|details| details.channel_config.as_deref()),
-    )
-    .await
-    .context("Could not establish Neovim session")?;
+    let mut session = NeovimSession::new(neovim_instance, handler.clone(), channel_config)
+        .await
+        .context("Could not establish Neovim session")?;
 
     let api_information = get_api_information(&session.neovim).await?;
     info!("Neovide registered to nvim with channel id {}", api_information.channel);
+
+    let server_address = match explicit_server_address {
+        Some(address) => Some(address),
+        None if is_wsl => None,
+        None => session.neovim.get_vvar("servername").await.ok().and_then(|value| {
+            value.as_str().filter(|address| !address.is_empty()).map(str::to_owned)
+        }),
+    };
+
+    handler.update_server_address(server_address);
 
     let (major, minor, patch) = NEOVIM_REQUIRED_VERSION;
     if !api_information.version.has_version(major, minor, patch, Some(0)) {
@@ -214,7 +283,6 @@ async fn create_neovim_session(
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
 
-    let remote = cmdline_settings.wsl || cmdline_settings.server.is_some();
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
     setup_neovide_specific_state(&session.neovim, remote, &api_information, &settings).await?;
@@ -258,10 +326,12 @@ async fn create_neovim_session(
         // lost behind a hit-enter prompt. After the first rendered batch, we restore nvim's
         // message/cmdline screen space and replay the captured messages.
         // See https://github.com/neovide/neovide/issues/3499
-        options.set_messages_externa(true);
+        options.set_messages_external(true);
     }
+
     #[cfg(target_os = "macos")]
     options.set_hlstate_external(true);
+
     // We can close the handle here, as Neovim already owns it
     #[cfg(not(target_os = "windows"))]
     if let Some(fd) = session.stdin_fd.take() {
@@ -281,40 +351,28 @@ async fn create_neovim_session(
         .context("Could not attach ui to neovim process")?;
 
     #[cfg(target_os = "macos")]
-    ui_commands::mark_file_drop_handler_ready(&handler);
+    ui_commands::mark_file_drop_handler_ready();
 
     info!("Neovim process attached");
 
     Ok(session)
 }
 
+/// Report a route exit when its RPC loop ends or its embedded child exits. A
+/// server connection has no child to watch. If RPC ends first, as with an
+/// ordinary `:connect`, dropping the join handle for the supervisor leaves its
+/// task waiting for the old child while the runtime lives. If the child exits
+/// first, allow RPC IO 500 ms to finish before reporting exit even if that
+/// stream remains open.
 async fn run(route_id: RouteId, session: NeovimSession, proxy: EventLoopProxy<EventPayload>) {
     let mut session = session;
 
-    // On Windows, neovim_process is std::process::Child rather than tokio::process::Child,
-    // because tokio's build_child() is skipped to use NamedPipeServer instead.
-    // Need to wrap the std Child's blocking wait() for use with tokio select
-    #[cfg(target_os = "windows")]
-    let future = session
-        .neovim_process
-        .take()
-        .map(|mut child| tokio::task::spawn_blocking(move || child.wait()));
-
-    #[cfg(not(target_os = "windows"))]
-    let future = session.neovim_process.take().map(|mut child| async move { child.wait().await });
-
-    if let Some(future) = future {
-        // We primarily wait for the stdio to finish, but due to bugs,
-        // for example, this one in in Neovim 0.9.5
-        // https://github.com/neovim/neovim/issues/26743
-        // it does not always finish.
-        // So wait for some additional time, both to make the bug obvious and to prevent incomplete
-        // data.
+    if let Some(mut process_task) = session.supervise_process() {
+        // An exited child can leave RPC IO pending (for example,
+        // https://github.com/neovim/neovim/issues/26743).
         select! {
             _ = &mut session.io_handle => {}
-            _ = future => {
-                // Wait a little bit more if we detect that Neovim exits before the stream, to
-                // allow us to finish reading from it.
+            _ = &mut process_task => {
                 log::info!("The Neovim process quit before the IO stream, waiting for a half second");
                 if timeout(Duration::from_millis(500), &mut session.io_handle)
                         .await
@@ -327,11 +385,6 @@ async fn run(route_id: RouteId, session: NeovimSession, proxy: EventLoopProxy<Ev
     } else {
         session.io_handle.await.ok();
     }
-
-    // Try to ensure that the stderr output has finished
-    if let Some(stderr_task) = &mut session.stderr_task {
-        timeout(Duration::from_millis(500), stderr_task).await.ok();
-    };
 
     proxy.send_event(EventPayload::for_route(UserEvent::NeovimExited, route_id)).ok();
 }
@@ -434,7 +487,7 @@ impl NeovimRuntime {
             grid_size,
             settings,
             &initial_background,
-            None,
+            SessionTarget::Startup,
             cwd,
             mode,
         )) {
@@ -460,15 +513,22 @@ impl NeovimRuntime {
 
     pub fn shutdown(mut self, timeout: Duration) { self.shutdown_timeout(timeout); }
 
+    /// Attach a replacement session to an existing route handler. The window
+    /// wrapper calls this after the old session reports exit. A transition
+    /// uses the address sent by Neovim. `FreshEmbedded` starts a new process
+    /// when no server connection remains usable. Only restart restores channel
+    /// properties before `nvim_ui_attach`. The route keeps its editor thread.
+    /// Connection and setup errors return to the wrapper for route cleanup
+    /// and presentation by the application.
     #[allow(clippy::too_many_arguments)]
-    pub fn restart(
+    pub fn replace_session(
         &mut self,
         route_id: RouteId,
         event_loop_proxy: EventLoopProxy<EventPayload>,
         handler: NeovimHandler,
         grid_size: GridSize<u32>,
         settings: Arc<Settings>,
-        restart_details: RestartDetails,
+        target: SessionTarget<'_>,
         cwd: Option<&Path>,
     ) -> Result<()> {
         let background = self.current_background();
@@ -478,7 +538,7 @@ impl NeovimRuntime {
             Some(grid_size),
             settings,
             &background,
-            Some(&restart_details),
+            target,
             cwd,
             OpenMode::None,
         ))?;
@@ -525,5 +585,37 @@ impl Drop for NeovimRuntime {
         // for safety unexpected teardow paths. It's also not double down
         // since the application shutdown consumes the inner tokio runtime
         self.shutdown_timeout(Duration::from_millis(500));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SessionTarget;
+    use super::neovim_instance;
+    use crate::bridge::OpenMode;
+    use crate::bridge::session::NeovimInstance;
+    use crate::cmd_line::CmdLineSettings;
+    use crate::settings::Settings;
+
+    #[tokio::test]
+    async fn fresh_embedded_ignores_startup_server() {
+        let settings = Settings::new();
+        let mut cmdline = CmdLineSettings::default();
+        cmdline.server = Some("/tmp/old-server.sock".to_owned());
+        settings.set(&cmdline);
+
+        let startup =
+            neovim_instance(&settings, SessionTarget::Startup, None, OpenMode::None).await.unwrap();
+        assert!(matches!(startup, NeovimInstance::Server { .. }));
+
+        let fallback =
+            neovim_instance(&settings, SessionTarget::FreshEmbedded, None, OpenMode::None)
+                .await
+                .unwrap();
+
+        #[cfg(not(target_os = "windows"))]
+        assert!(matches!(fallback, NeovimInstance::Embedded(_)));
+        #[cfg(target_os = "windows")]
+        assert!(matches!(fallback, NeovimInstance::SpawnedServer { .. }));
     }
 }

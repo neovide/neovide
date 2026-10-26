@@ -47,7 +47,6 @@ members = ["neovide-derive"]
 [dependencies]
 anyhow = { version = "1.0.95", features = ["backtrace"] }
 approx = "0.5.1"
-async-trait = "0.1.83"
 backtrace = "0.3.74"
 clap = { version = "4.5.23", features = ["cargo", "color", "derive", "env"] }
 copypasta = "0.10.2"
@@ -239,3 +238,6 @@ incremental = true
 inherits = "release"
 debug = true
 strip = false
+
+[patch.crates-io]
+nvim-rs = { git = "https://github.com/neovide/nvim-rs", branch = "handle-rpc-eof" }

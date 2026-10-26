@@ -1,10 +1,14 @@
+//! Events exchanged between the bridge, editor, and winit application. A route
+//! target remains valid before window creation and across Neovim session
+//! switches. A window target identifies an existing winit window.
+
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use winit::event::DeviceId;
 use winit::window::Theme;
 
-use crate::bridge::RestartDetails;
+use crate::bridge::SessionTransition;
 use crate::renderer::DrawCommand;
 use crate::settings::HotReloadConfigs;
 use crate::settings::SettingsChanged;
@@ -122,7 +126,25 @@ pub enum UserEvent {
     NeovimLaunchError {
         message: String,
     },
-    NeovimRestart(RestartDetails),
+    /// A failed connect whose route has attached to the previous server again.
+    /// The application presents the failure while the editor window stays open.
+    NeovimTransitionRecovered {
+        message: String,
+    },
+    /// A switch announced on the old RPC channel, before that channel closes.
+    /// The window wrapper holds it for this route until `NeovimExited` and uses
+    /// `request_id` to reject a late abort report for an older restart.
+    NeovimTransition {
+        request_id: u64,
+        transition: SessionTransition,
+    },
+    /// The old server answered a restart probe with nil or empty
+    /// `v:exitreason`. Only a pending restart with this `request_id` is
+    /// canceled. An event arriving after the request was consumed has no
+    /// effect.
+    NeovimRestartAborted {
+        request_id: u64,
+    },
     ShowProgressBar {
         update: ProgressBarUpdate,
     },
@@ -143,7 +165,11 @@ pub enum EventTarget {
     All,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Identity of a route before window creation and across neovim session
+/// switches. `WinitWindowWrapper` allocates it independently of a `WindowId`.
+/// Registration, redraws, and exit events continue to use it if the route
+/// changes servers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RouteId(u64);
 
 impl RouteId {

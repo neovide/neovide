@@ -1,11 +1,17 @@
+//! Handles RPC requests and redraw notifications from one neovim route. The
+//! editor creates this handler once for the route. Session setup replaces its
+//! current RPC handle on each attachment. Redraw transitions go to the window
+//! event loop, while ordinary redraws go to the editor thread.
+
 use std::fmt;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
-use async_trait::async_trait;
 use log::trace;
 use log::warn;
 use nvim_rs::Handler;
@@ -23,6 +29,7 @@ use crate::bridge::GuiOption;
 use crate::bridge::NeovimWriter;
 use crate::bridge::ParallelCommand;
 use crate::bridge::RedrawEvent;
+use crate::bridge::SessionTransition;
 use crate::bridge::clipboard::get_clipboard_contents;
 use crate::bridge::clipboard::set_clipboard_contents;
 use crate::bridge::events::parse_redraw_event;
@@ -39,6 +46,11 @@ use crate::window::ForceClickKind;
 use crate::window::RouteId;
 use crate::window::UserEvent;
 use crate::window::WindowCommand;
+
+/// Recognize a cleared `v:exitreason` after a restart announcement. The lua
+/// probe returns nil when neovim clears the value after a failed quit. Treat
+/// an empty string as cleared too. A nonempty reason leaves the request pending.
+fn restart_was_aborted(value: &Value) -> bool { value.is_nil() || value.as_str() == Some("") }
 
 #[derive(Debug, PartialEq, Eq)]
 enum ClipboardRequestError {
@@ -96,13 +108,32 @@ fn handle_quit_request(
     }
 }
 
+/// Session data shared by every clone of the RPC handler for one route. `nvim`
+/// is empty before the first handle is installed. Session setup replaces it and
+/// updates the IME capability on later connections. Session exit does not clear
+/// it. A present handle identifies the last installed connection, not
+/// necessarily a live channel.
 #[derive(Default)]
 struct NeovimState {
     nvim: Option<Neovim<NeovimWriter>>,
+    /// The address recorded during setup of the last session. An explicit
+    /// server address is used as given. An embedded session queries
+    /// `v:servername`. An embedded WSL session or a missing answer leaves this
+    /// empty. Setup replaces the value on each new connection. It remains after
+    /// the old channel closes as a recovery hint for `:connect`, not a
+    /// reachability check.
+    server_address: Option<String>,
     can_support_ime_api: bool,
+    /// Captured before `nvim_ui_attach` when startup messages are externalized.
+    /// `flush_startup_messages` uses it to restore `cmdheight` after the first
+    /// rendered batch. Later session setup overwrites it when capture is
+    /// enabled.
     pre_attach_cmdheight: Option<Value>,
 }
 
+/// RPC handler shared by the editor thread, UI command tasks, and one route.
+/// `start_editor_handler` creates it once per route. Clones share the current
+/// neovim handle, which session setup replaces when that route reconnects.
 #[derive(Clone)]
 pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
@@ -156,6 +187,49 @@ impl NeovimHandler {
         let _ = self.proxy.lock().unwrap().send_event(payload);
     }
 
+    /// Give each request an ID so a late restart probe cannot cancel a newer
+    /// request on the same route.
+    fn send_transition(&self, transition: SessionTransition) -> u64 {
+        static NEXT_TRANSITION_ID: AtomicU64 = AtomicU64::new(1);
+        let request_id = NEXT_TRANSITION_ID.fetch_add(1, Ordering::Relaxed);
+        let payload = EventPayload::for_route(
+            UserEvent::NeovimTransition { request_id, transition },
+            self.route_id,
+        );
+        let _ = self.proxy.lock().unwrap().send_event(payload);
+        request_id
+    }
+
+    /// Look for evidence that an announced restart failed to quit the old
+    /// server. Neovim sends `restart` before trying to quit, then clears
+    /// `v:exitreason` if it stays alive. lua returns nil for the cleared value,
+    /// whereas `nvim_get_vvar` reports a missing key. The protocol has no abort
+    /// event, so a probe that cannot get a response leaves the request pending.
+    /// A rapid later disconnect can reach the exit handler before the abort is
+    /// observed.
+    fn watch_restart_abort(&self, nvim: Neovim<NeovimWriter>, request_id: u64) {
+        let proxy = self.proxy.clone();
+        let route_id = self.route_id;
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                match nvim.exec_lua("return vim.v.exitreason", vec![]).await {
+                    Ok(value) if restart_was_aborted(&value) => {
+                        let event = EventPayload::for_route(
+                            UserEvent::NeovimRestartAborted { request_id },
+                            route_id,
+                        );
+                        let _ = proxy.lock().unwrap().send_event(event);
+                        break;
+                    }
+                    Ok(_) => {}
+                    // No response means the abort was not confirmed.
+                    Err(_) => break,
+                }
+            }
+        });
+    }
+
     pub fn get_ui_command_channel(&self) -> (LoggingSender<UiCommand>, LoggingReceiver<UiCommand>) {
         (self.ui_command_sender.clone(), self.ui_command_receiver.clone())
     }
@@ -165,6 +239,16 @@ impl NeovimHandler {
             guard.nvim = Some(neovim);
             guard.can_support_ime_api = can_support_ime_api;
         }
+    }
+
+    pub fn update_server_address(&self, address: Option<String>) {
+        if let Ok(mut guard) = self.current_neovim.write() {
+            guard.server_address = address;
+        }
+    }
+
+    pub fn server_address(&self) -> Option<String> {
+        self.current_neovim.read().ok().and_then(|guard| guard.server_address.clone())
     }
 
     pub fn clone_current_neovim(&self) -> Option<Neovim<NeovimWriter>> {
@@ -196,7 +280,6 @@ impl NeovimHandler {
     }
 }
 
-#[async_trait]
 impl Handler for NeovimHandler {
     type Writer = NeovimWriter;
 
@@ -245,11 +328,14 @@ impl Handler for NeovimHandler {
 
                         match parsed_event {
                             RedrawEvent::Restart { details } => {
-                                let payload = EventPayload::for_route(
-                                    UserEvent::NeovimRestart(details),
-                                    self.route_id,
-                                );
-                                let _ = self.proxy.lock().unwrap().send_event(payload);
+                                let id = self.send_transition(SessionTransition::Restart(details));
+                                self.watch_restart_abort(neovim.clone(), id);
+                            }
+                            RedrawEvent::Connect { address } => {
+                                self.send_transition(SessionTransition::Connect {
+                                    address,
+                                    previous_address: self.server_address(),
+                                });
                             }
                             _ => {
                                 let _ = self.redraw_event_sender.send(parsed_event);
@@ -439,8 +525,11 @@ mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
 
+    use rmpv::Value;
+
     use super::ClipboardRequestError;
     use super::handle_clipboard_request;
+    use super::restart_was_aborted;
     use crate::clipboard::Clipboard;
     use crate::clipboard::ClipboardError;
     use crate::clipboard::ClipboardHandle;
@@ -452,6 +541,14 @@ mod tests {
             #[cfg(target_os = "linux")]
             ProviderState::unavailable_for_test(error),
         )))
+    }
+
+    #[test]
+    fn restart_probe_only_cancels_after_exitreason_clears() {
+        assert!(!restart_was_aborted(&Value::from("restart")));
+        assert!(!restart_was_aborted(&Value::from("restart!")));
+        assert!(restart_was_aborted(&Value::from("")));
+        assert!(restart_was_aborted(&Value::Nil));
     }
 
     #[test]
