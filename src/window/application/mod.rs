@@ -1,3 +1,7 @@
+//! Runs the winit event loop and presents failures for individual routes. The
+//! bridge sends session events by `RouteId`. The application gives them to
+//! `WinitWindowWrapper` and owns the error window shown if attachment fails.
+
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -21,6 +25,8 @@ use super::WindowSettings;
 use super::WindowSize;
 use super::WinitWindowWrapper;
 use super::error_window;
+use crate::bridge::SessionTransition;
+use crate::bridge::TransitionFailure;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardHandle;
 use crate::cmd_line::CmdLineSettings;
@@ -40,6 +46,26 @@ use crate::window::UserEvent;
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
 pub mod platform;
+
+/// Present an attachment failure after the old route has been removed. A
+/// previous address is a recovery hint only. The old server may have exited or
+/// stopped listening by the time the error window appears.
+fn transition_failure_message(failure: &TransitionFailure) -> String {
+    match &failure.transition {
+        SessionTransition::Restart(details) => {
+            format!("Failed to restart Neovim on {:?}: {:#}", details.listen_addr, failure.cause)
+        }
+        SessionTransition::Connect { address, previous_address } => {
+            let cause = &failure.cause;
+            let mut message = format!("Failed to connect to Neovim at {address:?}: {cause:#}");
+            if let Some(server) = previous_address {
+                message += &format!("\nPrevious server: {server:?} (if still running).");
+            }
+            message += "\nTo retry, start Neovide with --server and the desired address.";
+            message
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 enum FocusedState {
@@ -369,6 +395,26 @@ impl Application {
         }
     }
 
+    fn show_neovim_error(&mut self, event_loop: &ActiveEventLoop, message: String) {
+        let window_config = error_window::create_error_window(event_loop, &self.settings);
+        #[cfg(target_os = "windows")]
+        let error_window = window_config.window.clone();
+        let clipboard_handle = ClipboardHandle::new(self.clipboard.as_ref().unwrap());
+        let state = error_window::State::new(
+            &message,
+            window_config,
+            self.settings.clone(),
+            clipboard_handle,
+        );
+
+        self.error_windows.insert(state.window_id(), (state, message));
+        #[cfg(target_os = "windows")]
+        {
+            // Windows can leave the new error window behind the recovered editor.
+            error_window.focus_window();
+        }
+    }
+
     fn teardown(&mut self) {
         // Drop the clipboard while the event loop is still alive so Wayland handles are released
         // safely. see https://github.com/neovide/neovide/issues/3311
@@ -686,7 +732,12 @@ impl ApplicationHandler<EventPayload> for Application {
                 if remaining_before <= 1 && window_id.is_some() {
                     save_window_size(&self.window_wrapper, &self.settings);
                 }
-                self.window_wrapper.handle_neovim_exit_route(route_id, &self.proxy);
+                let failure = self.window_wrapper.handle_neovim_exit_route(route_id, &self.proxy);
+                if let Some(failure) = failure {
+                    let message = transition_failure_message(&failure);
+                    log::error!("{message}");
+                    self.show_neovim_error(event_loop, message);
+                }
                 if let Some(window_id) = window_id {
                     self.render_states.remove(&window_id);
                 }
@@ -785,25 +836,22 @@ impl ApplicationHandler<EventPayload> for Application {
                 self.window_wrapper.handle_mac_shortcut(command);
                 self.mark_should_render_all();
             }
-            UserEvent::NeovimLaunchError { message } => {
-                let window_config = error_window::create_error_window(event_loop, &self.settings);
-                let clipboard_handle = ClipboardHandle::new(self.clipboard.as_ref().unwrap());
-                let state = error_window::State::new(
-                    &message,
-                    window_config,
-                    self.settings.clone(),
-                    clipboard_handle,
-                );
-                let window_id = state.window_id();
-                self.error_windows.insert(window_id, (state, message));
+            UserEvent::NeovimLaunchError { message }
+            | UserEvent::NeovimTransitionRecovered { message } => {
+                self.show_neovim_error(event_loop, message);
             }
-            UserEvent::NeovimRestart(details) => {
+            UserEvent::NeovimTransition { request_id, transition } => {
                 let route_id = self.route_id_for_target(target);
                 let Some(route_id) = route_id else {
-                    log::warn!("NeovimRestart event missing window/route target");
+                    log::warn!("NeovimTransition event missing window/route target");
                     return;
                 };
-                self.window_wrapper.queue_restart_route(route_id, details);
+                self.window_wrapper.queue_session_transition(route_id, request_id, transition);
+            }
+            UserEvent::NeovimRestartAborted { request_id } => {
+                if let Some(route_id) = self.route_id_for_target(target) {
+                    self.window_wrapper.cancel_aborted_restart(route_id, request_id);
+                }
             }
             payload => {
                 self.window_wrapper.handle_user_event(EventPayload { payload, target });
@@ -855,5 +903,29 @@ fn next_control_flow_for(deadline: Option<Instant>) -> ControlFlow {
     match deadline {
         Some(deadline) => ControlFlow::WaitUntil(deadline),
         None => ControlFlow::Wait,
+    }
+}
+
+#[cfg(test)]
+mod transition_tests {
+    use super::transition_failure_message;
+    use crate::bridge::SessionTransition;
+    use crate::bridge::TransitionFailure;
+
+    #[test]
+    fn failed_connect_shows_destination_cause_and_recovery_address() {
+        let failure = TransitionFailure {
+            transition: SessionTransition::Connect {
+                address: "/tmp/missing.sock".to_owned(),
+                previous_address: Some("/tmp/previous.sock".to_owned()),
+            },
+            cause: anyhow::anyhow!("connection refused"),
+        };
+
+        let message = transition_failure_message(&failure);
+        assert!(message.contains("/tmp/missing.sock"));
+        assert!(message.contains("connection refused"));
+        assert!(message.contains("/tmp/previous.sock"));
+        assert!(message.contains("--server"));
     }
 }

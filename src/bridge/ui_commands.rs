@@ -1,3 +1,8 @@
+//! Sends UI commands to the neovim connection belonging to each route. The
+//! command tasks persist across session switches. Session setup replaces the
+//! neovim handle they read when executing each command. A separate registry
+//! selects a route for callbacks that have no `RouteId`.
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -25,6 +30,7 @@ use super::Settings;
 use super::StartupMessage;
 use super::set_background_if_allowed;
 use super::show_error_message;
+use super::show_error_status;
 use super::show_startup_message;
 use crate::bridge::NeovimWriter;
 use crate::bridge::nvim_dict;
@@ -41,21 +47,58 @@ use crate::window::RouteId;
 // was last set through an API client, which is how ui_attach applies ext_messages.
 const SID_API_CLIENT: i64 = -9;
 
-/// Active handler pointer for places that do not carry a RouteId
-/// like global menu callbacks and a few legacy paths
-/// this can be None during startup or shutdown
-pub static HANDLER_REGISTRY: LazyLock<Mutex<Option<NeovimHandler>>> =
-    LazyLock::new(|| Mutex::new(None));
+/// Route handlers and the target for callers without a `RouteId`.
+/// `start_ui_command_handler` registers each route, including after a switch.
+/// Registration only selects a route when none is active. Window creation and
+/// focus select another route. Removing the active route selects the lowest
+/// surviving `RouteId`, or leaves `active_route` empty when the map is empty.
+/// Keeping the map and selection under one lock stops a background attach or
+/// close from redirecting global menu callbacks. The selection is a command
+/// target, not proof that its Neovim channel has finished attaching.
+struct HandlerRegistry<T> {
+    by_route: HashMap<RouteId, T>,
+    active_route: Option<RouteId>,
+}
 
-/// Route aware handler map keyed by RouteId
-/// this is the source of truth for the multi window routing.
-/// we keep HANDLER_REGISTRY in sync with this so older or route agnostic
-/// call sites can still send ui commands without carrying route context
-pub static ROUTE_HANDLER_REGISTRY: LazyLock<Mutex<HashMap<RouteId, NeovimHandler>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+impl<T> Default for HandlerRegistry<T> {
+    fn default() -> Self { Self { by_route: HashMap::new(), active_route: None } }
+}
 
-/// Startup buffer for macOS cold start. file drops that can arrive before any
-/// ready to replay them safely.
+impl<T> HandlerRegistry<T> {
+    fn register(&mut self, route_id: RouteId, handler: T) {
+        self.by_route.insert(route_id, handler);
+        if self.active_route.is_none() {
+            self.active_route = Some(route_id);
+        }
+    }
+
+    fn activate(&mut self, route_id: RouteId) {
+        if self.by_route.contains_key(&route_id) {
+            self.active_route = Some(route_id);
+        }
+    }
+
+    fn unregister(&mut self, route_id: RouteId) {
+        self.by_route.remove(&route_id);
+        if self.active_route == Some(route_id) {
+            self.active_route = self.by_route.keys().min().copied();
+        }
+    }
+
+    fn active(&self) -> Option<&T> {
+        self.active_route.and_then(|route_id| self.by_route.get(&route_id))
+    }
+}
+
+static HANDLER_REGISTRY: LazyLock<Mutex<HandlerRegistry<NeovimHandler>>> =
+    LazyLock::new(|| Mutex::new(HandlerRegistry::default()));
+
+/// A macOS file-open request held until dispatch is permitted. The tuple stores
+/// a path and an optional tab choice. `None` uses the current
+/// `CmdLineSettings::tabs` value when the command runs.
+/// `send_or_queue_file_drop` queues it until the first attach has completed and
+/// an active handler exists. The attach flag stays set after that, so it does
+/// not verify a later attach.
 #[cfg(target_os = "macos")]
 type PendingFileDrop = (String, Option<bool>);
 
@@ -63,13 +106,16 @@ type PendingFileDrop = (String, Option<bool>);
 static PENDING_FILE_DROPS: LazyLock<Mutex<Vec<PendingFileDrop>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
-/// macOS cold-start file opens must wait until the first embedded neovim has
-/// completed ui_attach, otherwise they can run before filetype/syntax
-/// autocommands exist.
+/// Whether any session has completed `nvim_ui_attach` in this process. A
+/// successful attach sets this flag and nothing resets it. It keeps cold
+/// startup file opens from running before the initial UI attach completes, but
+/// does not establish that the selected route has finished a later attach.
 #[cfg(target_os = "macos")]
 static FILE_DROP_HANDLER_READY: AtomicBool = AtomicBool::new(false);
 
-pub fn get_active_handler() -> Option<NeovimHandler> { HANDLER_REGISTRY.lock().unwrap().clone() }
+pub fn get_active_handler() -> Option<NeovimHandler> {
+    HANDLER_REGISTRY.lock().unwrap().active().cloned()
+}
 
 #[cfg(target_os = "macos")]
 pub fn require_active_handler() -> NeovimHandler {
@@ -101,16 +147,20 @@ fn flush_pending_file_drops(handler: &NeovimHandler) {
 }
 
 #[cfg(target_os = "macos")]
-fn flush_pending_file_drops_when_ready(handler: &NeovimHandler) {
-    if FILE_DROP_HANDLER_READY.load(Ordering::SeqCst) {
-        flush_pending_file_drops(handler);
+fn flush_pending_file_drops_when_ready() {
+    if FILE_DROP_HANDLER_READY.load(Ordering::SeqCst)
+        && let Some(handler) = get_active_handler()
+    {
+        flush_pending_file_drops(&handler);
     }
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn mark_file_drop_handler_ready(handler: &NeovimHandler) {
+/// Record a successful UI attachment and send queued file opens to the
+/// currently selected route, if one is registered.
+pub(crate) fn mark_file_drop_handler_ready() {
     FILE_DROP_HANDLER_READY.store(true, Ordering::SeqCst);
-    flush_pending_file_drops(handler);
+    flush_pending_file_drops_when_ready();
 }
 
 async fn ime_call(
@@ -541,6 +591,7 @@ pub enum ParallelCommand {
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
     ShowError { lines: Vec<String> },
+    ShowErrorStatus { message: String },
     SetBackground { background: String },
     FlushStartupMessages { messages: Vec<StartupMessage> },
     ReplayStartupMessages { messages: Vec<StartupMessage> },
@@ -723,6 +774,9 @@ impl ParallelCommand {
                 // We should go back to it whenever that bug gets fixed.
                 show_error_message(nvim, &lines).await.context("ShowError failed")
             }
+            ParallelCommand::ShowErrorStatus { message } => {
+                show_error_status(nvim, &message).await.context("ShowErrorStatus failed")
+            }
             ParallelCommand::SetBackground { background } => {
                 set_background_if_allowed(&background, nvim).await;
                 Ok(())
@@ -764,6 +818,10 @@ impl AsRef<str> for UiCommand {
     }
 }
 
+/// Install the current Neovim handle for a route and start command tasks once.
+/// Reattaching the route updates the handle used by those tasks without
+/// creating a second receiver. Registration happens before `nvim_ui_attach`, so
+/// the active registry entry alone does not mean setup has completed.
 pub fn start_ui_command_handler(
     route_id: RouteId,
     handler: NeovimHandler,
@@ -774,7 +832,7 @@ pub fn start_ui_command_handler(
     handler.update_current_neovim(nvim, can_support_ime_api);
     register_route_handler(route_id, handler.clone());
     #[cfg(target_os = "macos")]
-    flush_pending_file_drops_when_ready(&handler);
+    flush_pending_file_drops_when_ready();
     if handler.mark_ui_command_started() {
         return;
     }
@@ -870,36 +928,50 @@ where T: Into<UiCommand> {
 }
 
 pub fn register_route_handler(route_id: RouteId, handler: NeovimHandler) {
-    ROUTE_HANDLER_REGISTRY.lock().unwrap().insert(route_id, handler.clone());
-    HANDLER_REGISTRY.lock().unwrap().replace(handler);
+    HANDLER_REGISTRY.lock().unwrap().register(route_id, handler);
 }
 
 pub fn set_active_route_handler(route_id: RouteId) {
-    if let Some(handler) = ROUTE_HANDLER_REGISTRY.lock().unwrap().get(&route_id).cloned() {
-        HANDLER_REGISTRY.lock().unwrap().replace(handler);
-    }
+    HANDLER_REGISTRY.lock().unwrap().activate(route_id);
 }
 
 pub fn unregister_route_handler(route_id: RouteId) {
-    let mut by_route = ROUTE_HANDLER_REGISTRY.lock().unwrap();
-    by_route.remove(&route_id);
-    let replacement = by_route.values().next().cloned();
-    drop(by_route);
-
-    let mut active = HANDLER_REGISTRY.lock().unwrap();
-    if let Some(handler) = replacement {
-        active.replace(handler);
-    } else {
-        active.take();
-    }
+    HANDLER_REGISTRY.lock().unwrap().unregister(route_id);
 }
 
 #[cfg(test)]
 mod tests {
     use rmpv::Value;
 
+    use super::HandlerRegistry;
     use super::cmdheight_to_restore;
     use super::normalize_file_drop_path;
+    use crate::window::RouteId;
+
+    #[test]
+    fn background_route_changes_do_not_steal_the_active_handler() {
+        let first = RouteId::next();
+        let second = RouteId::next();
+        let mut registry = HandlerRegistry::default();
+
+        registry.register(first, "first");
+        registry.register(second, "second");
+        assert_eq!(registry.active(), Some(&"first"));
+
+        registry.activate(second);
+        registry.register(first, "reconnected first");
+        assert_eq!(registry.active(), Some(&"second"));
+
+        registry.unregister(first);
+        assert_eq!(registry.active(), Some(&"second"));
+
+        registry.register(first, "first again");
+        registry.unregister(second);
+        assert_eq!(registry.active(), Some(&"first again"));
+
+        registry.unregister(first);
+        assert_eq!(registry.active(), None);
+    }
 
     #[test]
     fn normalizes_windows_file_drop_separators() {

@@ -1,3 +1,8 @@
+//! Owns the window state for each neovim route on the winit thread. A route can
+//! receive redraws before it has a window. This wrapper keeps its renderer and
+//! handler in a `RouteCore`, then moves them into a window route. Session
+//! switches can occur in either phase.
+
 use std::cell::RefCell;
 use std::fmt;
 use std::mem::take;
@@ -6,6 +11,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use anyhow::Context;
 use approx::AbsDiffEq;
 use log::trace;
 use raw_window_handle::HasWindowHandle;
@@ -43,9 +49,11 @@ use crate::bridge::NeovimRuntime;
 use crate::bridge::OpenArgs;
 use crate::bridge::OpenMode;
 use crate::bridge::ParallelCommand;
-use crate::bridge::RestartDetails;
 use crate::bridge::SerialCommand;
+use crate::bridge::SessionTarget;
+use crate::bridge::SessionTransition;
 use crate::bridge::StartupMessage;
+use crate::bridge::TransitionFailure;
 use crate::bridge::send_ui;
 use crate::bridge::set_active_route_handler;
 use crate::bridge::unregister_route_handler;
@@ -233,6 +241,11 @@ impl RouteState {
     }
 }
 
+/// A route waiting for its first winit window. `request_window_creation`
+/// inserts this core after UI attachment so initial redraws have a renderer.
+/// A draw batch requesting display records that fact in `should_show_observed`
+/// and schedules window creation while the UI is initializing. Later,
+/// `try_create_window` moves its handler and renderer into a `Route`.
 struct RouteCore {
     route_id: RouteId,
     renderer: Rc<RefCell<Box<Renderer>>>,
@@ -249,21 +262,54 @@ struct RouteCore {
     font_changed_last_frame: bool,
 }
 
-#[derive(Clone)]
-struct RestartRequest {
-    details: RestartDetails,
+/// A request held until the previous session for the route reports exit. The
+/// grid size is captured when the wrapper stages the UI event and used for the
+/// new attachment. The ID pairs a restart with any later abort report.
+struct TransitionRequest {
+    request_id: u64,
+    transition: SessionTransition,
     grid_size: GridSize<u32>,
 }
 
+/// At most one pending switch per route, including routes without a window. A
+/// newer event replaces the request for that route. A matching aborted restart
+/// is removed. Otherwise the exit handler takes the request once before
+/// deciding whether to keep or remove that route.
+#[derive(Default)]
+struct PendingTransitions(FxHashMap<RouteId, TransitionRequest>);
+
+impl PendingTransitions {
+    fn insert(&mut self, route_id: RouteId, request: TransitionRequest) {
+        self.0.insert(route_id, request);
+    }
+
+    fn cancel_aborted_restart(&mut self, route_id: RouteId, request_id: u64) {
+        if self.0.get(&route_id).is_some_and(|request| {
+            request.request_id == request_id
+                && matches!(request.transition, SessionTransition::Restart(_))
+        }) {
+            self.0.remove(&route_id);
+        }
+    }
+
+    fn take(&mut self, route_id: RouteId) -> Option<TransitionRequest> { self.0.remove(&route_id) }
+}
+
+/// Main-thread owner of route cores, windows and pending session switches.
+/// `Application` creates it and dispatches redraw, transition, and exit events
+/// here. A server switch keeps the route identity and its renderer until the
+/// old session reports exit, even if the window has not been created yet.
 pub struct WinitWindowWrapper {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
     pub routes: FxHashMap<WindowId, Route>,
     route_cores: FxHashMap<RouteId, RouteCore>,
+    /// The initial route whose draw batch requested display. `try_create_window`
+    /// takes the ID. `None` means no initial window is waiting to be created.
     pending_window_creation_route: Option<RouteId>,
     pub runtime: Option<NeovimRuntime>,
     pub runtime_tracker: RunningTracker,
-    pending_restart: FxHashMap<RouteId, RestartRequest>,
+    pending_transition: PendingTransitions,
     keyboard_manager: KeyboardManager,
     ui_state: UIState,
 
@@ -297,7 +343,7 @@ impl WinitWindowWrapper {
             pending_window_creation_route: None,
             runtime,
             runtime_tracker,
-            pending_restart: FxHashMap::default(),
+            pending_transition: PendingTransitions::default(),
             keyboard_manager: KeyboardManager::new(settings.clone()),
             ui_state: UIState::Initing,
             settings: settings.clone(),
@@ -1554,9 +1600,15 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn queue_restart_route(&mut self, route_id: RouteId, details: RestartDetails) {
-        // The restart notification arrives before the old channel closes. Keep the current
-        // renderer untouched because Neovim may still abort the restart (for example with E37).
+    /// Stage a neovim-requested switch until `NeovimExited` for this route. The
+    /// route may still be a `RouteCore` with no window. Keep its renderer and
+    /// grid intact while waiting. A restart can fail to quit the old server.
+    pub fn queue_session_transition(
+        &mut self,
+        route_id: RouteId,
+        request_id: u64,
+        transition: SessionTransition,
+    ) {
         let grid_size = if let Some(window_id) = self.window_id_for_route(route_id) {
             match self.routes.get(&window_id) {
                 Some(route) => route.window.renderer.borrow().get_grid_size(),
@@ -1569,11 +1621,23 @@ impl WinitWindowWrapper {
             route_core.renderer.borrow().get_grid_size()
         };
 
-        self.pending_restart.insert(route_id, RestartRequest { details, grid_size });
+        self.pending_transition
+            .insert(route_id, TransitionRequest { request_id, transition, grid_size });
     }
 
-    fn prepare_route_for_restart(&mut self, route_id: RouteId) {
-        // This is called only after the old Neovim channel has actually closed.
+    /// Discard only the pending restart whose ID matches a probe response from
+    /// the surviving old server. A later transition on the same route keeps its
+    /// place in the queue.
+    pub fn cancel_aborted_restart(&mut self, route_id: RouteId, request_id: u64) {
+        self.pending_transition.cancel_aborted_restart(route_id, request_id);
+    }
+
+    /// Clear the old renderer after a replacement session attaches. A failed
+    /// connection can still return to the previous server, whose redraw may
+    /// contain only cells changed since the UI detached. Resetting the attr
+    /// `last_synced_grid_size` makes the next window update resize a new server
+    /// even when the dimensions are unchanged.
+    fn prepare_route_for_transition(&mut self, route_id: RouteId) {
         if let Some(window_id) = self.window_id_for_route(route_id) {
             self.clear_renderer(window_id);
             if let Some(route) = self.routes.get_mut(&window_id) {
@@ -1585,34 +1649,30 @@ impl WinitWindowWrapper {
         }
     }
 
-    fn restart_neovim_route(
+    fn attach_neovim_route(
         &mut self,
         route_id: RouteId,
-        restart: RestartRequest,
+        grid_size: GridSize<u32>,
+        target: SessionTarget<'_>,
         proxy: &EventLoopProxy<EventPayload>,
-    ) -> Result<(), ()> {
-        let handler = self.neovim_handler_for_route(route_id).ok_or(())?;
+    ) -> anyhow::Result<()> {
+        let handler = self.neovim_handler_for_route(route_id).context("Missing neovim handler")?;
         let cwd = self.route_cwd(route_id);
+        // A missing runtime cannot attach the replacement. Leave the old
+        // renderer untouched until the exit handler removes this route.
         if self.runtime.is_none() {
-            return Err(());
+            anyhow::bail!("Missing neovim runtime");
         }
 
-        self.prepare_route_for_restart(route_id);
-        let runtime = self.runtime.as_mut().ok_or(())?;
-
-        runtime
-            .restart(
-                route_id,
-                proxy.clone(),
-                handler,
-                restart.grid_size,
-                self.settings.clone(),
-                restart.details,
-                cwd.as_deref(),
-            )
-            .map_err(|error| {
-                log::error!("Failed to restart Neovim: {error:?}");
-            })
+        self.runtime.as_mut().expect("runtime checked above").replace_session(
+            route_id,
+            proxy.clone(),
+            handler,
+            grid_size,
+            self.settings.clone(),
+            target,
+            cwd.as_deref(),
+        )
     }
 
     fn route_cwd(&self, route_id: RouteId) -> Option<PathBuf> {
@@ -1623,17 +1683,178 @@ impl WinitWindowWrapper {
         self.route_cores.get(&route_id).and_then(|route_core| route_core.cwd.clone())
     }
 
+    /// Reattach to the previous server when a requested connection fails. Neovim
+    /// closes the old RPC channel before checking the destination. The previous
+    /// address is only a retry hint. Ordinary `:connect` keeps that server
+    /// running, while `:connect!` may stop it. A request without a distinct
+    /// previous address returns the initial connection error.
+    fn retry_previous_server(
+        &mut self,
+        route_id: RouteId,
+        request: &TransitionRequest,
+        connect_error: anyhow::Error,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) -> anyhow::Result<()> {
+        let Some((address, previous_address)) = request.transition.connect_retry_addresses() else {
+            return Err(connect_error);
+        };
+
+        let fallback = SessionTransition::Connect {
+            address: previous_address.to_owned(),
+            previous_address: None,
+        };
+
+        let recovery = self.attach_neovim_route(
+            route_id,
+            request.grid_size,
+            SessionTarget::Transition(&fallback),
+            proxy,
+        );
+
+        if let Err(recovery_error) = recovery {
+            return Err(connect_error.context(format!(
+                "Could not reconnect to previous server {previous_address:?}: {recovery_error:#}"
+            )));
+        }
+
+        // The previous server may send only incremental redraws on reattach.
+        // Then we keep its last rendered frame so unchanged cells stay visible.
+        let message = format!(
+            "Could not connect to {address:?}: {connect_error:#}. \
+             Reconnected to {previous_address:?}."
+        );
+
+        self.report_recovered_connect(
+            route_id,
+            message,
+            "Could not connect. Reconnected to previous server.",
+            proxy,
+        );
+
+        Ok(())
+    }
+
+    /// Start a blank embedded session after failed connect recovery. `:connect!`
+    /// may stop the previous server before we check out the new address. This
+    /// fallback keeps the route usable when the requested server and any known
+    /// previous server cannot be reached. It cannot restore buffers from the
+    /// server that exited. Restart does not take this path.
+    fn start_fresh_session_after_connect(
+        &mut self,
+        route_id: RouteId,
+        request: &TransitionRequest,
+        connect_error: anyhow::Error,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) -> anyhow::Result<()> {
+        if !matches!(request.transition, SessionTransition::Connect { .. }) {
+            return Err(connect_error);
+        }
+
+        let recovery = self.attach_neovim_route(
+            route_id,
+            request.grid_size,
+            SessionTarget::FreshEmbedded,
+            proxy,
+        );
+
+        if let Err(recovery_error) = recovery {
+            return Err(connect_error
+                .context(format!("Could not start a new neovim session: {recovery_error:#}")));
+        }
+
+        // A new embedded process cannot use the old frame so we clear after
+        // attachment succeeds before its redraws reach the renderer.
+        self.prepare_route_for_transition(route_id);
+
+        let address = request.transition.address();
+        let message = format!(
+            "Could not connect to {address:?}: {connect_error:#}. \
+             Started a new local neovim session."
+        );
+
+        self.report_recovered_connect(
+            route_id,
+            message,
+            "Could not connect. Started a new local session.",
+            proxy,
+        );
+
+        Ok(())
+    }
+
+    fn report_recovered_connect(
+        &self,
+        route_id: RouteId,
+        message: String,
+        summary: &str,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) {
+        log::error!("{message}");
+        if cfg!(target_os = "linux")
+            && let Some(handler) = self.neovim_handler_for_route(route_id)
+        {
+            // The recovered session can show its own error. A separate OpenGL
+            // window can crash the active renderer on Wayland.
+            send_ui(ParallelCommand::ShowErrorStatus { message: summary.to_owned() }, &handler);
+            return;
+        }
+
+        let notice = UserEvent::NeovimTransitionRecovered { message };
+        let event = EventPayload::for_route(notice, route_id);
+        let _ = proxy.send_event(event);
+    }
+
+    /// Consume the pending transition after the old session exits. A failed
+    /// connect tries the previous server if its address is distinct. If that
+    /// fails or no address is known, a new embedded session keeps the route
+    /// usable. Restart only tries its requested server. The route is removed
+    /// after every applicable recovery attempt fails.
+    fn finish_pending_transition(
+        &mut self,
+        route_id: RouteId,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) -> Option<Result<(), TransitionFailure>> {
+        let request = self.pending_transition.take(route_id)?;
+        let result = self.attach_neovim_route(
+            route_id,
+            request.grid_size,
+            SessionTarget::Transition(&request.transition),
+            proxy,
+        );
+
+        // A failed attach may still recover the old screen. Reattaching to
+        // the previous address may redraw only changed cells.
+        if result.is_ok() && !request.transition.reuses_previous_address() {
+            self.prepare_route_for_transition(route_id);
+        }
+
+        let result = result.or_else(|connect_error| {
+            self.retry_previous_server(route_id, &request, connect_error, proxy)
+        });
+
+        let result = result.or_else(|connect_error| {
+            self.start_fresh_session_after_connect(route_id, &request, connect_error, proxy)
+        });
+
+        Some(result.map_err(|cause| TransitionFailure { transition: request.transition, cause }))
+    }
+
+    /// Finish a switch for a route with a window, or hide and remove the window
+    /// after the old session reports exit without a usable replacement.
     pub fn handle_neovim_exit(
         &mut self,
         window_id: WindowId,
         proxy: &EventLoopProxy<EventPayload>,
-    ) {
-        if let Some(route_id) = self.route_id_for_window(window_id)
-            && let Some(restart) = self.pending_restart.remove(&route_id)
-            && self.restart_neovim_route(route_id, restart, proxy).is_ok()
-        {
-            return;
-        }
+    ) -> Option<TransitionFailure> {
+        let transition = self
+            .route_id_for_window(window_id)
+            .and_then(|route_id| self.finish_pending_transition(route_id, proxy));
+
+        let transition_error = match transition {
+            Some(Ok(())) => return None,
+            Some(Err(error)) => Some(error),
+            None => None,
+        };
 
         if let Some(route) = self.routes.remove(&window_id) {
             let window = route.window.winit_window.clone();
@@ -1653,35 +1874,44 @@ impl WinitWindowWrapper {
         if self.routes.is_empty() {
             self.ui_state = UIState::Initing;
         }
+
+        transition_error
     }
 
+    /// Apply the session-exit decision even before a route has a window. Window
+    /// routes use `handle_neovim_exit`. A still-pending `RouteCore` is kept on
+    /// successful attachment or removed when no replacement exists.
     pub fn handle_neovim_exit_route(
         &mut self,
         route_id: RouteId,
         proxy: &EventLoopProxy<EventPayload>,
-    ) {
+    ) -> Option<TransitionFailure> {
         if let Some(window_id) = self.window_id_for_route(route_id) {
-            self.handle_neovim_exit(window_id, proxy);
+            let error = self.handle_neovim_exit(window_id, proxy);
             if self.window_id_for_route(route_id).is_none() {
                 unregister_route_handler(route_id);
             }
-            return;
+            return error;
         }
 
-        if let Some(restart) = self.pending_restart.remove(&route_id)
-            && self.restart_neovim_route(route_id, restart, proxy).is_ok()
-        {
-            return;
-        }
+        let transition_error = match self.finish_pending_transition(route_id, proxy) {
+            Some(Ok(())) => return None,
+            Some(Err(error)) => Some(error),
+            None => None,
+        };
 
         self.route_cores.remove(&route_id);
         unregister_route_handler(route_id);
+
         if self.pending_window_creation_route == Some(route_id) {
             self.pending_window_creation_route = None;
         }
+
         if self.routes.is_empty() && self.route_cores.is_empty() {
             self.ui_state = UIState::Initing;
         }
+
+        transition_error
     }
 
     pub fn handle_window_config_changed(&mut self, config: WindowHotReloadConfigs) {
@@ -2323,5 +2553,49 @@ impl WinitWindowWrapper {
         }
         renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
+    }
+}
+
+#[cfg(test)]
+mod transition_tests {
+    use super::PendingTransitions;
+    use super::TransitionRequest;
+    use crate::bridge::RestartDetails;
+    use crate::bridge::SessionTransition;
+    use crate::units::GridSize;
+    use crate::window::RouteId;
+
+    fn request(request_id: u64, transition: SessionTransition) -> TransitionRequest {
+        TransitionRequest { request_id, transition, grid_size: GridSize::new(80, 24) }
+    }
+
+    #[test]
+    fn aborted_restart_cannot_run_on_a_later_disconnect() {
+        let route = RouteId::next();
+        let other_route = RouteId::next();
+        let mut pending = PendingTransitions::default();
+        let restart = SessionTransition::Restart(RestartDetails {
+            listen_addr: "/tmp/restart.sock".to_owned(),
+            channel_config: None,
+        });
+        pending.insert(route, request(1, restart));
+        pending.insert(
+            other_route,
+            request(
+                2,
+                SessionTransition::Connect {
+                    address: "/tmp/next.sock".to_owned(),
+                    previous_address: None,
+                },
+            ),
+        );
+
+        pending.cancel_aborted_restart(route, 2);
+        assert!(pending.0.contains_key(&route), "another request cannot cancel this restart");
+        pending.cancel_aborted_restart(route, 1);
+        assert!(pending.take(route).is_none());
+
+        pending.cancel_aborted_restart(other_route, 2);
+        assert!(pending.take(other_route).is_some(), "connect is never canceled as a restart");
     }
 }

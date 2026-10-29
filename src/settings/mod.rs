@@ -262,7 +262,6 @@ mod tests {
         }
     }
 
-    use async_trait::async_trait;
     use nvim_rs::Handler;
     use nvim_rs::Neovim;
 
@@ -277,7 +276,6 @@ mod tests {
     #[derive(Clone)]
     pub struct NeovimHandler();
 
-    #[async_trait]
     impl Handler for NeovimHandler {
         type Writer = NeovimWriter;
 
