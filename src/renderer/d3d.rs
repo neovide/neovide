@@ -8,6 +8,7 @@ use skia_safe::Surface;
 use skia_safe::SurfaceProps;
 use skia_safe::SurfacePropsFlags;
 use skia_safe::gpu::DirectContext;
+use skia_safe::gpu::FlushError;
 use skia_safe::gpu::FlushInfo;
 use skia_safe::gpu::Protected;
 use skia_safe::gpu::SurfaceOrigin;
@@ -67,7 +68,7 @@ use windows::Win32::System::Threading::INFINITE;
 use windows::Win32::System::Threading::WaitForSingleObjectEx;
 use windows::core::Interface;
 use windows::core::PCWSTR;
-use windows::core::Result;
+use windows::core::Result as WindowsResult;
 use winit::event_loop::EventLoopProxy;
 use winit::raw_window_handle::HasWindowHandle;
 use winit::raw_window_handle::RawWindowHandle;
@@ -86,7 +87,7 @@ use crate::profiling::tracy_zone;
 use crate::settings::Settings;
 use crate::window::EventPayload;
 
-fn get_hardware_adapter(factory: &IDXGIFactory2) -> Result<IDXGIAdapter1> {
+fn get_hardware_adapter(factory: &IDXGIFactory2) -> WindowsResult<IDXGIAdapter1> {
     tracy_zone!("get_hardware_adapter");
     for i in 0.. {
         let adapter = unsafe { factory.EnumAdapters1(i)? };
@@ -393,21 +394,28 @@ impl D3DSkiaRenderer {
 
 impl SkiaRenderer for D3DSkiaRenderer {
     fn window(&self) -> Rc<Window> { Rc::clone(&self.window) }
-
-    fn flush(&mut self) {}
-
+    fn flush(&mut self) -> Result<(), FlushError> { Ok(()) }
     fn swap_buffers(&mut self) {
         unsafe {
             tracy_gpu_zone!("submit surface");
             // Switch the back buffer resource state to present For some reason the
             // DirectContext::flush_and_submit does not do that for us automatically.
             let buffer_index = self.swap_chain.GetCurrentBackBufferIndex() as usize;
-            self.gr_context.flush_surface_with_access(
+            let flush = self.gr_context.flush_surface_with_access(
                 &mut self.surfaces[buffer_index],
                 BackendSurfaceAccess::Present,
                 &FlushInfo::default(),
             );
-            self.gr_context.submit(Some(SyncCpu::No));
+
+            if let Err(error) = flush {
+                log::error!("Failed to flush D3D surface: {error}");
+                return;
+            }
+
+            if !self.gr_context.submit(Some(SyncCpu::No)) {
+                log::error!("Failed to submit D3D frame");
+                return;
+            }
 
             tracy_gpu_zone!("present");
             if self.swap_chain.Present(1, DXGI_PRESENT(0)).is_ok() {
@@ -426,7 +434,9 @@ impl SkiaRenderer for D3DSkiaRenderer {
 
     fn resize(&mut self) {
         // Clean up any outstanding resources in command lists
-        self.gr_context.flush_submit_and_sync_cpu();
+        if let Err(error) = self.gr_context.flush_submit_and_sync_cpu() {
+            log::error!("Failed to flush D3D context before resize: {error}");
+        }
 
         self.wait_for_gpu();
 
