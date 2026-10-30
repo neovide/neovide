@@ -241,7 +241,11 @@ impl State {
 
         canvas.restore();
 
-        self.skia_renderer.flush();
+        if let Err(error) = self.skia_renderer.flush() {
+            log::error!("Failed to flush error window: {error}");
+            return;
+        }
+
         self.skia_renderer.swap_buffers();
     }
 

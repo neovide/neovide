@@ -21,6 +21,7 @@ use skia_safe::Surface;
 use skia_safe::SurfaceProps;
 use skia_safe::SurfacePropsFlags;
 use skia_safe::gpu::DirectContext;
+use skia_safe::gpu::FlushError;
 use skia_safe::gpu::SurfaceOrigin;
 use skia_safe::gpu::mtl::BackendContext;
 use skia_safe::gpu::mtl::TextureInfo;
@@ -162,10 +163,10 @@ impl MetalSkiaRenderer {
 impl SkiaRenderer for MetalSkiaRenderer {
     fn window(&self) -> Rc<Window> { Rc::clone(&self.window) }
 
-    fn flush(&mut self) {
+    fn flush(&mut self) -> Result<(), FlushError> {
         tracy_gpu_zone!("flush");
 
-        self.context.flush_and_submit();
+        self.context.flush_and_submit().map(|_| ())
     }
 
     fn swap_buffers(&mut self) {

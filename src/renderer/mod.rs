@@ -34,6 +34,7 @@ pub use rendered_window::WindowDrawDetails;
 use skia_safe::Canvas;
 use skia_safe::Color4f;
 use skia_safe::Paint;
+use skia_safe::gpu::FlushError;
 #[cfg(feature = "profiling")]
 use skia_safe::graphics::font_cache_count_limit;
 #[cfg(feature = "profiling")]
@@ -822,7 +823,7 @@ pub fn build_window_config(
 
 pub trait SkiaRenderer {
     fn window(&self) -> Rc<Window>;
-    fn flush(&mut self);
+    fn flush(&mut self) -> Result<(), FlushError>;
     fn swap_buffers(&mut self);
     fn canvas(&mut self) -> &Canvas;
     fn resize(&mut self);

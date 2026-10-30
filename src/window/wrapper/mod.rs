@@ -1083,11 +1083,17 @@ impl WinitWindowWrapper {
             let mut renderer = route.window.renderer.borrow_mut();
             let mut skia_renderer = route.window.skia_renderer.borrow_mut();
             renderer.draw_frame(skia_renderer.canvas(), &content_rect, dt);
-            skia_renderer.flush();
+
+            if let Err(error) = skia_renderer.flush() {
+                log::error!("Failed to flush frame: {error}");
+                return;
+            }
+
             {
                 tracy_gpu_zone!("wait for vsync");
                 vsync.wait_for_vsync();
             }
+
             skia_renderer.swap_buffers();
         }
         if self.ui_state == UIState::FirstFrame {

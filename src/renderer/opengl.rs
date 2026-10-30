@@ -29,6 +29,7 @@ use skia_safe::SurfaceProps;
 use skia_safe::SurfacePropsFlags;
 use skia_safe::canvas::Canvas;
 use skia_safe::gpu::DirectContext;
+use skia_safe::gpu::FlushError;
 use skia_safe::gpu::SurfaceOrigin;
 use skia_safe::gpu::backend_render_targets::make_gl;
 use skia_safe::gpu::gl::FramebufferInfo;
@@ -173,10 +174,10 @@ impl OpenGLSkiaRenderer {
 impl SkiaRenderer for OpenGLSkiaRenderer {
     fn window(&self) -> Rc<Window> { Rc::clone(self.window.as_ref().unwrap()) }
 
-    fn flush(&mut self) {
+    fn flush(&mut self) -> Result<(), FlushError> {
         {
             tracy_gpu_zone!("skia flush");
-            self.gr_context.flush_and_submit();
+            self.gr_context.flush_and_submit().map(|_| ())
         }
     }
 
