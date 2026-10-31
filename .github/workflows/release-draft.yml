@@ -94,18 +94,18 @@ jobs:
             git show "$TARGET:Cargo.toml" |
               awk -F '"' '
                 /^\[package\]$/ { in_package = 1; next }
-                /^\[/ { if (in_package) exit; in_package = 0 }
-                in_package && /^version = / { print $2; exit }
+                /^\[/ { in_package = 0 }
+                in_package && /^version = / && !found { print $2; found = 1 }
               '
           )"
           plist_version="$(
             git show "$TARGET:extra/osx/Neovide.app/Contents/Info.plist" |
               awk '
-                /<key>CFBundleShortVersionString<\/key>/ {
+                /<key>CFBundleShortVersionString<\/key>/ && !found {
                   getline
                   gsub(/.*<string>|<\/string>.*/, "")
                   print
-                  exit
+                  found = 1
                 }
               '
           )"
