@@ -1548,7 +1548,7 @@ dependencies = [
 
 [[package]]
 name = "neovide"
-version = "0.16.2"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -1614,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "neovide-derive"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "convert_case",
  "quote",
