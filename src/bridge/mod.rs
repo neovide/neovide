@@ -124,7 +124,7 @@ pub struct NeovimRuntime {
 /// `--server` when it is set. A transition uses the address sent by neovim
 /// and can restore restart channel properties. `FreshEmbedded` starts a new
 /// process even when `--server` is set, so a failed connect can keep the route
-/// usable after the previous server stops.
+/// usable after the previous server stops, if the connect request reaches the UI.
 #[derive(Clone, Copy)]
 pub enum SessionTarget<'a> {
     Startup,
@@ -149,17 +149,6 @@ async fn neovim_instance(
     }
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
-    #[cfg(target_os = "windows")]
-    if !cmdline_settings.wsl {
-        // A Windows embedded stdio channel can close before its UI receives
-        // the connect event. Native children use a named pipe for UI RPC.
-        // The child keeps stdin open so ordinary :connect can leave it running.
-        let address = format!(r"\\.\pipe\neovide.{}.{}", std::process::id(), rand::random::<u64>());
-        let command =
-            command::create_listening_nvim_command(&cmdline_settings, &address, cwd, mode);
-        return Ok(NeovimInstance::SpawnedServer { command, address });
-    }
-
     Ok(NeovimInstance::Embedded(command::create_tokio_nvim_command(
         &cmdline_settings,
         true,
@@ -243,8 +232,6 @@ async fn create_neovim_session(
     let explicit_server_address = match &neovim_instance {
         NeovimInstance::Server { address } => Some(address.clone()),
         NeovimInstance::Embedded(_) => None,
-        #[cfg(target_os = "windows")]
-        NeovimInstance::SpawnedServer { .. } => None,
     };
     let is_wsl = settings.get::<CmdLineSettings>().wsl;
     // `:connect` can change the transport without changing startup settings.
@@ -613,9 +600,6 @@ mod tests {
                 .await
                 .unwrap();
 
-        #[cfg(not(target_os = "windows"))]
         assert!(matches!(fallback, NeovimInstance::Embedded(_)));
-        #[cfg(target_os = "windows")]
-        assert!(matches!(fallback, NeovimInstance::SpawnedServer { .. }));
     }
 }

@@ -10,16 +10,12 @@
 use core::fmt;
 use std::collections::VecDeque;
 use std::io::Error;
-#[cfg(target_os = "windows")]
-use std::io::ErrorKind;
 use std::io::Result;
 #[cfg(target_os = "windows")]
 use std::process::Child;
 use std::process::ExitStatus;
 use std::process::Stdio;
 use std::time::Duration;
-#[cfg(target_os = "windows")]
-use std::time::Instant;
 
 use anyhow::Context;
 use nvim_rs::Handler;
@@ -242,11 +238,6 @@ pub enum NeovimInstance {
     /// A new embedded instance to be spawned by the given command.
     Embedded(Command),
 
-    /// A native Windows child whose UI connects through its named pipe.
-    /// The child retains an open stdin pipe so a detached server can live on.
-    #[cfg(target_os = "windows")]
-    SpawnedServer { command: Command, address: String },
-
     /// An address expected to name a listening instance. This variant never
     /// spawns a child. `is_tcp_address` selects TCP or a local endpoint. Local
     /// endpoints are Unix sockets on Unix and named pipes on Windows.
@@ -259,64 +250,10 @@ impl NeovimInstance {
     ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
         match self {
             NeovimInstance::Embedded(cmd) => Self::spawn_process(cmd).await,
-            #[cfg(target_os = "windows")]
-            NeovimInstance::SpawnedServer { command, address } => {
-                Self::spawn_listening_process(command, address).await
-            }
             NeovimInstance::Server { address } => Self::connect_to_server(address)
                 .await
                 .map(|(reader, writer)| (reader, writer, None, None)),
         }
-    }
-
-    #[cfg(target_os = "windows")]
-    async fn spawn_listening_process(
-        command: Command,
-        address: String,
-    ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
-        use std::os::windows::io::IntoRawHandle;
-
-        use tokio::net::windows::named_pipe::NamedPipeServer;
-
-        log::debug!("Starting listening neovim with: {command:?}");
-        let mut child = command
-            .into_std()
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        let stderr = child.stderr.take().ok_or_else(|| Error::other("Can't open stderr"))?;
-        let deadline = Instant::now() + Duration::from_secs(10);
-
-        let (reader, writer) = loop {
-            match Self::connect_to_server(address.clone()).await {
-                Ok(streams) => break streams,
-                Err(error) => {
-                    if let Some(status) = child.try_wait()? {
-                        return Err(Error::other(format!(
-                            "Neovim exited before listening at {address:?} with {status}: {error}"
-                        )));
-                    }
-
-                    if Instant::now() >= deadline {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return Err(Error::new(
-                            ErrorKind::TimedOut,
-                            format!("Neovim did not listen at {address:?}: {error}"),
-                        ));
-                    }
-                    tokio::time::sleep(Duration::from_millis(25)).await;
-                }
-            }
-        };
-
-        let stderr =
-            Box::new(unsafe { NamedPipeServer::from_raw_handle(stderr.into_raw_handle()) }?)
-                as BoxedReader;
-
-        Ok((reader, writer, Some(stderr), Some(child)))
     }
 
     async fn spawn_process(
@@ -395,7 +332,7 @@ impl NeovimInstance {
 
             #[cfg(not(any(unix, windows)))]
             Err(Error::new(
-                ErrorKind::Unsupported,
+                std::io::ErrorKind::Unsupported,
                 "Unix Domain Sockets and Named Pipes are not supported on this platform",
             ))
         }
@@ -590,57 +527,6 @@ mod tests {
         let _ = child.kill();
         let _ = child.wait();
         assert!(io_result.is_ok(), "stdio RPC did not close after :connect");
-        assert!(raw_connect);
-        assert!(delivered.iter().any(|event| event == "connect"));
-        assert!(delivered.iter().any(|event| event == "error_exit"));
-    }
-
-    #[cfg(windows)]
-    #[tokio::test]
-    async fn listening_embedded_connect_bang_reaches_handler_before_exit() {
-        let address =
-            format!(r"\\.\pipe\neovide-test.{}.{}", std::process::id(), rand::random::<u64>());
-        let mut command = Command::new("nvim");
-        command.args(["--clean", "--headless", "--listen", &address]);
-        let (reader, writer, _stderr, child) =
-            NeovimInstance::spawn_listening_process(command, address).await.unwrap();
-        let bytes = Arc::new(Mutex::new(Vec::new()));
-        let reader = CaptureReader { inner: reader, bytes: bytes.clone() };
-        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
-        let (nvim, io) = Neovim::<NeovimWriter>::handshake(
-            reader.compat(),
-            Box::new(writer.compat_write()),
-            ProbeHandler(sender),
-            "HandshakeMessage",
-        )
-        .await
-        .unwrap();
-        let mut io_handle = tokio::spawn(io);
-        let mut options = UiAttachOptions::new();
-        options.set_linegrid_external(true);
-        nvim.ui_attach(80, 24, &options).await.unwrap();
-        let _ = nvim.input(":connect! hey<CR>").await;
-        let io_result = tokio::time::timeout(Duration::from_secs(3), &mut io_handle).await;
-        if io_result.is_err() {
-            io_handle.abort();
-        }
-        let captured = bytes.lock().unwrap().clone();
-        let mut cursor = Cursor::new(captured.as_slice());
-        let mut raw_connect = false;
-        while let Ok(value) = rmpv::decode::read_value(&mut cursor) {
-            raw_connect |= has_connect(&value);
-        }
-        let mut delivered = Vec::new();
-        while let Ok(event) = receiver.try_recv() {
-            delivered.push(event);
-        }
-        let mut child = child.unwrap();
-        if io_result.is_err() {
-            let _ = child.kill();
-        }
-        let status = child.wait().unwrap();
-        assert!(io_result.is_ok(), "RPC did not close after :connect!");
-        assert!(status.success(), "old server exited with {status}");
         assert!(raw_connect);
         assert!(delivered.iter().any(|event| event == "connect"));
         assert!(delivered.iter().any(|event| event == "error_exit"));
