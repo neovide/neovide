@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.17.0"
+version = "0.17.1"
 edition = "2024"
 description = "Neovide: No Nonsense Neovim Gui"
 homepage = "https://neovide.dev/"
@@ -31,7 +31,7 @@ resolver = "2"
 name = "Neovide"
 identifier = "com.neovide.neovide"
 icon = ["assets/neovide.ico"]
-version = "0.17.0"
+version = "0.17.1"
 resources = []
 copyright = "Copyright (c) Neovide Contributors 2025. All rights reserved."
 category = "Productivity"
