@@ -814,7 +814,7 @@ and the flickering does not bother as much.
 
 #### System Scrollbar (macOS only)
 
-**Available on [nightly](https://github.com/neovide/neovide/releases/tag/nightly).**
+**Available since 0.17.0.**
 
 vimscript:
 
