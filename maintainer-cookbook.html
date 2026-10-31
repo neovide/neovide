@@ -191,44 +191,26 @@ those pointers.</p>
 see fit (and then update here with your findings).</p>
 <h3 id="preparing"><a class="header" href="#preparing">Preparing</a></h3>
 <ol>
-<li>Head over to <a href="https://github.com/neovide/neovide/releases">the releases page</a> and hit the <code>Draft a new release</code> button.</li>
-<li>Keep the resulting page somewhere safe open, you'll need to work with it the
-next half an hour and GitHub doesn't automatically save its contents.</li>
-<li>Create a new tag with an appropriate version number.</li>
-</ol>
+<li>
+<p>Pick a new tag name with an appropriate version.</p>
 <p>We're not fully following <a href="https://semver.org/">SemVer</a> here, but as of 0.10.1 larger
 changes should be an increase in the MINOR part, while fixups should be an
 increase in the PATCH part.</p>
-<ol>
-<li>
-<p>Hit the <code>Generate release notes</code> button.</p>
 </li>
 <li>
-<p>Reformat to be similar to previous releases</p>
-<ul>
-<li>Rename the <code>What's Changed</code> section to <code>Changes</code></li>
-<li>Rewrite each line in the <code>Changes</code> section to reflect what this change means
-for the end user, linking to the relevant PR/commit</li>
-<li>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></li>
-<li>Have each line reflect what platform it applies to if not irrelevant</li>
-</ul>
-</li>
-<li>
-<p>Hit the <code>Save draft</code> button</p>
-</li>
-</ol>
-<p>You can make several rounds of preparing such releases through editing the
-current draft over time, to make sure every contributor is mentioned and every
-change is included.</p>
-<h3 id="actually-releasing"><a class="header" href="#actually-releasing">Actually releasing</a></h3>
-<ol>
-<li>Announce a short period of time where last changes to be done or fixup work
+<p>Announce a short period of time where last changes to be done or fixup work
 can flow in (can be anything you imagine, though 24 hours to one week might
-be enough depending on the blocker)</li>
-<li>Wait for that period to pass</li>
-<li>Have a last look over the draft to make sure every new contributor and change has
-been mentioned</li>
+be enough depending on the blocker).</p>
+</li>
+<li>
+<p>Wait for that period to pass.</p>
+</li>
+<li>
+<p>Have a last look over the draft to make sure every new contributor and change has
+been mentioned</p>
+</li>
 </ol>
+<h3 id="actually-releasing"><a class="header" href="#actually-releasing">Actually releasing</a></h3>
 <p>Now here's where the order becomes important:</p>
 <ol>
 <li>
@@ -245,7 +227,7 @@ been mentioned</li>
 <ul>
 <li><code>Cargo.toml</code> (do note it contains the version <em>twice</em>, one time in the
 top, one time at the bottom in the bundling section)</li>
-<li><code>extra/osx/Neovide.app/Contents/Resources/Info.plist</code></li>
+<li><code>extra/osx/Neovide.app/Contents/Info.plist</code></li>
 <li><code>website/docs/*.md</code> and update <code>Nightly</code> to <code>Available since $tag</code>
 (where <code>$tag</code> is the tag name)</li>
 </ul>
@@ -269,37 +251,67 @@ If necessary, you might have to bump the version number for the
 <li>
 <p>Run <code>cargo build --frozen</code></p>
 </li>
+<li>
+<p>Record the full commit SHA for the <code>Bump version to $tag</code> commit:</p>
+<pre><code class="language-sh">target=&quot;$(git rev-parse HEAD)&quot;
+</code></pre>
+</li>
+<li>
+<p>Create and push an annotated <code>$tag</code> tag that points at that exact commit:</p>
+<pre><code class="language-sh">git tag -a &quot;$tag&quot; &quot;$target&quot; -m &quot;$tag&quot;
+git push origin &quot;$tag&quot;
+</code></pre>
+</li>
 </ol>
 <p>In the meantime, you can look through the previous commits to see if you missed
 anything.</p>
 <ol>
 <li>
-<p>From the <code>Bump version to $tag</code> commit, download all the artifacts</p>
-</li>
-<li>
-<p>Unzip</p>
+<p>Run the <a href="https://github.com/neovide/neovide/actions/workflows/release-draft.yml">Release Draft workflow</a> with:</p>
 <ul>
-<li><code>neovide.AppImage.zip</code></li>
-<li><code>neovide.AppImage.zsync.zip</code></li>
-<li><code>neovide.msi.zip</code></li>
-<li><code>neovide-linux-x86_64.tar.gz.zip</code></li>
+<li><code>tag</code>: the stable tag, for example <code>0.17.0</code></li>
+<li><code>target</code>: the full commit SHA for the <code>Bump version to $tag</code> commit</li>
 </ul>
 </li>
 <li>
-<p>Head to the release draft, edit it and upload the produced artifacts (using
-the unzipped versions if listed above)</p>
+<p>Wait for the workflow to finish. It verifies the pushed annotated tag, builds
+the release artifacts, creates a GitHub draft release, generates release
+notes and uploads:</p>
+<ul>
+<li><code>neovide.msi</code></li>
+<li><code>neovide-windows-x86_64.zip</code></li>
+<li><code>neovide.AppImage</code></li>
+<li><code>neovide.AppImage.zsync</code></li>
+<li><code>neovide-linux-x86_64.tar.gz</code></li>
+<li><code>Neovide-x86_64-apple-darwin.dmg</code></li>
+<li><code>Neovide-aarch64-apple-darwin.dmg</code></li>
+</ul>
+</li>
+<li>
+<p>Head to the release draft and reformat the generated release notes to be
+similar to previous releases:</p>
+<ul>
+<li>Rename the <code>What's Changed</code> section to <code>Changes</code></li>
+<li>Rewrite each line in the <code>Changes</code> section to reflect what this change means
+for the end user, linking to the relevant PR/commit</li>
+<li>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></li>
+<li>Have each line reflect what platform it applies to if not irrelevant</li>
+</ul>
+<p>You can make several rounds of preparing such releases through editing the
+current draft over time, to make sure every contributor is mentioned and every
+change is included.</p>
 </li>
 <li>
 <p>Hit <code>Publish release</code></p>
-</li>
-<li>
-<p>profit</p>
 </li>
 <li>
 <p>Publish <code>neovide-derive</code> to crates.io if necessary <code>cargo publish -p neovide-derive</code></p>
 </li>
 <li>
 <p>Publish <code>neovide</code> to crates.io <code>cargo publish -p neovide</code></p>
+</li>
+<li>
+<p>profit</p>
 </li>
 </ol>
 <p>Phew. Now, announce the new release anywhere you think is appropriate (like
