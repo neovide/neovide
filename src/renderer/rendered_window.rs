@@ -400,7 +400,7 @@ impl RenderedWindow {
         grid_scale: GridScale,
         content_region: Option<PixelRect<f32>>,
         rightmost_window: bool,
-        bottommost_window: bool,
+        bottom_fill_y: Option<f32>,
     ) -> WindowDrawDetails {
         let pixel_region_box = self.pixel_region(grid_scale);
         let draw_region_box = self.expanded_pixel_region(
@@ -433,7 +433,7 @@ impl RenderedWindow {
             draw_region_box,
             content_region,
             grid_scale,
-            bottommost_window,
+            bottom_fill_y,
         );
 
         self.draw_edge_background_surface(root_canvas, window_region_box, grid_scale);
@@ -467,20 +467,24 @@ impl RenderedWindow {
         region
     }
 
+    /// Backgrounds can extend only from the main grid into its fractional
+    /// bottom remainder. A missing boundary disables expansion. Matching
+    /// the rendered edge, rather than its destination, keeps fractional or
+    /// animating floats from filling rows that still belong to the grid.
     pub fn expanded_bottom_pixel_region(
         &self,
         pixel_region: PixelRect<f32>,
         content_region: Option<PixelRect<f32>>,
         grid_scale: GridScale,
-        bottommost_window: bool,
+        bottom_fill_y: Option<f32>,
     ) -> PixelRect<f32> {
-        let Some(content_region) = content_region else {
+        let (Some(content_region), Some(main_grid_bottom)) = (content_region, bottom_fill_y) else {
             return pixel_region;
         };
 
         let mut region = pixel_region;
-        if bottommost_window
-            && sub_cell_edge_gap(content_region.max.y, region.max.y, grid_scale.height()).is_some()
+        let bottom_gap = content_region.max.y - main_grid_bottom;
+        if region.max.y == main_grid_bottom && bottom_gap > 0.0 && bottom_gap < grid_scale.height()
         {
             region.max.y = content_region.max.y;
         }
@@ -1271,9 +1275,11 @@ fn push_fill_rect_path(builder: &mut PathBuilder, bounds: &mut Option<Rect>, rec
 
 #[cfg(test)]
 mod tests {
+    use glamour::Contains;
     use skia_safe::Color4f;
 
     use super::*;
+    use crate::renderer::rendered_layer::FloatingLayer;
     use crate::units::PixelSize;
 
     fn grid_scale() -> GridScale { GridScale::new(PixelSize::new(8.0, 16.0)) }
@@ -1285,7 +1291,7 @@ mod tests {
     }
 
     #[test]
-    fn sub_cell_edge_gap_accepts_only_positive_sub_cell_gaps() {
+    fn sub_cell_edge_gap_accepts_positive_gaps_up_to_one_cell() {
         assert_eq!(sub_cell_edge_gap(17.0, 10.0, 16.0), Some(7.0));
         assert_eq!(sub_cell_edge_gap(26.0, 10.0, 16.0), Some(16.0));
         assert_eq!(sub_cell_edge_gap(10.0, 10.0, 16.0), None);
@@ -1349,8 +1355,8 @@ mod tests {
         assert_eq!(rect.bottom, 59.0);
     }
 
-    fn test_rendered_line() -> Rc<RefCell<RenderedLine>> {
-        Rc::new(RefCell::new(RenderedLine {
+    fn test_rendered_line() -> RenderedLine {
+        RenderedLine {
             line: Line::empty(),
             background_picture: None,
             background_runs: CachedBackgroundRuns::default(),
@@ -1359,28 +1365,29 @@ mod tests {
             trailing_background: None,
             has_transparency: false,
             is_valid: true,
-        }))
+        }
     }
 
-    fn positioned_rendered_window(grid_size: (u64, u64)) -> RenderedWindow {
-        let mut window = RenderedWindow::new(BASE_GRID_ID);
+    fn positioned_rendered_window(id: u64, top: f64, grid_size: (u64, u64)) -> RenderedWindow {
+        let mut window = RenderedWindow::new(id);
         window.handle_window_draw_command(WindowDrawCommand::Position {
-            grid_position: (0.0, 0.0),
+            grid_position: (0.0, top),
             grid_size,
             anchor_info: None,
             window_type: WindowType::Editor,
         });
+        window.grid_current_position = GridPos::new(0.0, top as f32);
         window
     }
 
     #[test]
     fn bottom_edge_line_prefers_bottom_border_then_scrollable_line() {
         let grid_scale = grid_scale();
-        let mut window = positioned_rendered_window((20, 4));
+        let mut window = positioned_rendered_window(BASE_GRID_ID, 0.0, (20, 4));
         let base_region = window.pixel_region(grid_scale);
 
-        let border_line = test_rendered_line();
-        let scroll_line = test_rendered_line();
+        let border_line = Rc::new(RefCell::new(test_rendered_line()));
+        let scroll_line = Rc::new(RefCell::new(test_rendered_line()));
         window.actual_lines[3] = Some(Rc::clone(&border_line));
         window.scrollback_lines[3] = Some(Rc::clone(&scroll_line));
 
@@ -1394,7 +1401,7 @@ mod tests {
     }
 
     #[test]
-    fn bottom_region_expands_for_bottommost_sub_cell_gap() {
+    fn bottom_region_expands_from_main_grid_boundary() {
         let window = rendered_window();
         let grid_scale = grid_scale();
         let pixel_region = window.pixel_region(grid_scale);
@@ -1407,7 +1414,7 @@ mod tests {
             pixel_region,
             Some(content_region),
             grid_scale,
-            true,
+            Some(pixel_region.max.y),
         );
 
         assert_eq!(expanded.min, pixel_region.min);
@@ -1416,7 +1423,7 @@ mod tests {
     }
 
     #[test]
-    fn bottom_region_does_not_expand_for_non_bottommost_window() {
+    fn bottom_region_does_not_expand_without_main_grid_boundary() {
         let window = rendered_window();
         let grid_scale = grid_scale();
         let pixel_region = window.pixel_region(grid_scale);
@@ -1429,7 +1436,7 @@ mod tests {
             pixel_region,
             Some(content_region),
             grid_scale,
-            false,
+            None,
         );
 
         assert_eq!(expanded, pixel_region);
@@ -1449,9 +1456,285 @@ mod tests {
             pixel_region,
             Some(content_region),
             grid_scale,
-            true,
+            Some(pixel_region.max.y),
         );
 
         assert_eq!(expanded, pixel_region);
+    }
+
+    #[test]
+    fn bottom_region_does_not_expand_by_a_full_cell() {
+        let window = rendered_window();
+        let grid_scale = grid_scale();
+        let pixel_region = window.pixel_region(grid_scale);
+        let content_region = PixelRect::new(
+            pixel_region.min,
+            PixelPos::new(pixel_region.max.x, pixel_region.max.y + grid_scale.height()),
+        );
+
+        let expanded = window.expanded_bottom_pixel_region(
+            pixel_region,
+            Some(content_region),
+            grid_scale,
+            Some(pixel_region.max.y),
+        );
+
+        assert_eq!(expanded, pixel_region);
+    }
+
+    #[test]
+    fn bottom_region_does_not_expand_without_a_remainder() {
+        let window = rendered_window();
+        let grid_scale = grid_scale();
+        let pixel_region = window.pixel_region(grid_scale);
+
+        let expanded = window.expanded_bottom_pixel_region(
+            pixel_region,
+            Some(pixel_region),
+            grid_scale,
+            Some(pixel_region.max.y),
+        );
+
+        assert_eq!(expanded, pixel_region);
+    }
+
+    fn paint_background_row(
+        window: &mut RenderedWindow,
+        row: usize,
+        backgrounds: &[(Range<u32>, Color)],
+    ) {
+        let grid_scale = grid_scale();
+        let cell_width = grid_scale.width();
+        let cell_height = grid_scale.height();
+        let row_width = window.grid_size.width as f32 * cell_width;
+        let row_bounds = Rect::from_wh(row_width, cell_height);
+
+        let mut line = test_rendered_line();
+        let mut recorder = PictureRecorder::new();
+        let canvas = recorder.begin_recording(row_bounds, false);
+
+        for (cells, color) in backgrounds {
+            let left = cells.start as f32 * cell_width;
+            let width = cells.len() as f32 * cell_width;
+            let rect = Rect::from_xywh(left, 0.0, width, cell_height);
+            canvas.draw_rect(rect, Paint::default().set_color(*color));
+
+            line.background_runs.push(cells.clone(), Color4f::from(*color));
+            if cells.end == window.grid_size.width {
+                line.trailing_background = Some(Color4f::from(*color));
+            }
+        }
+
+        line.background_picture = recorder.finish_recording_as_picture(None);
+
+        let shared_line = Rc::new(RefCell::new(line));
+        window.actual_lines[row] = Some(Rc::clone(&shared_line));
+        window.scrollback_lines[row] = Some(shared_line);
+    }
+
+    /// Two floating layers over a five-row main grid. The command line
+    /// occupies the last row and the popup ends immediately above it.
+    /// The layers draw in increasing z order, as UI2 and completion menus
+    /// do. A white foreground marker replaces text to keep pixel assertions
+    /// independent of installed fonts. An extra buffered foreground row
+    /// checks that bottom filling does not widen the text clip.
+    struct BottomFillFixture {
+        command_line: RenderedWindow,
+        popup: RenderedWindow,
+        surface: skia_safe::Surface,
+        content_region: PixelRect<f32>,
+        bottom_fill_y: Option<f32>,
+        regions: Vec<WindowDrawDetails>,
+    }
+
+    impl BottomFillFixture {
+        fn new(bottom_gap: u32, bottom_padding: u32) -> Self {
+            let main_grid_bottom = 80;
+            let content_width = 163;
+            let content_height = main_grid_bottom + bottom_gap;
+            let content_region = PixelRect::new(
+                PixelPos::ZERO,
+                PixelPos::new(content_width as f32, content_height as f32),
+            );
+            let surface_size = (content_width, (content_height + bottom_padding) as i32);
+            let surface = skia_safe::surfaces::raster_n32_premul(surface_size).unwrap();
+
+            Self {
+                command_line: Self::command_line_window(),
+                popup: Self::popup_window(),
+                surface,
+                content_region,
+                bottom_fill_y: Some(main_grid_bottom as f32),
+                regions: Vec::new(),
+            }
+        }
+
+        fn command_line_window() -> RenderedWindow {
+            let mut command_line = positioned_rendered_window(2, 4.0, (20, 1));
+            let backgrounds = [(0..10, Color::GREEN), (10..20, Color::BLUE)];
+            paint_background_row(&mut command_line, 0, &backgrounds);
+
+            let row_bounds = Rect::from_wh(160.0, 16.0);
+            let foreground_marker = Rect::from_xywh(2.0, 12.0, 4.0, 2.0);
+            let mut recorder = PictureRecorder::new();
+            let canvas = recorder.begin_recording(row_bounds, false);
+            canvas.draw_rect(foreground_marker, Paint::default().set_color(Color::WHITE));
+            command_line.actual_lines[0].as_ref().unwrap().borrow_mut().foreground_picture =
+                recorder.finish_recording_as_picture(None);
+
+            let mut buffered_line = test_rendered_line();
+            recorder
+                .begin_recording(row_bounds, false)
+                .draw_rect(row_bounds, Paint::default().set_color(Color::WHITE));
+            buffered_line.foreground_picture = recorder.finish_recording_as_picture(None);
+            command_line.scrollback_lines[1] = Some(Rc::new(RefCell::new(buffered_line)));
+
+            command_line
+        }
+
+        fn popup_window() -> RenderedWindow {
+            let mut popup = positioned_rendered_window(3, 2.0, (10, 2));
+            paint_background_row(&mut popup, 0, &[(0..10, Color::RED)]);
+            paint_background_row(&mut popup, 1, &[(0..10, Color::RED)]);
+            popup
+        }
+
+        fn draw(&mut self) {
+            let settings = RendererSettings {
+                floating_blur: false,
+                floating_shadow: false,
+                floating_corner_radius: 0.0,
+                ..RendererSettings::default()
+            };
+
+            let canvas = self.surface.canvas();
+            canvas.clear(Color::BLACK);
+            let mut command_layer = FloatingLayer { windows: vec![&mut self.command_line] };
+            self.regions = command_layer.draw(
+                canvas,
+                &settings,
+                Color::BLACK,
+                grid_scale(),
+                Some(self.content_region),
+                self.bottom_fill_y,
+            );
+
+            let mut popup_layer = FloatingLayer { windows: vec![&mut self.popup] };
+            self.regions.extend(popup_layer.draw(
+                canvas,
+                &settings,
+                Color::BLACK,
+                grid_scale(),
+                Some(self.content_region),
+                self.bottom_fill_y,
+            ));
+        }
+
+        fn assert_pixel(&mut self, x: i32, y: i32, color: Color) {
+            let pixels = self.surface.peek_pixels().unwrap();
+            assert_eq!(pixels.get_color((x, y)), color, "pixel ({x}, {y})");
+        }
+
+        fn hit_window(&self, x: f32, y: f32) -> Option<u64> {
+            self.regions
+                .iter()
+                .rfind(|details| details.region.contains(&PixelPos::new(x, y)))
+                .map(|details| details.id)
+        }
+
+        fn position_popup(&mut self, destination: f64, current: f32) {
+            self.popup.handle_window_draw_command(WindowDrawCommand::Position {
+                grid_position: (0.0, destination),
+                grid_size: (10, 2),
+                anchor_info: None,
+                window_type: WindowType::Editor,
+            });
+            self.popup.grid_current_position = GridPos::new(0.0, current);
+        }
+
+        fn assert_command_line_visible(&mut self) {
+            self.assert_pixel(3, 77, Color::WHITE);
+            self.assert_pixel(12, 77, Color::GREEN);
+            assert_eq!(self.hit_window(3.0, 77.0), Some(self.command_line.id));
+            assert_eq!(self.hit_window(12.0, 77.0), Some(self.command_line.id));
+        }
+    }
+
+    #[test]
+    fn popup_above_command_line_does_not_fill_a_grid_owned_row() {
+        let mut fixture = BottomFillFixture::new(0, 0);
+
+        fixture.draw();
+
+        fixture.assert_pixel(12, 40, Color::RED);
+        assert_eq!(fixture.hit_window(12.0, 40.0), Some(fixture.popup.id));
+        fixture.assert_command_line_visible();
+        assert_eq!(fixture.regions[1].region.max.y, 64.0);
+    }
+
+    #[test]
+    fn fractional_popup_does_not_fill_the_rest_of_the_command_line() {
+        let mut fixture = BottomFillFixture::new(0, 0);
+        fixture.position_popup(2.5, 2.5);
+
+        fixture.draw();
+
+        fixture.assert_command_line_visible();
+        assert_eq!(fixture.regions[1].region.max.y, 72.0);
+    }
+
+    #[test]
+    fn animating_popup_does_not_fill_before_reaching_the_main_grid_bottom() {
+        let mut fixture = BottomFillFixture::new(7, 0);
+        fixture.position_popup(3.0, 2.5);
+
+        fixture.draw();
+
+        fixture.assert_command_line_visible();
+        fixture.assert_pixel(12, 83, Color::GREEN);
+        assert_eq!(fixture.hit_window(12.0, 83.0), Some(fixture.command_line.id));
+        assert_eq!(fixture.regions[1].region.max.y, 72.0);
+    }
+
+    #[test]
+    fn settled_popup_at_main_grid_bottom_can_fill_the_remainder() {
+        let mut fixture = BottomFillFixture::new(7, 0);
+        fixture.position_popup(3.0, 3.0);
+
+        fixture.draw();
+
+        fixture.assert_pixel(12, 83, Color::RED);
+        assert_eq!(fixture.hit_window(12.0, 83.0), Some(fixture.popup.id));
+        assert_eq!(fixture.regions[1].region.max.y, fixture.content_region.max.y);
+    }
+
+    #[test]
+    fn command_line_fills_only_the_fractional_remainder_and_keeps_padding() {
+        let mut fixture = BottomFillFixture::new(7, 5);
+
+        fixture.draw();
+
+        fixture.assert_command_line_visible();
+        fixture.assert_pixel(3, 83, Color::GREEN);
+        fixture.assert_pixel(148, 83, Color::BLUE);
+        fixture.assert_pixel(161, 83, Color::BLUE);
+        assert_eq!(fixture.hit_window(3.0, 83.0), Some(fixture.command_line.id));
+        assert_eq!(fixture.hit_window(161.0, 83.0), Some(fixture.command_line.id));
+        fixture.assert_pixel(12, 89, Color::BLACK);
+        assert_eq!(fixture.hit_window(12.0, 89.0), None);
+    }
+
+    #[test]
+    fn disabled_bottom_fill_keeps_right_edge_filling() {
+        let mut fixture = BottomFillFixture::new(7, 0);
+        fixture.bottom_fill_y = None;
+
+        fixture.draw();
+
+        fixture.assert_command_line_visible();
+        fixture.assert_pixel(12, 83, Color::BLACK);
+        assert_eq!(fixture.hit_window(12.0, 83.0), None);
+        fixture.assert_pixel(161, 77, Color::BLUE);
+        assert_eq!(fixture.hit_window(161.0, 77.0), Some(fixture.command_line.id));
     }
 }
