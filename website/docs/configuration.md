@@ -219,6 +219,35 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
+#### Bottom Background Fill
+
+VimScript:
+
+```vim
+let g:neovide_fill_bottom_background = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_fill_bottom_background = true
+```
+
+Fills the spare space below the grid with the background colors of the
+bottom row and it's enabled by default. A window height that falls between whole
+grid rows can leave this space even when `neovide_padding_bottom` is zero.
+
+Text stays at its original position. Colored statusline segments can
+therefore look taller, with extra space below the text. Setting this option
+to `false` keeps their backgrounds within the grid rows. The remaining strip
+below the main grid then keeps the default background color.
+
+Bottom floating windows, including UI2, follow the same setting. Expansion
+is limited to a positive gap of at most one cell height. It stops at the
+content boundary, leaving explicit bottom padding untouched.
+
+The setting takes effect without restarting Neovide.
+
 #### Background Color (Removed in 0.16.0, Previously macOS only)
 
 This legacy configuration has now been fully removed. Neovide controls the title bar color
