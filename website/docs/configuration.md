@@ -219,7 +219,7 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
-#### Bottom Background Fill
+#### Bottom Background Fill (Nightly)
 
 VimScript:
 
@@ -242,9 +242,11 @@ therefore look taller, with extra space below the text. Setting this option
 to `false` keeps their backgrounds within the grid rows. The remaining strip
 below the main grid then keeps the default background color.
 
-Bottom floating windows, including UI2, follow the same setting. Expansion
-is limited to a positive gap of at most one cell height. It stops at the
-content boundary, leaving explicit bottom padding untouched.
+Floating windows, including UI2, follow the same setting only when their
+bottom edge reaches the bottom of the main grid. Filling is limited to the
+fractional remainder below that grid, less than one cell height. It stops
+at the content boundary, leaving explicit bottom padding untouched. Popups
+above the command line do not extend into its row.
 
 The setting takes effect without restarting Neovide.
 

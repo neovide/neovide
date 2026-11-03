@@ -76,6 +76,7 @@ use crate::profiling::tracy_zone;
 use crate::renderer::fonts::font_options::PixelGeometry;
 use crate::renderer::rendered_layer::FloatingLayer;
 use crate::renderer::rendered_layer::group_windows;
+use crate::renderer::rendered_window::BASE_GRID_ID;
 use crate::settings::*;
 use crate::units::GridPos;
 use crate::units::GridRect;
@@ -292,7 +293,15 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background(opacity);
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let layer_grouping = self.settings.get::<RendererSettings>().experimental_layer_grouping;
+        let settings = self.settings.get::<RendererSettings>();
+        let layer_grouping = settings.experimental_layer_grouping;
+
+        // only the remainder below the main grid is available for bottom
+        // filling. A popup can be bottommost in its layer while another
+        // layer still owns the rows below it. None disables expansion when
+        // the setting is off or the main grid is not available yet.
+        let bottom_fill_y = self.bottom_fill_y(settings.fill_bottom_background, grid_scale);
+
         root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -368,15 +377,12 @@ impl Renderer {
             (root_windows, floating_layers)
         };
 
-        let settings = self.settings.get::<RendererSettings>();
         let max_root_x = max_window_max_x(&root_windows, grid_scale);
-        let max_root_y = max_window_max_y(&root_windows, grid_scale);
         let root_window_regions = root_windows
             .into_iter()
             .map(|window| {
                 let region = window.pixel_region(grid_scale);
                 let rightmost_root_window = is_rightmost_window_edge(region.max.x, max_root_x);
-                let bottommost_root_window = is_bottommost_window_edge(region.max.y, max_root_y);
 
                 // The toggle gates expansion before drawing. Draw also
                 // returns that region for mouse hit testing, so skipping
@@ -387,7 +393,7 @@ impl Renderer {
                     grid_scale,
                     Some(*content_region),
                     rightmost_root_window,
-                    settings.fill_bottom_background && bottommost_root_window,
+                    bottom_fill_y,
                 )
             })
             .collect_vec();
@@ -401,6 +407,7 @@ impl Renderer {
                     default_background,
                     grid_scale,
                     Some(*content_region),
+                    bottom_fill_y,
                 )
             })
             .collect_vec();
@@ -421,6 +428,15 @@ impl Renderer {
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();
+    }
+
+    fn bottom_fill_y(&self, enabled: bool, grid_scale: GridScale) -> Option<f32> {
+        let main_grid = self.rendered_windows.get(&BASE_GRID_ID)?;
+        if !enabled || main_grid.hidden || main_grid.grid_size.height == 0 {
+            return None;
+        }
+
+        Some(main_grid.pixel_region(grid_scale).max.y)
     }
 
     fn message_selection_window(&self) -> Option<(&MessageSelection, &RenderedWindow)> {
@@ -746,21 +762,10 @@ pub fn is_rightmost_window_edge(region_max_x: f32, max_x: f32) -> bool {
     max_x.is_finite() && (region_max_x - max_x).abs() <= f32::EPSILON
 }
 
-pub fn is_bottommost_window_edge(region_max_y: f32, max_y: f32) -> bool {
-    max_y.is_finite() && (region_max_y - max_y).abs() <= f32::EPSILON
-}
-
 pub fn max_window_max_x(windows: &[&mut RenderedWindow], grid_scale: GridScale) -> f32 {
     windows.iter().fold(f32::NEG_INFINITY, |max_x, window| {
         let region = window.pixel_region(grid_scale);
         max_x.max(region.max.x)
-    })
-}
-
-pub fn max_window_max_y(windows: &[&mut RenderedWindow], grid_scale: GridScale) -> f32 {
-    windows.iter().fold(f32::NEG_INFINITY, |max_y, window| {
-        let region = window.pixel_region(grid_scale);
-        max_y.max(region.max.y)
     })
 }
 
@@ -870,7 +875,6 @@ mod tests {
 
     use super::*;
     use crate::bridge::MessageKind;
-    use crate::renderer::rendered_window::BASE_GRID_ID;
 
     fn create_renderer() -> Renderer {
         let settings = Arc::new(Settings::new());
@@ -981,6 +985,24 @@ mod tests {
         settings.fill_bottom_background = true;
         fixture.renderer.settings.set(&settings);
         assert_eq!(fixture.draw(), fixture.content_region);
+    }
+
+    #[test]
+    fn root_window_does_not_fill_bottom_without_main_grid() {
+        let mut fixture = RootWindowFixture::new();
+        let mut window = fixture.renderer.rendered_windows.remove(&BASE_GRID_ID).unwrap();
+        window.id = 2;
+        fixture.renderer.rendered_windows.insert(window.id, window);
+
+        let region = fixture.draw();
+
+        assert_eq!(
+            region,
+            PixelRect::new(
+                fixture.grid_region.min,
+                PixelPos::new(fixture.content_region.max.x, fixture.grid_region.max.y),
+            )
+        );
     }
 
     #[test]

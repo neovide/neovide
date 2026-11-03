@@ -18,7 +18,6 @@ use skia_safe::utils::shadow_utils::draw_shadow;
 use super::RenderedWindow;
 use super::RendererSettings;
 use super::WindowDrawDetails;
-use super::is_bottommost_window_edge;
 use super::is_rightmost_window_edge;
 use crate::editor::WindowType;
 use crate::units::GridScale;
@@ -69,6 +68,7 @@ impl FloatingLayer<'_> {
         default_background: Color,
         grid_scale: GridScale,
         content_region: Option<PixelRect<f32>>,
+        bottom_fill_y: Option<f32>,
     ) -> Vec<WindowDrawDetails> {
         let pixel_regions =
             self.windows.iter().map(|window| window.pixel_region(grid_scale)).collect::<Vec<_>>();
@@ -77,12 +77,7 @@ impl FloatingLayer<'_> {
         // regions below still place the text and its clips. Using a taller
         // foreground region could expose the extra line that smooth
         // scrolling keeps beyond the viewport.
-        let regions = self.expanded_regions(
-            &pixel_regions,
-            grid_scale,
-            content_region,
-            settings.fill_bottom_background,
-        );
+        let regions = self.expand_edges(&pixel_regions, grid_scale, content_region, bottom_fill_y);
 
         let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
         let (draw_clip, draw_bound_rect) =
@@ -144,32 +139,30 @@ impl FloatingLayer<'_> {
     }
 
     /// The background and hit regions for the current layer. `pixel_regions`
-    /// must contain one grid rectangle per window, in the same order. Only
-    /// windows at the outer right or bottom edge of this layer can expand.
-    /// Each gap must be positive and no larger than one cell, with the
-    /// floating point tolerance used by the window helpers. Larger gaps
-    /// during a resize do not become extended backgrounds or hit areas.
+    /// must contain one grid rectangle per window, in the same order. Right
+    /// edges can expand from the outer edge of this layer while bottom edges
+    /// must meet `bottom_fill_y`, the main grid boundary supplied by the
+    /// renderer. Being bottommost in this layer is not sufficient, as a
+    /// lower layer can still occupy the rows below a popup.
     ///
     /// `content_region` already excludes explicit padding. `None` leaves
-    /// the regions unchanged. Disabling bottom fill leaves the bottom edges
-    /// at the grid boundary while right edges can still expand. Both the
+    /// the regions unchanged. A missing bottom boundary disables only
+    /// bottom expansion, while right edges can still expand. Both the
     /// edge drawing and [`WindowDrawDetails`] use these results, so the
-    /// toggle also removes the extra bottom area from mouse hit testing.
-    fn expanded_regions(
+    /// boundary check also prevents extra bottom areas in mouse hit testing.
+    fn expand_edges(
         &self,
         pixel_regions: &[PixelRect<f32>],
         grid_scale: GridScale,
         content_region: Option<PixelRect<f32>>,
-        fill_bottom_background: bool,
+        bottom_fill_y: Option<f32>,
     ) -> Vec<PixelRect<f32>> {
         let max_layer_x = max_region_max_x(pixel_regions);
-        let max_layer_y = max_region_max_y(pixel_regions);
         self.windows
             .iter()
             .zip(pixel_regions.iter().copied())
             .map(|(window, region)| {
                 let rightmost_window = is_rightmost_window_edge(region.max.x, max_layer_x);
-                let bottommost_window = is_bottommost_window_edge(region.max.y, max_layer_y);
                 let region = window.expanded_pixel_region(
                     region,
                     content_region,
@@ -180,7 +173,7 @@ impl FloatingLayer<'_> {
                     region,
                     content_region,
                     grid_scale,
-                    fill_bottom_background && bottommost_window,
+                    bottom_fill_y,
                 )
             })
             .collect::<Vec<_>>()
@@ -316,10 +309,6 @@ fn max_region_max_x(regions: &[PixelRect<f32>]) -> f32 {
     regions.iter().fold(f32::NEG_INFINITY, |max_x, region| max_x.max(region.max.x))
 }
 
-fn max_region_max_y(regions: &[PixelRect<f32>]) -> f32 {
-    regions.iter().fold(f32::NEG_INFINITY, |max_y, region| max_y.max(region.max.y))
-}
-
 fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
     let scaled_radius =
         if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
@@ -370,8 +359,12 @@ mod tests {
             PixelPos::new(bottom_region.max.x + 3.0, bottom_region.max.y + 7.0),
         );
 
-        let expanded_regions =
-            layer.expanded_regions(&pixel_regions, grid_scale, Some(content_region), true);
+        let expanded_regions = layer.expand_edges(
+            &pixel_regions,
+            grid_scale,
+            Some(content_region),
+            Some(bottom_region.max.y),
+        );
 
         assert_eq!(
             expanded_regions,
@@ -401,7 +394,7 @@ mod tests {
         );
 
         let expanded_regions =
-            layer.expanded_regions(&pixel_regions, grid_scale, Some(content_region), false);
+            layer.expand_edges(&pixel_regions, grid_scale, Some(content_region), None);
 
         assert_eq!(
             expanded_regions,
