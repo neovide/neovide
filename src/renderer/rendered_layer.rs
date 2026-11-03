@@ -30,11 +30,21 @@ struct LayerWindow<'w> {
     group: usize,
 }
 
+/// A nonempty group of windows borrowed for one frame, in draw order. The
+/// renderer owns the windows and rebuilds their groups before drawing. This
+/// layer keeps no geometry across frames. [`Self::draw`] requires at least
+/// one window because [`build_silhouette`] derives both its path and bounds
+/// from the first rectangle.
 pub struct FloatingLayer<'w> {
     pub windows: Vec<&'w mut RenderedWindow>,
 }
 
 impl FloatingLayer<'_> {
+    /// The grid silhouette with the drawable edge backgrounds included.
+    /// Expansion alone does not prove a window has a background to extend.
+    /// The cached fills supply the added paths, and a window with no fills
+    /// leaves the clip and bounds unchanged. The resulting clip and bounds
+    /// are shared by the blur and compositing passes.
     fn build_draw_clip_and_bounds(
         &self,
         mut draw_clip: Path,
@@ -62,7 +72,17 @@ impl FloatingLayer<'_> {
     ) -> Vec<WindowDrawDetails> {
         let pixel_regions =
             self.windows.iter().map(|window| window.pixel_region(grid_scale)).collect::<Vec<_>>();
-        let regions = self.expanded_regions(&pixel_regions, grid_scale, content_region);
+
+        // Edge regions are calculated again for this frame. The grid
+        // regions below still place the text and its clips. Using a taller
+        // foreground region could expose the extra line that smooth
+        // scrolling keeps beyond the viewport.
+        let regions = self.expanded_regions(
+            &pixel_regions,
+            grid_scale,
+            content_region,
+            settings.fill_bottom_background,
+        );
 
         let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
         let (draw_clip, draw_bound_rect) =
@@ -123,11 +143,24 @@ impl FloatingLayer<'_> {
         ret
     }
 
+    /// The background and hit regions for the current layer. `pixel_regions`
+    /// must contain one grid rectangle per window, in the same order. Only
+    /// windows at the outer right or bottom edge of this layer can expand.
+    /// Each gap must be positive and no larger than one cell, with the
+    /// floating point tolerance used by the window helpers. Larger gaps
+    /// during a resize do not become extended backgrounds or hit areas.
+    ///
+    /// `content_region` already excludes explicit padding. `None` leaves
+    /// the regions unchanged. Disabling bottom fill leaves the bottom edges
+    /// at the grid boundary while right edges can still expand. Both the
+    /// edge drawing and [`WindowDrawDetails`] use these results, so the
+    /// toggle also removes the extra bottom area from mouse hit testing.
     fn expanded_regions(
         &self,
         pixel_regions: &[PixelRect<f32>],
         grid_scale: GridScale,
         content_region: Option<PixelRect<f32>>,
+        fill_bottom_background: bool,
     ) -> Vec<PixelRect<f32>> {
         let max_layer_x = max_region_max_x(pixel_regions);
         let max_layer_y = max_region_max_y(pixel_regions);
@@ -147,7 +180,7 @@ impl FloatingLayer<'_> {
                     region,
                     content_region,
                     grid_scale,
-                    bottommost_window,
+                    fill_bottom_background && bottommost_window,
                 )
             })
             .collect::<Vec<_>>()
@@ -247,6 +280,9 @@ pub fn group_windows(
         .collect_vec()
 }
 
+/// A background path included in the layer clip and draw bounds. If Skia
+/// cannot form the union, the existing clip stays in place. The bounds
+/// still include the supplied rectangle and may extend beyond the clip.
 fn include_path_bounds(
     draw_clip: &mut Path,
     draw_bound_rect: &mut Rect,
@@ -320,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn floating_layer_expands_bottommost_window_to_content_bottom() {
+    fn floating_layer_expands_bottom_and_right_edges_when_bottom_fill_is_enabled() {
         let grid_scale = grid_scale();
         let mut upper_window = positioned_window(2, 3.0, 0.0);
         let mut bottom_window = positioned_window(3, 4.0, 0.0);
@@ -331,14 +367,54 @@ mod tests {
         let bottom_region = pixel_regions[1];
         let content_region = PixelRect::new(
             PixelPos::new(0.0, 0.0),
-            PixelPos::new(bottom_region.max.x, bottom_region.max.y + 7.0),
+            PixelPos::new(bottom_region.max.x + 3.0, bottom_region.max.y + 7.0),
         );
 
         let expanded_regions =
-            layer.expanded_regions(&pixel_regions, grid_scale, Some(content_region));
+            layer.expanded_regions(&pixel_regions, grid_scale, Some(content_region), true);
 
-        assert_eq!(expanded_regions[0], upper_region);
-        assert_eq!(expanded_regions[1].max.y, content_region.max.y);
-        assert_eq!(expanded_regions[1].max.x, bottom_region.max.x);
+        assert_eq!(
+            expanded_regions,
+            vec![
+                PixelRect::new(
+                    upper_region.min,
+                    PixelPos::new(content_region.max.x, upper_region.max.y),
+                ),
+                PixelRect::new(bottom_region.min, content_region.max),
+            ]
+        );
+    }
+
+    #[test]
+    fn floating_layer_expands_only_right_edge_when_bottom_fill_is_disabled() {
+        let grid_scale = grid_scale();
+        let mut upper_window = positioned_window(2, 3.0, 0.0);
+        let mut bottom_window = positioned_window(3, 4.0, 0.0);
+        let layer = FloatingLayer { windows: vec![&mut upper_window, &mut bottom_window] };
+        let pixel_regions =
+            layer.windows.iter().map(|window| window.pixel_region(grid_scale)).collect::<Vec<_>>();
+        let upper_region = pixel_regions[0];
+        let bottom_region = pixel_regions[1];
+        let content_region = PixelRect::new(
+            PixelPos::new(0.0, 0.0),
+            PixelPos::new(bottom_region.max.x + 3.0, bottom_region.max.y + 7.0),
+        );
+
+        let expanded_regions =
+            layer.expanded_regions(&pixel_regions, grid_scale, Some(content_region), false);
+
+        assert_eq!(
+            expanded_regions,
+            vec![
+                PixelRect::new(
+                    upper_region.min,
+                    PixelPos::new(content_region.max.x, upper_region.max.y),
+                ),
+                PixelRect::new(
+                    bottom_region.min,
+                    PixelPos::new(content_region.max.x, bottom_region.max.y),
+                ),
+            ]
+        );
     }
 }
