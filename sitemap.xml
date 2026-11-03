@@ -2,54 +2,54 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://neovide.dev/</loc>
-        <lastmod>2026-10-31T02:44:31.723Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.989Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/api</loc>
-        <lastmod>2026-10-31T02:44:31.318Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.597Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/command-line-reference</loc>
-        <lastmod>2026-10-31T02:44:31.722Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.988Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/commands</loc>
-        <lastmod>2026-10-31T02:44:31.722Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.988Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/config-file</loc>
-        <lastmod>2026-10-31T02:44:31.722Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.988Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/configuration</loc>
-        <lastmod>2026-10-31T02:44:31.727Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.991Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/faq</loc>
-        <lastmod>2026-10-31T02:44:31.722Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.989Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/features</loc>
-        <lastmod>2026-10-31T02:44:31.722Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.989Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/installation</loc>
-        <lastmod>2026-10-31T02:44:31.725Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.991Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/integration-with-external-tools</loc>
-        <lastmod>2026-10-31T02:44:31.725Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.989Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/maintainer-cookbook</loc>
-        <lastmod>2026-10-31T02:44:31.725Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.990Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/sponsor</loc>
-        <lastmod>2026-10-31T02:44:31.725Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.989Z</lastmod>
     </url>
     <url>
         <loc>https://neovide.dev/troubleshooting</loc>
-        <lastmod>2026-10-31T02:44:31.725Z</lastmod>
+        <lastmod>2026-11-03T01:50:23.990Z</lastmod>
     </url>
 </urlset>
