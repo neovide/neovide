@@ -626,13 +626,13 @@ vim.g.neovide_padding_left = 0
 background color instead.</p>
 <h4 id="bottom-background-fill-nightly"><a class="header" href="#bottom-background-fill-nightly">Bottom Background Fill (Nightly)</a></h4>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_fill_bottom_background = v:true
+<pre><code class="language-vim">let g:neovide_fill_bottom_background = v:false
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_fill_bottom_background = true
+<pre><code class="language-lua">vim.g.neovide_fill_bottom_background = false
 </code></pre>
 <p>Fills the spare space below the grid with the background colors of the
-bottom row and it's enabled by default. A window height that falls between whole
+bottom row and it's disabled by default. A window height that falls between whole
 grid rows can leave this space even when <code>neovide_padding_bottom</code> is zero.</p>
 <p>Text stays at its original position. Colored statusline segments can
 therefore look taller, with extra space below the text. Setting this option
