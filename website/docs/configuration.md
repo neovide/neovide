@@ -219,7 +219,7 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
-#### Bottom Background Fill (Nightly)
+#### Bottom Background Fill (Available since 0.17.2)
 
 VimScript:
 
