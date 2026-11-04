@@ -224,17 +224,17 @@ background color instead.
 VimScript:
 
 ```vim
-let g:neovide_fill_bottom_background = v:true
+let g:neovide_fill_bottom_background = v:false
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_fill_bottom_background = true
+vim.g.neovide_fill_bottom_background = false
 ```
 
 Fills the spare space below the grid with the background colors of the
-bottom row and it's enabled by default. A window height that falls between whole
+bottom row and it's disabled by default. A window height that falls between whole
 grid rows can leave this space even when `neovide_padding_bottom` is zero.
 
 Text stays at its original position. Colored statusline segments can

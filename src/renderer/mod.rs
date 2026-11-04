@@ -141,7 +141,7 @@ impl Default for RendererSettings {
             position_animation_length: 0.15,
             scroll_animation_length: 0.3,
             scroll_animation_far_lines: 1,
-            fill_bottom_background: true,
+            fill_bottom_background: false,
             floating_blur: true,
             floating_blur_amount_x: 2.0,
             floating_blur_amount_y: 2.0,
@@ -939,9 +939,11 @@ mod tests {
     }
 
     #[test]
-    fn root_window_expands_bottom_and_right_edges_by_default() {
+    fn root_window_expands_bottom_and_right_edges_when_bottom_fill_is_enabled() {
         let mut fixture = RootWindowFixture::new();
-        assert!(fixture.renderer.settings.get::<RendererSettings>().fill_bottom_background);
+        let mut settings = fixture.renderer.settings.get::<RendererSettings>();
+        settings.fill_bottom_background = true;
+        fixture.renderer.settings.set(&settings);
 
         let region = fixture.draw();
 
@@ -949,11 +951,9 @@ mod tests {
     }
 
     #[test]
-    fn root_window_expands_only_right_edge_when_bottom_fill_is_disabled() {
+    fn root_window_expands_only_right_edge_by_default() {
         let mut fixture = RootWindowFixture::new();
-        let mut settings = fixture.renderer.settings.get::<RendererSettings>();
-        settings.fill_bottom_background = false;
-        fixture.renderer.settings.set(&settings);
+        assert!(!fixture.renderer.settings.get::<RendererSettings>().fill_bottom_background);
 
         let region = fixture.draw();
 
@@ -970,6 +970,8 @@ mod tests {
     fn root_window_restores_bottom_fill_when_reenabled() {
         let mut fixture = RootWindowFixture::new();
         let mut settings = fixture.renderer.settings.get::<RendererSettings>();
+        settings.fill_bottom_background = true;
+        fixture.renderer.settings.set(&settings);
         assert_eq!(fixture.draw(), fixture.content_region);
 
         settings.fill_bottom_background = false;
@@ -990,6 +992,9 @@ mod tests {
     #[test]
     fn root_window_does_not_fill_bottom_without_main_grid() {
         let mut fixture = RootWindowFixture::new();
+        let mut settings = fixture.renderer.settings.get::<RendererSettings>();
+        settings.fill_bottom_background = true;
+        fixture.renderer.settings.set(&settings);
         let mut window = fixture.renderer.rendered_windows.remove(&BASE_GRID_ID).unwrap();
         window.id = 2;
         fixture.renderer.rendered_windows.insert(window.id, window);
