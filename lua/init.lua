@@ -259,10 +259,22 @@ if vim.fn.has("macunix") == 1 then
         vim.api.nvim_create_autocmd({
             "BufEnter",
             "BufFilePost",
-            "BufModifiedSet",
             "BufWritePost",
         }, {
             group = document_state_group,
+            callback = notify_document_state,
+        })
+
+        -- due to compatibility reasons from neovim 0.13+ we need to keep OptionSet
+        -- with pattern `modified` when a buffer modified state changes instead.
+        local modified_event, modified_pattern = "OptionSet", "modified"
+        if vim.fn.exists("##BufModifiedSet") == 1 then
+            modified_event, modified_pattern = "BufModifiedSet", "*"
+        end
+
+        vim.api.nvim_create_autocmd(modified_event, {
+            group = document_state_group,
+            pattern = modified_pattern,
             callback = notify_document_state,
         })
 
