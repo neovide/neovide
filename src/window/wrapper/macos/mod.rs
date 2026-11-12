@@ -9,6 +9,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use glamour::Point2;
+use objc2::rc::Retained;
+use objc2_app_kit::NSWindow;
+use objc2_foundation::NSArray;
+use winit::dpi::LogicalSize;
 use winit::event::WindowEvent;
 use winit::platform::macos;
 use winit::platform::macos::WindowExtMacOS;
@@ -46,22 +50,81 @@ use crate::units::PixelSize;
 use crate::window::ForceClickKind;
 use crate::window::MacShortcutCommand;
 use crate::window::application::platform::hide_application;
-use crate::window::macos::native_tabs::native_tab_bar_enabled;
+use crate::window::macos::appkit::get_ns_window;
+use crate::window::macos::system_tabs::system_tab_bar_enabled;
 use crate::window::settings::platform::OptionAsMeta;
+
+/// Host geometry captured before a new AppKit tab joins its chosen window.
+///
+/// The route asks its chosen host for this snapshot only when system tabs
+/// are requested for a full or transparent frame outside native fullscreen.
+/// It passes both sizes to the new window before AppKit can resize the host
+/// while adding that window to the tab group and attaching its tab bar.
+///
+/// `outer` is the host frame size in AppKit points. For an inline tab, the
+/// feature applies it to the new window before attachment and preserves its
+/// frame top edge, so the new tab starts at the same size as its host window.
+///
+/// `content_height` comes from `contentRectForFrameRect`. For a full frame,
+/// AppKit can enlarge the content area when the tab toolbar appears, so the
+/// host height remains pending until the actual `NSTabBar` attaches to the
+/// new window. The tab owner then restores every group member to that host
+/// height and clears the target, leaving later tab switches and resizes alone.
+///
+/// Transparent frames use `outer` but do not restore `content_height` because
+/// their grid inset depends on the live tab bar geometry. A new fullscreen
+/// window receives no snapshot, and simple fullscreen ignores one if present.
+#[derive(Clone, Copy)]
+pub struct HostTabSize {
+    pub outer: LogicalSize<f64>,
+    pub content_height: f64,
+}
+
+/// The chosen AppKit host for a new system tab, held across window creation.
+///
+/// `MacosWindowFeature::host_tab_for_new_window` captures the host before winit
+/// creates the new window. The retained `NSWindow` keeps its identity available
+/// while the new feature tries to attach only its own window to that tab group.
+///
+/// The route discards this host when the new window will start fullscreen. For
+/// full or transparent frames outside native fullscreen, `size` captures host
+/// geometry, while buttonless frames and native fullscreen hosts omit `size`.
+pub struct HostTab {
+    pub window: Retained<NSWindow>,
+    pub size: Option<HostTabSize>,
+}
+
+/// Neovide windows share a tabbing identifier, even after detachment. Match
+/// the NSWindow in the captured member list to find its actual tab group.
+fn tab_group_contains_window(members: &NSArray<NSWindow>, window: &NSWindow) -> bool {
+    members.iter().any(|member| std::ptr::eq::<NSWindow>(&*member, window))
+}
+
+impl HostTabSize {
+    fn from_ns_window(window: &NSWindow) -> Self {
+        let frame = window.frame();
+        let content = window.contentRectForFrameRect(frame);
+        Self {
+            outer: LogicalSize::new(frame.size.width, frame.size.height),
+            content_height: content.size.height,
+        }
+    }
+}
 
 pub fn create_window_feature(
     window: &Rc<Window>,
     settings: Arc<Settings>,
-    neovim_handler: NeovimHandler,
+    handler: NeovimHandler,
     renderer: &Rc<RefCell<Box<Renderer>>>,
     creating_initial_window: bool,
+    host_tab: Option<HostTab>,
 ) -> MacosWindowFeature {
-    let mut feature = MacosWindowFeature::from_winit_window(window, settings, neovim_handler);
-    feature.apply_scrollbar_snapshot(&renderer.borrow());
+    let mut feat = MacosWindowFeature::from_winit_window(window, settings, handler, host_tab);
+    feat.apply_scrollbar_snapshot(&renderer.borrow());
     if creating_initial_window {
-        feature.activate_and_focus();
+        feat.activate_and_focus();
     }
-    feature
+    feat
 }
 
 pub struct WindowNavigationState {
@@ -204,7 +267,7 @@ impl WinitWindowWrapper {
             }
         }
 
-        if native_tab_bar_enabled()
+        if system_tab_bar_enabled()
             && let WindowEvent::KeyboardInput { event: key_event, .. } = event
         {
             let modifiers = self.keyboard_manager.current_modifiers();
@@ -356,7 +419,7 @@ impl WinitWindowWrapper {
         self.window_navigation.ignore_next_focus_gain = true;
 
         if is_active {
-            let uses_native_tabs = native_tab_bar_enabled()
+            let uses_native_tabs = system_tab_bar_enabled()
                 && self.settings.get::<CmdLineSettings>().system_native_tabs;
 
             if uses_native_tabs {
@@ -485,6 +548,10 @@ impl WinitWindowWrapper {
         };
 
         let window = route.window.winit_window.clone();
+        if fullscreen && window.fullscreen().is_some() {
+            return;
+        }
+
         let Some(feature) = &route.window.macos_feature else {
             window.set_simple_fullscreen(fullscreen);
             return;
@@ -514,7 +581,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn sync_native_tabs_resize(&mut self, source_window_id: WindowId) {
-        if !native_tab_bar_enabled() || !self.settings.get::<CmdLineSettings>().system_native_tabs {
+        if !system_tab_bar_enabled() || !self.settings.get::<CmdLineSettings>().system_native_tabs {
             return;
         }
 
@@ -526,11 +593,25 @@ impl WinitWindowWrapper {
             return;
         };
 
-        let shared_inner_size = source_route.window.winit_window.inner_size();
-        let window_ids: Vec<WindowId> = self.routes.keys().copied().collect();
+        let source_window = get_ns_window(&source_route.window.winit_window);
+        let Some(group) = source_window.tabGroup() else { return };
+        let members = group.windows();
+        if members.len() < 2 {
+            return;
+        }
 
-        // System native tabs share one visual surface. Keep all routes in sync so
-        // fullscreen transitions trigger immediate grid updates for every tab.
+        let shared_inner_size = source_route.window.winit_window.inner_size();
+        let window_ids: Vec<WindowId> = self
+            .routes
+            .iter()
+            .filter_map(|(id, route)| {
+                let window = get_ns_window(&route.window.winit_window);
+                tab_group_contains_window(&members, &window).then_some(*id)
+            })
+            .collect();
+
+        // Only windows in the same AppKit group share a visual surface. A tab
+        // detached into another group keeps its own grid size and padding.
         for window_id in window_ids {
             if let Some(route) = self.routes.get_mut(&window_id)
                 && let Some(macos_feature) = &mut route.window.macos_feature
@@ -611,6 +692,22 @@ impl WinitWindowWrapper {
         true
     }
 
+    /// Decide whether a new macOS window starts its own fullscreen transition.
+    ///
+    /// `try_create_window` reads the fullscreen setting for every new route. It
+    /// calls this after winit creates the new window, but before applying that
+    /// setting or passing any captured `HostTab` to the new macOS feature. The
+    /// initial window and windows without system tabs keep the requested value.
+    ///
+    /// When the selected host is already in native fullscreen, the new system
+    /// tab can join that group without starting another fullscreen transition.
+    /// AppKit can raise `NSWindowStackController` assertions when the new tab
+    /// window enters fullscreen during attachment to the existing tab group.
+    ///
+    /// Returning `false` skips the initial `set_fullscreen` call for this new
+    /// window. It also keeps any captured `HostTab` available for the feature
+    /// to try joining the existing fullscreen host group. The host remains in
+    /// native fullscreen, and the shared fullscreen setting remains unchanged.
     pub fn fullscreen_for_new_window(
         &self,
         creating_initial_window: bool,
@@ -620,14 +717,6 @@ impl WinitWindowWrapper {
             return fullscreen;
         }
 
-        // cmd-n creates another top-level NSWindow. if system tabs are enabled,
-        // AppKit then merges that new window into the focused fullscreen
-        // window's tab group. If we also apply the global fullscreen
-        // setting to the newly created window, AppKit tries to perform a
-        // second fullscreen transition for a window that is about to become a
-        // tab in the existing fullscreen group, which triggers
-        // NSWindowStackController assertions. So, we keep the host window fullscreen,
-        // but skip the initial fullscreen transition on the new window to avoid that.
         let opening_fullscreen_tab = self
             .get_focused_route()
             .and_then(|window_id| self.macos_feature_for_window(window_id))
@@ -648,7 +737,7 @@ impl WinitWindowWrapper {
     ) -> bool {
         !creating_initial_window
             && fullscreen
-            && native_tab_bar_enabled()
+            && system_tab_bar_enabled()
             && self.settings.get::<CmdLineSettings>().system_native_tabs
     }
 

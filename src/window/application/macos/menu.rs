@@ -32,8 +32,8 @@ use crate::bridge::require_active_handler;
 use crate::bridge::send_ui;
 use crate::cmd_line::CmdLineSettings;
 use crate::settings::Settings;
-use crate::window::macos::native_tabs::should_show_native_tab_bar;
 use crate::window::macos::shortcut::KeyCombo;
+use crate::window::macos::system_tabs::should_show_system_tab_bar;
 
 const NEOVIDE_WEBSITE_URL: &str = "https://neovide.dev/";
 const NEOVIDE_SPONSOR_URL: &str = "https://github.com/sponsors/neovide";
@@ -253,7 +253,7 @@ define_class!(
 
         #[unsafe(method(neovideRefreshWindowMenu:))]
         fn refresh_window_menu(&self, _timer: &NSTimer) {
-            if should_show_native_tab_bar() {
+            if should_show_system_tab_bar() {
                 return;
             }
 
@@ -292,7 +292,7 @@ impl WindowMenuNotificationHandler {
     }
 
     fn schedule_refresh_from_notification(&self, notification: &NSNotification) {
-        if should_show_native_tab_bar() {
+        if should_show_system_tab_bar() {
             return;
         }
 
@@ -510,7 +510,7 @@ impl Menu {
     }
 
     fn remove_system_show_all_tabs(menu: &NSMenu) {
-        let show_native_tabs = should_show_native_tab_bar();
+        let show_native_tabs = should_show_system_tab_bar();
         let item_count = menu.numberOfItems();
         let mut indices_to_remove = Vec::new();
         for idx in 0..item_count {

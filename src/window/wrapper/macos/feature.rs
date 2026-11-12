@@ -1,5 +1,7 @@
 #[path = "scrollbar/mod.rs"]
 pub mod scrollbar;
+#[path = "tabs/mod.rs"]
+mod tabs;
 
 use std::cell::RefCell;
 use std::path::Path;
@@ -27,6 +29,7 @@ use objc2_app_kit::NSFontWeightLight;
 use objc2_app_kit::NSTextView;
 use objc2_app_kit::NSView;
 use objc2_app_kit::NSWindow;
+use objc2_app_kit::NSWindowOrderingMode;
 use objc2_app_kit::NSWindowStyleMask;
 use objc2_app_kit::NSWindowTabbingMode;
 use objc2_app_kit::NSWindowTitleVisibility;
@@ -46,6 +49,11 @@ use objc2_foundation::ns_string;
 use winit::window::Window;
 
 use self::scrollbar::WindowScrollbars;
+use self::tabs::WindowSystemTabs;
+use self::tabs::supports_inline_system_tabs;
+use super::HostTab;
+use super::HostTabSize;
+use super::tab_group_contains_window;
 use crate::bridge::NeovimHandler;
 use crate::bridge::SerialCommand;
 use crate::bridge::send_ui;
@@ -62,9 +70,9 @@ use crate::window::WindowSettingsChanged;
 use crate::window::application::platform::ensure_app_initialized;
 use crate::window::macos::appkit::activate_app_and_focus_window;
 use crate::window::macos::appkit::get_ns_window;
-use crate::window::macos::native_tabs::ENABLE_NATIVE_TAB_BAR;
-use crate::window::macos::native_tabs::SHOW_NATIVE_TAB_BAR;
-use crate::window::macos::native_tabs::should_show_native_tab_bar;
+use crate::window::macos::system_tabs::ENABLE_SYSTEM_TAB_BAR;
+use crate::window::macos::system_tabs::SHOW_SYSTEM_TAB_BAR;
+use crate::window::macos::system_tabs::should_show_system_tab_bar;
 
 thread_local! {
     static QUICKLOOK_PREVIEW_ITEM: RefCell<Option<Retained<NSURL>>> = const { RefCell::new(None) };
@@ -73,14 +81,6 @@ thread_local! {
 }
 
 const NEOVIDE_TABBING_IDENTIFIER: &str = "NeovideWindowTabGroup";
-
-fn merge_all_windows_if_native_tabs(ns_window: &NSWindow) {
-    if should_show_native_tab_bar() {
-        ns_window.mergeAllWindows(None);
-        MacosWindowFeature::apply_tab_bar_preference(ns_window);
-    }
-}
-
 pub enum TouchpadStage {
     Soft,
     Click,
@@ -209,14 +209,16 @@ pub struct MacosWindowFeature {
     neovim_handler: NeovimHandler,
     simple_fullscreen: bool,
     has_transparent_titlebar: bool,
+    system_tabs: Option<WindowSystemTabs>,
     scrollbars: WindowScrollbars,
 }
 
 impl MacosWindowFeature {
-    pub fn from_winit_window(
+    pub(super) fn from_winit_window(
         window: &Window,
         settings: Arc<Settings>,
         neovim_handler: NeovimHandler,
+        host_tab: Option<HostTab>,
     ) -> Self {
         let mtm =
             MainThreadMarker::new().expect("MacosWindowFeature must be created in main thread.");
@@ -224,32 +226,60 @@ impl MacosWindowFeature {
         let system_titlebar_height = Self::system_titlebar_height(mtm);
 
         let ns_window = get_ns_window(window);
-
-        let cmd_line_settings = settings.get::<CmdLineSettings>();
-        let frame = cmd_line_settings.frame;
+        let cmd = settings.get::<CmdLineSettings>();
+        let frame_style = cmd.frame;
         let window_settings = settings.get::<WindowSettings>();
         let simple_fullscreen = window_settings.macos_simple_fullscreen;
-        let enable_native_tabs = frame != Frame::None && !simple_fullscreen;
-        let show_native_tabs = cmd_line_settings.system_native_tabs && enable_native_tabs;
-        ENABLE_NATIVE_TAB_BAR.store(enable_native_tabs, Ordering::Relaxed);
-        SHOW_NATIVE_TAB_BAR.store(show_native_tabs, Ordering::Relaxed);
+        let (allow_system_tab, system_tab_requested) = Self::set_tab_flags(&cmd, simple_fullscreen);
 
-        ns_window.setTabbingMode(if enable_native_tabs {
-            NSWindowTabbingMode::Preferred
-        } else {
-            NSWindowTabbingMode::Disallowed
+        let use_inline_tab = system_tab_requested && supports_inline_system_tabs(frame_style);
+        let host_tab_size = host_tab.as_ref().and_then(|host| host.size);
+
+        // Full frames can reuse the host content height because tab bar attachment
+        // does not add a grid inset. Transparent frames measure a live inset from
+        // the bar, so equal content heights can still yield different grid rows.
+        let pending_host_height = match (frame_style, host_tab_size) {
+            (Frame::Full, Some(size)) => Some(size.content_height),
+            _ => None,
+        };
+
+        let system_tabs = use_inline_tab.then(|| {
+            WindowSystemTabs::install(ns_window.clone(), mtm, cmd.title_hidden, pending_host_height)
         });
 
-        if enable_native_tabs {
-            Self::configure_native_tabbing(&ns_window);
-            merge_all_windows_if_native_tabs(&ns_window);
+        // Match the host outer size before AppKit attaches the new tab, while
+        // preserving the new window top edge in AppKit frame coordinates.
+        if use_inline_tab && let Some(host_size) = &host_tab_size {
+            let mut window_frame = ns_window.frame();
+            let top_edge = window_frame.origin.y + window_frame.size.height;
+            window_frame.size = NSSize::new(host_size.outer.width, host_size.outer.height);
+            window_frame.origin.y = top_edge - window_frame.size.height;
+            ns_window.setFrame_display(window_frame, false);
+        }
+
+        if allow_system_tab {
+            Self::configure_system_tabbing(&ns_window);
+        } else {
+            ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
+        }
+
+        // A tab request implies that tabbing was allowed before the host join.
+        let host_join_blocked = match &host_tab {
+            Some(host) if system_tab_requested => {
+                !Self::join_host_tab_group(&ns_window, &host.window)
+            }
+            _ => false,
+        };
+
+        if host_join_blocked && let Some(tabs) = &system_tabs {
+            tabs.cancel_host_height_restore();
         }
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
         let mut buttonless_padding = false;
-        let has_transparent_titlebar = matches!(frame, Frame::Transparent);
+        let has_transparent_titlebar = matches!(frame_style, Frame::Transparent);
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = if !simple_fullscreen {
-            match frame {
+            match frame_style {
                 Frame::Transparent => {
                     extra_titlebar_height_in_pixel = Self::titlebar_height_in_pixel(
                         system_titlebar_height,
@@ -264,7 +294,7 @@ impl MacosWindowFeature {
                 }
                 Frame::Buttonless => {
                     buttonless_padding = true;
-                    if enable_native_tabs {
+                    if allow_system_tab {
                         extra_titlebar_height_in_pixel = Self::titlebar_height_in_pixel(
                             system_titlebar_height,
                             window.scale_factor(),
@@ -279,7 +309,6 @@ impl MacosWindowFeature {
         };
 
         let is_fullscreen = ns_window.styleMask().contains(NSWindowStyleMask::FullScreen);
-
         let macos_window_feature = MacosWindowFeature {
             ns_window,
             system_titlebar_height,
@@ -293,33 +322,85 @@ impl MacosWindowFeature {
             neovim_handler,
             simple_fullscreen,
             has_transparent_titlebar,
+            system_tabs,
             scrollbars: WindowScrollbars::default(),
         };
 
         let mut macos_window_feature = macos_window_feature;
-        macos_window_feature.set_title_hidden(cmd_line_settings.title_hidden);
+        macos_window_feature.set_title_hidden(cmd.title_hidden);
         macos_window_feature.set_simple_fullscreen_mode(simple_fullscreen);
         macos_window_feature.update_background();
 
         macos_window_feature
     }
-    fn configure_native_tabbing(ns_window: &NSWindow) {
+
+    fn set_tab_flags(cmd_line_settings: &CmdLineSettings, simple_fullscreen: bool) -> (bool, bool) {
+        let allow_system_tab = cmd_line_settings.frame != Frame::None && !simple_fullscreen;
+        let system_tab_bar_requested = cmd_line_settings.system_native_tabs && allow_system_tab;
+        ENABLE_SYSTEM_TAB_BAR.store(allow_system_tab, Ordering::Relaxed);
+        SHOW_SYSTEM_TAB_BAR.store(system_tab_bar_requested, Ordering::Relaxed);
+        (allow_system_tab, system_tab_bar_requested)
+    }
+
+    fn configure_system_tabbing(ns_window: &NSWindow) {
+        ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
         ns_window.setTabbingIdentifier(ns_string!(NEOVIDE_TABBING_IDENTIFIER));
         Self::apply_tab_bar_preference(ns_window);
+    }
+
+    /// Try to join the new window to its chosen host tab group and select it.
+    ///
+    /// AppKit may attach the window when tabbing starts, so a window already in
+    /// the host group skips attachment but still reaches selection and tab bar
+    /// updates. Attaching only this window keeps detached tab groups separate.
+    ///
+    /// A visible overview blocks a needed attachment, so `false` tells the caller
+    /// to discard its pending host height. Otherwise `true` means the operation
+    /// was not blocked, though AppKit membership and selection are not confirmed.
+    fn join_host_tab_group(window: &NSWindow, host: &NSWindow) -> bool {
+        match host.tabGroup() {
+            Some(group) if tab_group_contains_window(&group.windows(), window) => {}
+            Some(group) if group.isOverviewVisible() => {
+                log::warn!("Cannot add a system tab while the host tab overview is visible");
+                return false;
+            }
+            _ => Self::attach_to_host_tab_group(window, host),
+        }
+
+        // Attachment can create a group, so select from the current group.
+        if let Some(group) = host.tabGroup() {
+            group.setSelectedWindow(Some(window));
+        }
+
+        Self::apply_tab_bar_preference(window);
+        true
+    }
+
+    fn attach_to_host_tab_group(window: &NSWindow, host: &NSWindow) {
+        if host.isMiniaturized() {
+            host.deminiaturize(None);
+        }
+
+        host.addTabbedWindow_ordered(window, NSWindowOrderingMode::Above);
     }
 
     fn apply_tab_bar_preference(ns_window: &NSWindow) {
         if let Some(tab_group) = ns_window.tabGroup() {
             // keep first window clean even when native tabs are enabled.
             // once multiple tabs are present, we can show the bar again.
-            let should_show = should_show_native_tab_bar() && tab_group.windows().len() > 1;
+            let should_show = should_show_system_tab_bar() && tab_group.windows().len() > 1;
             if tab_group.isTabBarVisible() != should_show {
                 ns_window.toggleTabBar(None);
             }
         }
     }
 
-    pub fn activate_and_focus(&self) { activate_app_and_focus_window(&self.ns_window); }
+    pub fn activate_and_focus(&self) {
+        activate_app_and_focus_window(&self.ns_window);
+        if let Some(tabs) = &self.system_tabs {
+            tabs.restore_host_height_after_activation();
+        }
+    }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
     fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {
@@ -466,50 +547,104 @@ impl MacosWindowFeature {
             NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewMinYMargin,
         );
         handler.setTranslatesAutoresizingMaskIntoConstraints(true);
+
         let _ = scale_factor;
+
         Some(handler)
     }
 
+    /// Coordinate AppKit tabbing with a simple fullscreen transition. The route
+    /// calls this before winit enters the mode and after winit leaves it, so
+    /// the tab bar is hidden before the frame changes and can return afterward.
+    /// Repeated calls leave the window chrome and process-wide tab flags intact.
     pub fn set_simple_fullscreen_mode(&mut self, enabled: bool) {
         if self.simple_fullscreen == enabled {
             return;
         }
 
         self.simple_fullscreen = enabled;
+        let cmd_line_settings = self.settings.get::<CmdLineSettings>();
+        let (allow_system_tab, _) = Self::set_tab_flags(&cmd_line_settings, enabled);
 
         if enabled {
-            if let Some(handler) = self.titlebar_click_handler.take() {
-                handler.removeFromSuperview();
-            }
-            self.ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
-            if let Some(tab_group) = self.ns_window.tabGroup()
-                && tab_group.isTabBarVisible()
-            {
-                self.ns_window.toggleTabBar(None);
-            }
+            self.prepare_for_simple_fullscreen();
         } else {
-            self.ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
-            Self::configure_native_tabbing(&self.ns_window);
-            if self.has_transparent_titlebar
-                && self.titlebar_click_handler.is_none()
-                && let Some(mtm) = MainThreadMarker::new()
-            {
-                self.titlebar_click_handler = Self::install_titlebar_click_handler(
-                    &self.ns_window,
-                    self.system_titlebar_height,
-                    self.ns_window.backingScaleFactor(),
-                    mtm,
-                );
-            }
+            self.restore_after_simple_fullscreen(allow_system_tab);
+        }
+    }
 
-            if should_show_native_tab_bar() {
-                merge_all_windows_if_native_tabs(&self.ns_window);
-                Self::apply_tab_bar_preference(&self.ns_window);
-            }
+    /// Prepare AppKit titlebar controls before winit enters simple fullscreen.
+    /// The route calls this while the ordinary frame is still active, removing
+    /// its transparent titlebar click target, toolbar and any visible tab bar.
+    fn prepare_for_simple_fullscreen(&mut self) {
+        if let Some(handler) = self.titlebar_click_handler.take() {
+            handler.removeFromSuperview();
+        }
+
+        self.ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
+
+        if let Some(tab_group) = self.ns_window.tabGroup()
+            && tab_group.isTabBarVisible()
+        {
+            self.ns_window.toggleTabBar(None);
+        }
+
+        if let Some(tabs) = &self.system_tabs {
+            tabs.set_toolbar_enabled(false);
+        }
+    }
+
+    /// Restore AppKit titlebar behavior after winit leaves simple fullscreen.
+    /// An eligible window has its inline tab owner before tabbing resumes, so
+    /// its hook can place the accessory as AppKit attaches it. The transparent
+    /// titlebar click target is restored when possible. The toolbar returns,
+    /// and a requested tab bar regains its visibility preference without
+    /// changing its group membership.
+    fn restore_after_simple_fullscreen(&mut self, allow_system_tab: bool) {
+        self.ensure_inline_system_tabs();
+        if let Some(tabs) = &self.system_tabs {
+            tabs.set_toolbar_enabled(true);
+        }
+        if allow_system_tab {
+            Self::configure_system_tabbing(&self.ns_window);
+        } else {
+            self.ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
+        }
+
+        if self.has_transparent_titlebar
+            && self.titlebar_click_handler.is_none()
+            && let Some(mtm) = MainThreadMarker::new()
+        {
+            self.titlebar_click_handler = Self::install_titlebar_click_handler(
+                &self.ns_window,
+                self.system_titlebar_height,
+                self.ns_window.backingScaleFactor(),
+                mtm,
+            );
+        }
+
+        if should_show_system_tab_bar() {
+            Self::apply_tab_bar_preference(&self.ns_window);
         }
     }
 
     pub fn is_native_fullscreen_enabled(&self) -> bool { self.is_fullscreen }
+
+    /// Capture this host before winit creates another window.
+    ///
+    /// A native fullscreen host can receive another tab without sharing its
+    /// frame size. The route omits the host if the new window enters fullscreen.
+    pub fn host_tab_for_new_window(&self) -> Option<HostTab> {
+        let cmd = self.settings.get::<CmdLineSettings>();
+        if !cmd.system_native_tabs || cmd.frame == Frame::None || self.simple_fullscreen {
+            return None;
+        }
+
+        let size = (supports_inline_system_tabs(cmd.frame) && !self.is_native_fullscreen_enabled())
+            .then(|| HostTabSize::from_ns_window(&self.ns_window));
+
+        Some(HostTab { window: self.ns_window.clone(), size })
+    }
 
     pub fn show_definition_at_point(
         &self,
@@ -694,12 +829,17 @@ impl MacosWindowFeature {
             self.set_titlebar_click_handler_visible(!is_fullscreen);
         }
 
+        self.refresh_inline_system_tabs();
+
         self.update_scrollbar_frames();
     }
 
-    /// Get the extra titlebar height in pixels, so Neovide can do the correct top padding.
     fn tab_bar_padding_in_pixels(&self) -> u32 {
-        if !should_show_native_tab_bar() {
+        if self.system_tabs.is_some() {
+            return 0;
+        }
+
+        if !should_show_system_tab_bar() {
             return 0;
         }
 
@@ -715,7 +855,20 @@ impl MacosWindowFeature {
         Self::titlebar_height_in_pixel(self.system_titlebar_height, scale_factor)
     }
 
+    fn transparent_system_tabs(&self) -> Option<&WindowSystemTabs> {
+        if !self.has_transparent_titlebar {
+            return None;
+        }
+
+        self.system_tabs.as_ref()
+    }
+
     pub fn extra_titlebar_height_in_pixels(&self) -> u32 {
+        if let Some(tabs) = self.transparent_system_tabs() {
+            let titlebar = if self.is_fullscreen { 0 } else { self.extra_titlebar_height_in_pixel };
+            return titlebar.max(tabs.chrome_inset_in_pixels().unwrap_or(0));
+        }
+
         if self.is_fullscreen {
             return 0;
         }
@@ -775,7 +928,12 @@ impl MacosWindowFeature {
             NSWindowTitleVisibility::Visible
         };
 
-        self.ns_window.setTitleVisibility(hidden);
+        if let Some(tabs) = &self.system_tabs {
+            tabs.set_title_hidden(title_hidden);
+        } else {
+            self.ns_window.setTitleVisibility(hidden);
+        }
+
         self.ns_window.setTitlebarAppearsTransparent(transparent_titlebar);
     }
 
@@ -814,8 +972,7 @@ impl MacosWindowFeature {
                 #[allow(deprecated)]
                 app.activateIgnoringOtherApps(true);
                 self.ns_window.makeKeyAndOrderFront(None);
-                if !self.simple_fullscreen && should_show_native_tab_bar() {
-                    merge_all_windows_if_native_tabs(&self.ns_window);
+                if !self.simple_fullscreen && should_show_system_tab_bar() {
                     if let Some(tab_group) = self.ns_window.tabGroup() {
                         tab_group.setSelectedWindow(Some(&self.ns_window));
                     }
@@ -833,7 +990,7 @@ impl MacosWindowFeature {
     pub fn is_key_window(&self) -> bool { self.ns_window.isKeyWindow() }
 
     pub fn can_navigate_tabs(&self) -> bool {
-        if !should_show_native_tab_bar() {
+        if !should_show_system_tab_bar() {
             return false;
         }
         self.ns_window.tabGroup().map(|group| group.windows().len() > 1).unwrap_or(false)
@@ -843,7 +1000,7 @@ impl MacosWindowFeature {
         if !self.can_navigate_tabs() {
             return;
         }
-        merge_all_windows_if_native_tabs(&self.ns_window);
+
         let ns_window_ref: &NSWindow = self.ns_window.as_ref();
         unsafe {
             let _: () = msg_send![ns_window_ref, selectNextTab: None::<&AnyObject>];
@@ -854,7 +1011,7 @@ impl MacosWindowFeature {
         if !self.can_navigate_tabs() {
             return;
         }
-        merge_all_windows_if_native_tabs(&self.ns_window);
+
         let ns_window_ref: &NSWindow = self.ns_window.as_ref();
         unsafe {
             let _: () = msg_send![ns_window_ref, selectPreviousTab: None::<&AnyObject>];
