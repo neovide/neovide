@@ -764,6 +764,10 @@ impl WinitWindowWrapper {
             let Some(route) = self.routes.get(&window_id) else {
                 return;
             };
+
+            #[cfg(target_os = "macos")]
+            route.window.with_macos_feature(|feature| feature.refresh_inline_system_tabs());
+
             set_active_route_handler(route.route_id);
             let neovim_handler = &route.window.neovim_handler;
             send_ui(ParallelCommand::FocusGained, neovim_handler);
@@ -900,6 +904,7 @@ impl WinitWindowWrapper {
                     #[cfg(target_os = "macos")]
                     route.window.with_macos_feature(|feature| {
                         feature.refresh_scrollbar_appearance();
+                        feature.refresh_inline_system_tabs();
                     });
                 }
                 #[cfg(target_os = "macos")]
@@ -1179,6 +1184,8 @@ impl WinitWindowWrapper {
 
         #[cfg(target_os = "macos")]
         let mut host_window_position: Option<winit::dpi::PhysicalPosition<i32>> = None;
+        #[cfg(target_os = "macos")]
+        let mut host_tab: Option<platform::HostTab> = None;
 
         if !self.routes.is_empty()
             && let Some(host_id) = self.get_focused_route()
@@ -1192,6 +1199,9 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             {
                 host_window_position = host_route.window.winit_window.outer_position().ok();
+                host_tab = self
+                    .macos_feature_for_window(host_id)
+                    .and_then(|feature| feature.borrow().host_tab_for_new_window());
             }
         }
         let initial_inferred_theme = if creating_initial_window {
@@ -1234,6 +1244,9 @@ impl WinitWindowWrapper {
 
         #[cfg(target_os = "macos")]
         let fullscreen = self.fullscreen_for_new_window(creating_initial_window, fullscreen);
+
+        #[cfg(target_os = "macos")]
+        let host_tab = host_tab.filter(|_| !fullscreen);
 
         // Capture per-route launch config before args is consumed into OpenMode.
         // For the initial window (args is None, uses OpenMode::Startup), pull from
@@ -1422,6 +1435,7 @@ impl WinitWindowWrapper {
             neovim_handler.clone(),
             &renderer,
             creating_initial_window,
+            host_tab,
         );
 
         if creating_initial_window {

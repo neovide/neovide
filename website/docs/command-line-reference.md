@@ -276,6 +276,8 @@ Neovide can merge macOS windows into a single native tab group. Enable this opti
 bar visible when multiple Neovide windows are grouped as tabs or leave it disabled to keep separate
 windows.
 
+![Neovide windows with macOS system tabs](assets/system-tabs.png)
+
 ### Menu Shortcuts
 
 ```sh
