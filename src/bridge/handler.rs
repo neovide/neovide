@@ -535,8 +535,129 @@ mod tests {
     use crate::clipboard::ClipboardHandle;
     use crate::clipboard::ProviderState;
 
+    #[cfg(not(target_os = "windows"))]
+    #[tokio::test]
+    async fn error_quit_reports_status_and_reaps_child() {
+        use std::process::ExitCode;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
+
+        use nvim_rs::Handler;
+        use nvim_rs::Neovim;
+        use nvim_rs::UiAttachOptions;
+        use tokio::process::Command;
+
+        use super::handle_quit_request;
+        use crate::bridge::NeovimWriter;
+        use crate::bridge::nvim_dict;
+        use crate::bridge::session::NeovimInstance;
+        use crate::bridge::session::NeovimSession;
+        use crate::running_tracker::RunningTracker;
+
+        #[derive(Clone)]
+        struct QuitHandler {
+            running_tracker: RunningTracker,
+            quit: Arc<AtomicBool>,
+        }
+
+        impl Handler for QuitHandler {
+            type Writer = NeovimWriter;
+
+            async fn handle_request(
+                &self,
+                name: String,
+                args: Vec<Value>,
+                _nvim: Neovim<Self::Writer>,
+            ) -> Result<Value, Value> {
+                assert_eq!(name, "neovide.quit");
+                let response = handle_quit_request(&self.running_tracker, &args);
+                self.quit.store(true, Ordering::Relaxed);
+                response
+            }
+
+            async fn handle_notify(
+                &self,
+                _name: String,
+                _args: Vec<Value>,
+                _nvim: Neovim<Self::Writer>,
+            ) {
+            }
+        }
+
+        async fn attach_ui(nvim: &Neovim<NeovimWriter>) {
+            let channel = nvim
+                .get_api_info()
+                .await
+                .expect("failed to get API info for the test UI")
+                .into_iter()
+                .next()
+                .expect("API info must include the channel ID");
+
+            let init_options = Value::Map(nvim_dict! {
+                "neovide_channel_id" => channel,
+                "neovide_version" => "test",
+                "config_path" => "",
+                "register_clipboard" => false,
+                "register_right_click" => false,
+                "remote" => false,
+                "global_variable_settings" => Value::Array(Vec::new()),
+                "option_settings" => Value::Array(Vec::new()),
+            });
+
+            // use the real initialization code to keep the quit handshake in sync.
+            nvim.exec_lua(include_str!("../../lua/init.lua"), vec![init_options]).await.unwrap();
+
+            let mut options = UiAttachOptions::new();
+            options.set_linegrid_external(true);
+            nvim.ui_attach(80, 24, &options).await.expect("failed to attach the test UI");
+        }
+
+        for exit_code in [0, 42] {
+            let bin = std::env::var("NEOVIM_BIN").unwrap_or_else(|_| "nvim".to_owned());
+            let mut command = Command::new(bin);
+            command.args(["--clean", "--embed"]).kill_on_drop(true);
+            let running_tracker = RunningTracker::new();
+            let quit = Arc::new(AtomicBool::new(false));
+            let mut session = NeovimSession::new(
+                NeovimInstance::Embedded(command),
+                QuitHandler { running_tracker: running_tracker.clone(), quit: quit.clone() },
+                None,
+            )
+            .await
+            .unwrap();
+
+            let mut child = session.neovim_process.take().unwrap();
+            let result = tokio::time::timeout(Duration::from_secs(5), async {
+                let nvim = &session.neovim;
+                attach_ui(nvim).await;
+
+                // flush error_exit before vimleavepre requests neovide.quit, so the test
+                // catches a session that stops RPC before the quit handshake completes.
+                nvim.command("autocmd BufWinLeave * sleep 200m").await.unwrap();
+
+                let _ = nvim.input(&format!(":cquit {exit_code}<CR>")).await;
+                let status = child.wait().await.expect("failed to reap the Neovim child");
+                let _ = (&mut session.io_handle).await.expect("RPC task failed to join");
+
+                status
+            })
+            .await;
+
+            if result.is_err() {
+                session.io_handle.abort();
+                child.kill().await.unwrap();
+            }
+
+            let status = result.expect("the quit request must complete and let the child exit");
+            assert!(quit.load(Ordering::Relaxed), "VimLeavePre must send neovide.quit");
+            assert_eq!(status.code(), Some(i32::from(exit_code)));
+            assert_eq!(running_tracker.exit_code(), ExitCode::from(exit_code));
+        }
+    }
+
     fn unavailable_clipboard(error: ClipboardError) -> Arc<Mutex<Clipboard>> {
-        Arc::new(Mutex::new(Clipboard::from_provider_states_for_test(
+        Arc::new(Mutex::new(Clipboard::from_provider_states(
             ProviderState::unavailable_for_test(error.clone()),
             #[cfg(target_os = "linux")]
             ProviderState::unavailable_for_test(error),
