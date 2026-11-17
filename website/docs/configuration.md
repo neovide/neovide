@@ -977,15 +977,17 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 })
 ```
 
-#### macOS Multi-window (Editors)
+#### macOS multi-window (Editors)
 
 **Available since 0.16.0.**
 
 Neovide can show multiple windows on macOS either as separate OS windows or as native tabs inside a
 single host window.
 
-Set `system-native-tabs = true` to merge windows into a tab group. The native tab bar stays hidden
+Set `system-native-tabs = true` to merge windows into a tab group. The system tab bar stays hidden
 until more than one tab exists to keep a clean single-window look.
+
+NOTE: system tabs are available with `--frame full` or `--frame transparent` frames only.
 
 Use Window > New Window (default: `cmd+n`) or the Dock menu to open another Neovide window. If
 native tabs are enabled, new windows become tabs in the host window.
