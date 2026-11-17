@@ -115,7 +115,7 @@ pub struct CmdLineSettings {
     #[arg(long = "no-tabs", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_tabs: bool,
 
-    /// Keep the native system tab bar visible when windows merge together
+    /// Keep the native tab bar visible when full or transparent windows merge
     #[cfg(target_os = "macos")]
     #[arg(long = "system-native-tabs", env = "NEOVIDE_SYSTEM_NATIVE_TABS", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
     pub system_native_tabs: bool,

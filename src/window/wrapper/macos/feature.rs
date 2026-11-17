@@ -50,7 +50,7 @@ use winit::window::Window;
 
 use self::scrollbar::WindowScrollbars;
 use self::tabs::WindowSystemTabs;
-use self::tabs::supports_inline_system_tabs;
+use self::tabs::supports_system_tabs;
 use super::HostTab;
 use super::HostTabSize;
 use super::tab_group_contains_window;
@@ -201,7 +201,6 @@ pub struct MacosWindowFeature {
     titlebar_click_handler: Option<Retained<TitlebarClickHandler>>,
     // Extra titlebar height in --frame transparency. 0 in other cases.
     extra_titlebar_height_in_pixel: u32,
-    buttonless_padding: bool,
     is_fullscreen: bool,
     settings: Arc<Settings>,
     pub definition_is_active: bool,
@@ -232,7 +231,6 @@ impl MacosWindowFeature {
         let simple_fullscreen = window_settings.macos_simple_fullscreen;
         let (allow_system_tab, system_tab_requested) = Self::set_tab_flags(&cmd, simple_fullscreen);
 
-        let use_inline_tab = system_tab_requested && supports_inline_system_tabs(frame_style);
         let host_tab_size = host_tab.as_ref().and_then(|host| host.size);
 
         // Full frames can reuse the host content height because tab bar attachment
@@ -243,13 +241,13 @@ impl MacosWindowFeature {
             _ => None,
         };
 
-        let system_tabs = use_inline_tab.then(|| {
+        let system_tabs = system_tab_requested.then(|| {
             WindowSystemTabs::install(ns_window.clone(), mtm, cmd.title_hidden, pending_host_height)
         });
 
         // Match the host outer size before AppKit attaches the new tab, while
         // preserving the new window top edge in AppKit frame coordinates.
-        if use_inline_tab && let Some(host_size) = &host_tab_size {
+        if system_tab_requested && let Some(host_size) = &host_tab_size {
             let mut window_frame = ns_window.frame();
             let top_edge = window_frame.origin.y + window_frame.size.height;
             window_frame.size = NSSize::new(host_size.outer.width, host_size.outer.height);
@@ -276,7 +274,6 @@ impl MacosWindowFeature {
         }
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
-        let mut buttonless_padding = false;
         let has_transparent_titlebar = matches!(frame_style, Frame::Transparent);
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = if !simple_fullscreen {
             match frame_style {
@@ -292,16 +289,6 @@ impl MacosWindowFeature {
                         mtm,
                     )
                 }
-                Frame::Buttonless => {
-                    buttonless_padding = true;
-                    if allow_system_tab {
-                        extra_titlebar_height_in_pixel = Self::titlebar_height_in_pixel(
-                            system_titlebar_height,
-                            window.scale_factor(),
-                        );
-                    }
-                    None
-                }
                 _ => None,
             }
         } else {
@@ -314,7 +301,6 @@ impl MacosWindowFeature {
             system_titlebar_height,
             titlebar_click_handler,
             extra_titlebar_height_in_pixel,
-            buttonless_padding,
             is_fullscreen,
             settings: settings.clone(),
             definition_is_active: false,
@@ -335,7 +321,7 @@ impl MacosWindowFeature {
     }
 
     fn set_tab_flags(cmd_line_settings: &CmdLineSettings, simple_fullscreen: bool) -> (bool, bool) {
-        let allow_system_tab = cmd_line_settings.frame != Frame::None && !simple_fullscreen;
+        let allow_system_tab = supports_system_tabs(cmd_line_settings.frame) && !simple_fullscreen;
         let system_tab_bar_requested = cmd_line_settings.system_native_tabs && allow_system_tab;
         ENABLE_SYSTEM_TAB_BAR.store(allow_system_tab, Ordering::Relaxed);
         SHOW_SYSTEM_TAB_BAR.store(system_tab_bar_requested, Ordering::Relaxed);
@@ -636,11 +622,11 @@ impl MacosWindowFeature {
     /// frame size. The route omits the host if the new window enters fullscreen.
     pub fn host_tab_for_new_window(&self) -> Option<HostTab> {
         let cmd = self.settings.get::<CmdLineSettings>();
-        if !cmd.system_native_tabs || cmd.frame == Frame::None || self.simple_fullscreen {
+        if !cmd.system_native_tabs || !supports_system_tabs(cmd.frame) || self.simple_fullscreen {
             return None;
         }
 
-        let size = (supports_inline_system_tabs(cmd.frame) && !self.is_native_fullscreen_enabled())
+        let size = (!self.is_native_fullscreen_enabled())
             .then(|| HostTabSize::from_ns_window(&self.ns_window));
 
         Some(HostTab { window: self.ns_window.clone(), size })
@@ -872,16 +858,9 @@ impl MacosWindowFeature {
         if self.is_fullscreen {
             return 0;
         }
+
         let tab_padding = self.tab_bar_padding_in_pixels();
-        if self.buttonless_padding {
-            if self.ns_window.tabGroup().map(|group| group.isTabBarVisible()).unwrap_or(false) {
-                tab_padding + self.extra_titlebar_height_in_pixel
-            } else {
-                0
-            }
-        } else {
-            tab_padding + self.extra_titlebar_height_in_pixel
-        }
+        tab_padding + self.extra_titlebar_height_in_pixel
     }
 
     fn update_ns_background(&self, opaque: bool, show_border: bool) {

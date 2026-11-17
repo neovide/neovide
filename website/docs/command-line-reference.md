@@ -274,7 +274,7 @@ as with `--reuse-instance` works.
 
 Neovide can merge macOS windows into a single native tab group. Enable this option to keep the tab
 bar visible when multiple Neovide windows are grouped as tabs or leave it disabled to keep separate
-windows.
+windows. System tabs are available with `--frame full` or `--frame transparent` only.
 
 ![Neovide windows with macOS system tabs](assets/system-tabs.png)
 

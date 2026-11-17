@@ -87,8 +87,8 @@ pub struct HostTabSize {
 /// while the new feature tries to attach only its own window to that tab group.
 ///
 /// The route discards this host when the new window will start fullscreen. For
-/// full or transparent frames outside native fullscreen, `size` captures host
-/// geometry, while buttonless frames and native fullscreen hosts omit `size`.
+/// full or transparent frames outside system fullscreen, `size` holds the host
+/// geometry. A system fullscreen host still supplies its window without a size.
 pub struct HostTab {
     pub window: Retained<NSWindow>,
     pub size: Option<HostTabSize>,

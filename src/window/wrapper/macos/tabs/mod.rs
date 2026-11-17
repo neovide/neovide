@@ -50,7 +50,7 @@ pub struct WindowSystemTabs {
     toolbar: Retained<NSToolbar>,
 }
 
-pub fn supports_inline_system_tabs(frame: Frame) -> bool {
+pub fn supports_system_tabs(frame: Frame) -> bool {
     matches!(frame, Frame::Full | Frame::Transparent)
 }
 
@@ -258,7 +258,7 @@ impl MacosWindowFeature {
         }
 
         let settings = self.settings.get::<CmdLineSettings>();
-        if !settings.system_native_tabs || !supports_inline_system_tabs(settings.frame) {
+        if !settings.system_native_tabs || !supports_system_tabs(settings.frame) {
             return;
         }
 
