@@ -1,9 +1,10 @@
 //! Establishes RPC sessions with embedded or already running Neovim servers. The
 //! transport comes from `NeovimInstance`. `NeovimSession::new` performs the
 //! handshake and owns the RPC loop. After UI attachment, `bridge::run` watches
-//! that loop and any child. For an embedded server, it transfers the child and
-//! stderr reader to a supervisor that can outlive UI detachment after
-//! `:connect`. The RPC setup adapts the Tokio creation code from nvim-rs.
+//! that loop and any child. A UI detach notification also ends the RPC loop,
+//! without waiting for the transport to close. For an embedded server, the
+//! child and stderr reader move to a supervisor that can outlive UI detachment
+//! after `:connect`. The RPC setup adapts the Tokio creation code from nvim-rs.
 //! https://github.com/KillTheMule/nvim-rs/blob/master/src/create/tokio.rs
 
 #[cfg(debug_assertions)]
@@ -15,6 +16,9 @@ use std::io::Result;
 use std::process::Child;
 use std::process::ExitStatus;
 use std::process::Stdio;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -35,6 +39,7 @@ use tokio::net::TcpStream;
 use tokio::process::Child;
 use tokio::process::Command;
 use tokio::spawn;
+use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
@@ -48,6 +53,94 @@ const MAX_STDERR_LINES: usize = 128;
 
 type BoxedReader = Box<dyn AsyncRead + Send + Unpin + 'static>;
 type BoxedWriter = Box<dyn AsyncWrite + Send + Unpin + 'static>;
+
+#[derive(Clone)]
+struct SessionHandler<H> {
+    handler: H,
+    detach: Arc<Notify>,
+    connect: Arc<AtomicBool>,
+}
+
+impl<H> SessionHandler<H> {
+    fn observer(&self, events: &[Value]) -> bool {
+        for event in events {
+            if is_connect_event(event) {
+                self.connect.store(true, Ordering::Relaxed);
+            }
+
+            let seen = self.connect.load(Ordering::Relaxed);
+            if is_detach_event(event, seen) {
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+impl<H: Handler<Writer = NeovimWriter>> Handler for SessionHandler<H> {
+    type Writer = NeovimWriter;
+
+    async fn handle_request(
+        &self,
+        name: String,
+        args: Vec<Value>,
+        neovim: Neovim<Self::Writer>,
+    ) -> std::result::Result<Value, Value> {
+        self.handler.handle_request(name, args, neovim).await
+    }
+
+    async fn handle_notify(&self, name: String, args: Vec<Value>, neovim: Neovim<Self::Writer>) {
+        let should_detach = name == "redraw" && self.observer(&args);
+
+        // Forward the whole batch before signaling detach so any connect event
+        // reaches the handler before the RPC loop can close the current session.
+        self.handler.handle_notify(name, args, neovim).await;
+
+        if should_detach {
+            self.detach.notify_one();
+        }
+    }
+}
+
+/// Detects a `connect` call in a redraw entry by its string address argument.
+/// Empty addresses count and extra arguments are ignored. The caller keeps
+/// this evidence across redraw batches to distinguish legacy detachment from
+/// `:cquit 0`, since both can send an `error_exit` call with a zero status.
+fn is_connect_event(event: &Value) -> bool {
+    let Value::Array(event) = event else { return false };
+    let [name, calls @ ..] = event.as_slice() else { return false };
+    if name.as_str() != Some("connect") {
+        return false;
+    }
+
+    calls.iter().any(|call| {
+        let Value::Array(arguments) = call else { return false };
+        let [address, ..] = arguments.as_slice() else { return false };
+        address.as_str().is_some()
+    })
+}
+
+/// Reads redraw entries shaped as [name, [arguments...], ...]. Note that a zero
+/// status can also mean `:cquit 0` so detachment needs a preceding connect event
+/// or a nonempty server address. Ambiguous exits keep RPC alive for the pending
+/// `VimLeavePre` quit request and finish when the transport finally closes.
+fn is_detach_event(event: &Value, connect: bool) -> bool {
+    let Value::Array(event) = event else { return false };
+    let [name, calls @ ..] = event.as_slice() else { return false };
+    if name.as_str() != Some("error_exit") {
+        return false;
+    }
+
+    calls.iter().any(|call| {
+        let Value::Array(args) = call else { return false };
+        let [status, ..] = args.as_slice() else { return false };
+        if status.as_i64() != Some(0) {
+            return false;
+        }
+        connect || args.get(1).and_then(Value::as_str).is_some_and(|addr| !addr.is_empty())
+    })
+}
 
 fn is_windows_drive_path(address: &str) -> bool {
     let bytes = address.as_bytes();
@@ -172,7 +265,14 @@ impl NeovimSession {
                 lines.into_iter().collect::<Vec<_>>()
             })
         });
+
         let handshake_message = "HandshakeMessage";
+        let detach = Arc::new(Notify::new());
+        let handler = SessionHandler {
+            handler,
+            detach: detach.clone(),
+            connect: Arc::new(AtomicBool::new(false)),
+        };
 
         let handshake_res = Neovim::<NeovimWriter>::handshake(
             reader.compat(),
@@ -203,7 +303,14 @@ impl NeovimSession {
                 }
             }
             Ok((neovim, io)) => {
-                let io_handle = spawn(io);
+                let io_handle = spawn(async move {
+                    // the /usr/bin/login wrapper can keep the pipe open after neovim detaches
+                    // a detach notification ends this UI session while the server stays alive
+                    tokio::select! {
+                        result = io => result,
+                        _ = detach.notified() => Ok(()),
+                    }
+                });
 
                 if let Some(channel_config) = channel_config {
                     let restored = neovim
@@ -393,9 +500,12 @@ mod tests {
     use std::task::Poll;
     use std::time::Duration;
 
+    use futures::AsyncWriteExt;
     use nvim_rs::Handler;
     use nvim_rs::Neovim;
     use nvim_rs::UiAttachOptions;
+    use nvim_rs::rpc::model;
+    use nvim_rs::rpc::model::RpcMessage;
     use rmpv::Value;
     #[cfg(not(target_os = "windows"))]
     use tokio::io::AsyncBufReadExt;
@@ -405,10 +515,13 @@ mod tests {
     use tokio::io::BufReader;
     #[cfg(windows)]
     use tokio::io::ReadBuf;
+    use tokio::net::TcpListener;
+    use tokio::net::TcpStream;
     use tokio::process::Command;
+    use tokio::sync::mpsc;
     #[cfg(not(target_os = "windows"))]
     use tokio::sync::oneshot;
-    #[cfg(windows)]
+    use tokio_util::compat::Compat;
     use tokio_util::compat::TokioAsyncReadCompatExt;
     #[cfg(windows)]
     use tokio_util::compat::TokioAsyncWriteCompatExt;
@@ -416,13 +529,216 @@ mod tests {
     #[cfg(windows)]
     use super::BoxedReader;
     use super::NeovimInstance;
-    #[cfg(not(target_os = "windows"))]
     use super::NeovimSession;
     use super::NeovimWriter;
     use super::is_tcp_address;
     use super::normalize_windows_pipe_address;
     #[cfg(not(target_os = "windows"))]
     use super::spawn_process_supervisor;
+
+    #[derive(Clone)]
+    struct RecordingHandler(mpsc::UnboundedSender<(String, Vec<Value>)>);
+
+    impl Handler for RecordingHandler {
+        type Writer = NeovimWriter;
+
+        async fn handle_request(
+            &self,
+            name: String,
+            args: Vec<Value>,
+            _nvim: Neovim<Self::Writer>,
+        ) -> Result<Value, Value> {
+            assert_eq!(name, "probe");
+            Ok(Value::Array(args))
+        }
+
+        async fn handle_notify(&self, name: String, args: Vec<Value>, _nvim: Neovim<Self::Writer>) {
+            tokio::task::yield_now().await;
+            self.0.send((name, args)).unwrap();
+        }
+    }
+
+    struct Peer {
+        stream: Compat<TcpStream>,
+        buffer: Vec<u8>,
+    }
+
+    impl Peer {
+        async fn send(&mut self, message: RpcMessage) {
+            let mut bytes = Vec::new();
+            model::encode_sync(&mut bytes, message).unwrap();
+            self.stream.write_all(&bytes).await.unwrap();
+        }
+
+        async fn receive(&mut self) -> RpcMessage {
+            model::decode(&mut self.stream, &mut self.buffer).await.unwrap()
+        }
+    }
+
+    async fn session() -> (NeovimSession, Peer, mpsc::UnboundedReceiver<(String, Vec<Value>)>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap().to_string();
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let session = tokio::spawn(NeovimSession::new(
+            NeovimInstance::Server { address },
+            RecordingHandler(sender),
+            None,
+        ));
+
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut peer = Peer { stream: stream.compat(), buffer: Vec::new() };
+        assert!(matches!(peer.receive().await, RpcMessage::RpcRequest { msgid: 0, .. }));
+        peer.send(RpcMessage::RpcResponse {
+            msgid: 0,
+            error: Value::Nil,
+            result: Value::from("HandshakeMessage"),
+        })
+        .await;
+
+        (session.await.unwrap().unwrap(), peer, receiver)
+    }
+
+    fn ui_event(name: &str, args: Vec<Value>) -> Value {
+        Value::Array(vec![Value::from(name), Value::Array(args)])
+    }
+
+    #[tokio::test]
+    async fn ui_detach_finishes_session_without_eof() {
+        let flush = ui_event("flush", vec![]);
+        let connect = ui_event("connect", vec![Value::from("/tmp/new.sock")]);
+        let legacy_detach = ui_event("error_exit", vec![Value::from(0)]);
+        let address_detach =
+            ui_event("error_exit", vec![Value::from(0), Value::from("/tmp/old.sock"), Value::Nil]);
+        let grouped_detach = Value::Array(vec![
+            Value::from("error_exit"),
+            Value::Array(vec![Value::from(42)]),
+            Value::Array(vec![Value::from(0)]),
+        ]);
+
+        let cases = [
+            (
+                "legacy detach after connect",
+                vec![vec![connect.clone(), legacy_detach.clone(), flush.clone()]],
+            ),
+            (
+                "detach with extra arguments after connect",
+                vec![vec![connect.clone(), address_detach.clone(), flush.clone()]],
+            ),
+            (
+                "grouped detach after connect",
+                vec![vec![connect.clone(), grouped_detach, flush.clone()]],
+            ),
+            (
+                "legacy connect across redraw batches",
+                vec![vec![connect, flush.clone()], vec![legacy_detach, flush.clone()]],
+            ),
+            ("standalone detach with address", vec![vec![address_detach, flush]]),
+        ];
+
+        for (case, redraw_batches) in cases {
+            tokio::time::timeout(Duration::from_secs(3), async {
+                let (session, mut peer, mut notifications) = session().await;
+                let nvim = session.neovim.clone();
+                let pending = tokio::spawn(async move { nvim.command("pending").await });
+                assert!(
+                    matches!(peer.receive().await, RpcMessage::RpcRequest { method, .. }
+                        if method == "nvim_command"),
+                    "{case}: expected a pending command before detachment"
+                );
+
+                for events in &redraw_batches {
+                    peer.send(RpcMessage::RpcNotification {
+                        method: "redraw".to_owned(),
+                        params: events.clone(),
+                    })
+                    .await;
+                }
+
+                // keep the peer open until all checks finish. the session must end
+                // and cancel pending RPC without waiting for the transport to close.
+                session.io_handle.await.unwrap().unwrap();
+                for events in redraw_batches {
+                    let notification = notifications.try_recv().unwrap();
+                    assert_eq!(notification, ("redraw".to_owned(), events), "{case}");
+                }
+                assert!(pending.await.unwrap().unwrap_err().is_channel_closed(), "{case}");
+                drop(peer);
+            })
+            .await
+            .unwrap_or_else(|error| {
+                panic!("{case}: UI detach must finish without transport EOF: {error}")
+            });
+        }
+    }
+
+    #[tokio::test]
+    async fn non_detach_events_keep_rpc_usable() {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            let (session, mut peer, mut notifications) = session().await;
+            let events = vec![
+                Value::Nil,
+                Value::Array(vec![]),
+                Value::Array(vec![Value::from("error_exit")]),
+                Value::Array(vec![Value::from("error_exit"), Value::from(0)]),
+                ui_event("connect", vec![]),
+                ui_event("connect", vec![Value::Nil]),
+                ui_event("error_exit", vec![Value::from(0)]),
+                ui_event("error_exit", vec![Value::from(0), Value::from("")]),
+                ui_event("error_exit", vec![Value::from(0), Value::Nil]),
+                ui_event("unrelated", vec![Value::from(0)]),
+                ui_event("restart", vec![Value::from("/tmp/restart.sock")]),
+                ui_event("connect", vec![Value::from("")]),
+                ui_event("connect", vec![Value::from("/tmp/new.sock")]),
+                ui_event("error_exit", vec![Value::from(42)]),
+                ui_event("error_exit", vec![Value::from(42), Value::Nil]),
+                ui_event("error_exit", vec![]),
+                ui_event("error_exit", vec![Value::Nil]),
+                ui_event("error_exit", vec![Value::from("0")]),
+                ui_event("error_exit", vec![Value::from(0.0)]),
+                ui_event("error_exit", vec![Value::from(false)]),
+                ui_event("error_exit", vec![Value::from(-1)]),
+            ];
+
+            peer.send(RpcMessage::RpcNotification {
+                method: "redraw".to_owned(),
+                params: events.clone(),
+            })
+            .await;
+
+            assert_eq!(notifications.recv().await.unwrap(), ("redraw".to_owned(), events));
+            peer.send(RpcMessage::RpcNotification {
+                method: "error_exit".to_owned(),
+                params: vec![Value::from(0)],
+            })
+            .await;
+
+            assert_eq!(
+                notifications.recv().await.unwrap(),
+                ("error_exit".to_owned(), vec![Value::from(0)])
+            );
+
+            peer.send(RpcMessage::RpcRequest {
+                msgid: 42,
+                method: "probe".to_owned(),
+                params: vec![Value::from("still attached")],
+            })
+            .await;
+
+            assert_eq!(
+                peer.receive().await,
+                RpcMessage::RpcResponse {
+                    msgid: 42,
+                    error: Value::Nil,
+                    result: Value::Array(vec![Value::from("still attached")]),
+                }
+            );
+
+            drop(peer);
+            assert!(session.io_handle.await.unwrap().is_err());
+        })
+        .await
+        .expect("non-detach events must leave RPC usable until EOF");
+    }
 
     #[cfg(windows)]
     struct CaptureReader {
@@ -534,10 +850,10 @@ mod tests {
 
     #[cfg(not(target_os = "windows"))]
     #[derive(Clone)]
-    struct TestUiHandler;
+    struct UiHandler;
 
     #[cfg(not(target_os = "windows"))]
-    impl Handler for TestUiHandler {
+    impl Handler for UiHandler {
         type Writer = NeovimWriter;
 
         async fn handle_notify(
@@ -556,9 +872,7 @@ mod tests {
         let mut command = Command::new(bin);
         command.args(["--clean", "--embed"]);
         let mut session =
-            NeovimSession::new(NeovimInstance::Embedded(command), TestUiHandler, None)
-                .await
-                .unwrap();
+            NeovimSession::new(NeovimInstance::Embedded(command), UiHandler, None).await.unwrap();
         let mut options = UiAttachOptions::new();
         options.set_linegrid_external(true);
         session.neovim.ui_attach(80, 24, &options).await.unwrap();

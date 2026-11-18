@@ -302,7 +302,7 @@ impl Clipboard {
     }
 
     #[cfg(test)]
-    pub fn from_provider_states_for_test(
+    pub fn from_provider_states(
         clipboard: ProviderState,
         #[cfg(target_os = "linux")] selection: ProviderState,
     ) -> Self {
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn total_failure_preserves_initialization_reason() {
-        let mut clipboard = Clipboard::from_provider_states_for_test(
+        let mut clipboard = Clipboard::from_provider_states(
             ProviderState::unavailable_for_test(init_error(
                 CLIPBOARD_PROVIDER,
                 TEST_CLIPBOARD_BACKEND,
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn provider_operation_failures_include_context() {
-        let mut clipboard = Clipboard::from_provider_states_for_test(
+        let mut clipboard = Clipboard::from_provider_states(
             ProviderState::available_for_test(TestClipboardProvider::with_get_error("read failed")),
             #[cfg(target_os = "linux")]
             ProviderState::available_for_test(TestClipboardProvider::with_contents("selection")),
@@ -410,7 +410,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn partial_failure_keeps_available_provider_working() {
-        let mut clipboard = Clipboard::from_provider_states_for_test(
+        let mut clipboard = Clipboard::from_provider_states(
             ProviderState::available_for_test(TestClipboardProvider::with_contents("copied")),
             ProviderState::unavailable_for_test(init_error(
                 PRIMARY_SELECTION_PROVIDER,
