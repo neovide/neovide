@@ -1087,7 +1087,7 @@ impl WinitWindowWrapper {
         {
             let mut renderer = route.window.renderer.borrow_mut();
             let mut skia_renderer = route.window.skia_renderer.borrow_mut();
-            renderer.draw_frame(skia_renderer.canvas(), &content_rect, dt);
+            renderer.draw_frame(&mut **skia_renderer, &content_rect, dt);
 
             if let Err(error) = skia_renderer.flush() {
                 log::error!("Failed to flush frame: {error}");

@@ -34,6 +34,7 @@ pub use rendered_window::WindowDrawDetails;
 use skia_safe::Canvas;
 use skia_safe::Color4f;
 use skia_safe::Paint;
+use skia_safe::Surface;
 use skia_safe::gpu::FlushError;
 #[cfg(feature = "profiling")]
 use skia_safe::graphics::font_cache_count_limit;
@@ -217,6 +218,17 @@ pub struct Renderer {
     message_selection: Option<MessageSelection>,
     startup_messages: Vec<StartupMessage>,
     startup_message_ui_restored: bool,
+
+    /// Offscreen rasterization of everything except the cursor overlay.
+    ///
+    /// Neovide historically repainted the entire window for every frame of a
+    /// continuous cursor animation (smooth blink, vfx particles): at 120 Hz on
+    /// a Retina window that costs tens of percent of one core to change a 1-2
+    /// cell area. The background is now cached here and only re-rasterized when
+    /// something other than the cursor actually changed.
+    background_surface: Option<Surface>,
+    background_dirty: bool,
+    background_cache_enabled: bool,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -267,6 +279,9 @@ impl Renderer {
             message_selection: None,
             startup_messages: Vec::new(),
             startup_message_ui_restored: false,
+            background_surface: None,
+            background_dirty: true,
+            background_cache_enabled: std::env::var("NEOVIDE_NO_BG_CACHE").is_err(),
         }
     }
 
@@ -282,8 +297,116 @@ impl Renderer {
 
     pub fn prepare_frame(&mut self) -> ShouldRender { self.cursor_renderer.prepare_frame() }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, content_region: &PixelRect<f32>, dt: f32) {
+    pub fn draw_frame(
+        &mut self,
+        skia_renderer: &mut dyn SkiaRenderer,
+        content_region: &PixelRect<f32>,
+        dt: f32,
+    ) {
         tracy_zone!("renderer_draw_frame");
+
+        let window_size = skia_renderer.window().inner_size();
+        let (width, height) = (window_size.width as i32, window_size.height as i32);
+
+        // Fallback: no cache (OpenGL/D3D, explicit opt-out, or degenerate size).
+        if !self.background_cache_enabled || width <= 0 || height <= 0 {
+            let canvas = skia_renderer.canvas();
+            self.draw_background(canvas, content_region);
+            self.draw_overlay(canvas, content_region, dt);
+            return;
+        }
+
+        let size_matches = self
+            .background_surface
+            .as_ref()
+            .map(|surface| surface.width() == width && surface.height() == height)
+            .unwrap_or(false);
+        if !size_matches {
+            self.background_surface = skia_renderer.create_offscreen_surface(width, height);
+            self.background_dirty = true;
+        }
+
+        if self.background_surface.is_none() {
+            let canvas = skia_renderer.canvas();
+            self.draw_background(canvas, content_region);
+            self.draw_overlay(canvas, content_region, dt);
+            return;
+        }
+
+        // Only re-rasterize the window contents when something other than the
+        // cursor changed; cursor blink/vfx frames reuse the cached surface.
+        if self.background_dirty {
+            let mut surface = self.background_surface.take().expect("cached background surface");
+            self.draw_background(surface.canvas(), content_region);
+            if let Ok(dump_path) = std::env::var("NEOVIDE_BG_CACHE_DUMP") {
+                let info = surface.image_info();
+                let (width, height) = (info.width(), info.height());
+                let mut pixels = vec![0u8; (width * height * 4) as usize];
+                if surface.read_pixels(&info, &mut pixels, (width * 4) as usize, (0, 0)) {
+                    for pixel in pixels.chunks_exact_mut(4) {
+                        pixel.swap(0, 2);
+                    }
+                    let _ = image::save_buffer(
+                        &dump_path,
+                        &pixels,
+                        width as u32,
+                        height as u32,
+                        image::ExtendedColorType::Rgba8,
+                    );
+                }
+            }
+            self.background_surface = Some(surface);
+            self.background_dirty = false;
+        }
+
+        let cached = match self.background_surface.as_mut() {
+            Some(surface) => Some(surface.image_snapshot()),
+            None => None,
+        };
+        let canvas = skia_renderer.canvas();
+        if let Some(image) = cached {
+            canvas.clear(skia_safe::Color::TRANSPARENT);
+            canvas.draw_image(&image, (0.0, 0.0), None);
+
+            static COMPOSITE_DUMPED: std::sync::atomic::AtomicBool =
+                std::sync::atomic::AtomicBool::new(false);
+            if let Ok(dump_path) = std::env::var("NEOVIDE_COMPOSITE_DUMP") {
+                if !COMPOSITE_DUMPED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                    if let Some(mut dump_surface) =
+                        skia_safe::surfaces::raster_n32_premul((width, height))
+                    {
+                        dump_surface.canvas().draw_image(&image, (0.0, 0.0), None);
+                        self.draw_overlay(dump_surface.canvas(), content_region, dt);
+                        let info = dump_surface.image_info();
+                        let mut pixels = vec![0u8; (width * height * 4) as usize];
+                        if dump_surface.read_pixels(
+                            &info,
+                            &mut pixels,
+                            (width * 4) as usize,
+                            (0, 0),
+                        ) {
+                            for pixel in pixels.chunks_exact_mut(4) {
+                                pixel.swap(0, 2);
+                            }
+                            match image::save_buffer(
+                                &dump_path,
+                                &pixels,
+                                width as u32,
+                                height as u32,
+                                image::ExtendedColorType::Rgba8,
+                            ) {
+                                Ok(()) => log::info!("composite frame dumped to {dump_path}"),
+                                Err(error) => log::error!("failed to dump composite: {error}"),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.draw_overlay(canvas, content_region, dt);
+    }
+
+    fn draw_background(&mut self, root_canvas: &Canvas, content_region: &PixelRect<f32>) {
         let window_settings = self.settings.get::<WindowSettings>();
         let opacity = if window_settings.normal_opacity < 1.0 {
             window_settings.normal_opacity
@@ -414,15 +537,26 @@ impl Renderer {
 
         self.window_regions =
             root_window_regions.into_iter().chain(floating_window_regions).collect();
+        root_canvas.restore();
+    }
+
+    /// Cheap per-frame layer: cursor, message selection, progress bar, profiler.
+    /// Everything here is small enough that redrawing it every frame is fine.
+    fn draw_overlay(&mut self, root_canvas: &Canvas, content_region: &PixelRect<f32>, dt: f32) {
+        let grid_scale = self.grid_renderer.grid_scale;
+
+        root_canvas.save();
+        root_canvas.reset_matrix();
+        root_canvas.clip_rect(to_skia_rect(content_region), None, Some(false));
+
         self.draw_message_selection(root_canvas, grid_scale);
         self.cursor_renderer.draw(&mut self.grid_renderer, root_canvas);
 
         self.profiler.draw(root_canvas, dt);
 
-        let grid_size = self.get_grid_size();
-
         root_canvas.restore();
 
+        let grid_size = self.get_grid_size();
         let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
         self.progress_bar.draw(&progress_bar_settings, root_canvas, &self.grid_renderer, grid_size);
 
@@ -524,6 +658,11 @@ impl Renderer {
         let mut animating =
             windows.fold(false, |acc, window| acc | window.animate(&settings, grid_rect, dt));
 
+        // Scroll/position animations move grid content, not just the cursor.
+        if animating {
+            self.background_dirty = true;
+        }
+
         let windows = &self.rendered_windows;
         let grid_scale = self.grid_renderer.grid_scale;
         self.cursor_renderer.update_cursor_destination(grid_scale, windows);
@@ -538,6 +677,7 @@ impl Renderer {
     }
 
     pub fn handle_config_changed(&mut self, config: RendererHotReloadConfigs) {
+        self.background_dirty = true;
         match config {
             RendererHotReloadConfigs::Font(font) => {
                 let font = *font;
@@ -604,6 +744,7 @@ impl Renderer {
     }
 
     fn update_scale_factor(&mut self) {
+        self.background_dirty = true;
         self.grid_renderer
             .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
@@ -616,6 +757,11 @@ impl Renderer {
     }
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
+        // Anything but the cursor itself changes what is *under* the cursor
+        // overlay, so the cached background must be re-rasterized.
+        if !matches!(&draw_command, DrawCommand::UpdateCursor(_) | DrawCommand::ModeChanged(_)) {
+            self.background_dirty = true;
+        }
         match draw_command {
             DrawCommand::Window { grid_id, command: WindowDrawCommand::Close } => {
                 self.rendered_windows.remove(&grid_id);
@@ -745,6 +891,7 @@ impl Renderer {
         self.message_selection = None;
         self.startup_messages.clear();
         self.startup_message_ui_restored = false;
+        self.background_dirty = true;
     }
 
     pub fn get_cursor_destination(&self) -> PixelPos<f32> { self.cursor_renderer.get_destination() }
@@ -837,6 +984,10 @@ pub trait SkiaRenderer {
     fn flush(&mut self) -> Result<(), FlushError>;
     fn swap_buffers(&mut self);
     fn canvas(&mut self) -> &Canvas;
+    /// Create an offscreen GPU surface that persists across frames, used to
+    /// cache the non-cursor part of the window. Renderers that cannot provide
+    /// one (OpenGL/D3D) return None and keep the historical full repaint.
+    fn create_offscreen_surface(&mut self, _width: i32, _height: i32) -> Option<Surface> { None }
     fn resize(&mut self);
     fn create_vsync(&self, proxy: EventLoopProxy<EventPayload>) -> VSync;
     #[cfg(feature = "gpu_profiling")]
