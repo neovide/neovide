@@ -14,9 +14,11 @@ use objc2_metal::MTLDrawable;
 use objc2_metal::MTLTexture;
 use objc2_quartz_core::CAMetalDrawable;
 use objc2_quartz_core::CAMetalLayer;
+use skia_safe::AlphaType;
 use skia_safe::Canvas;
 use skia_safe::ColorSpace;
 use skia_safe::ColorType;
+use skia_safe::ImageInfo;
 use skia_safe::Surface;
 use skia_safe::SurfaceProps;
 use skia_safe::SurfacePropsFlags;
@@ -185,13 +187,44 @@ impl SkiaRenderer for MetalSkiaRenderer {
     fn canvas(&mut self) -> &Canvas {
         tracy_gpu_zone!("canvas");
 
-        self.move_to_next_frame();
+        if self.metal_drawable_surface.is_none() {
+            self.move_to_next_frame();
+        }
 
         self.metal_drawable_surface
             .as_mut()
             .expect("Not metal drawable surface now.")
             .surface
             .canvas()
+    }
+
+    fn create_offscreen_surface(&mut self, width: i32, height: i32) -> Option<Surface> {
+        tracy_gpu_zone!("create_offscreen_surface");
+
+        let render_settings = self.settings.get::<RendererSettings>();
+        let surface_props = SurfaceProps::new_with_text_properties(
+            SurfacePropsFlags::default(),
+            render_settings.pixel_geometry.into(),
+            render_settings.text_contrast,
+            render_settings.text_gamma,
+        );
+        let image_info = ImageInfo::new(
+            (width, height),
+            ColorType::BGRA8888,
+            AlphaType::Premul,
+            ColorSpace::new_srgb(),
+        );
+
+        gpu::surfaces::render_target(
+            &mut self.context,
+            gpu::Budgeted::Yes,
+            &image_info,
+            None,
+            SurfaceOrigin::TopLeft,
+            Some(&surface_props),
+            None,
+            None,
+        )
     }
 
     fn resize(&mut self) {
