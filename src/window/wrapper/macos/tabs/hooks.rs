@@ -15,6 +15,7 @@ use objc2_app_kit::NSWindowTitleVisibility;
 use objc2_foundation::NSInteger;
 use objc2_foundation::NSString;
 
+use super::appearance;
 use super::layout::class_name;
 use super::layout::find_descendant;
 use super::layout::layout;
@@ -64,6 +65,10 @@ pub fn update_titlebar_visibility(window: &NSWindow) {
     } else {
         NSWindowTitleVisibility::Visible
     });
+
+    if registry::translucent_background(window).unwrap_or(false) {
+        appearance::update(window, true);
+    }
 }
 
 unsafe extern "C-unwind" fn add_accessory(
@@ -92,6 +97,7 @@ unsafe extern "C-unwind" fn add_accessory(
     if tabs {
         layout(unsafe { as_window(this) });
         schedule_layout(this);
+        schedule_appearance(this);
     }
 }
 
@@ -106,6 +112,7 @@ unsafe extern "C-unwind" fn remove_accessory(this: &AnyObject, _sel: Sel, index:
         // once AppKit reports that the tab bar is no longer visible.
         update_titlebar_visibility(unsafe { as_window(this) });
         schedule_layout(this);
+        schedule_appearance(this);
     }
 }
 
@@ -116,6 +123,7 @@ unsafe extern "C-unwind" fn become_main_window(this: &AnyObject, _sel: Sel) {
         // The newly selected main window can receive an NSTabBar.
         layout(unsafe { as_window(this) });
         schedule_layout(this);
+        schedule_appearance(this);
     }
 }
 
@@ -133,11 +141,28 @@ unsafe extern "C-unwind" fn deferred_layout(this: &AnyObject, _sel: Sel) {
         update_titlebar_visibility(window);
         layout(window);
         restore_group_height(window);
+        if registry::translucent_background(window).unwrap_or(false) {
+            appearance::update(window, true);
+        }
         // tab attachment can change the content inset without resizing the
         // window. Redraw so the wrapper can update the grid padding.
         if let Some(content) = window.contentView() {
             content.setNeedsDisplay(true);
         }
+    }
+}
+
+unsafe extern "C-unwind" fn deferred_appearance(this: &AnyObject, _sel: Sel) {
+    if let Some(translucent) = registry::translucent_background(unsafe { as_window(this) }) {
+        appearance::update(unsafe { as_window(this) }, translucent);
+    }
+}
+
+fn schedule_appearance(window: &AnyObject) {
+    // AppKit can build the tab button glass after attaching its accessory.
+    unsafe {
+        let _: () = msg_send![window, performSelector: sel!(neovideUpdateTabAppearance),
+            withObject: std::ptr::null_mut::<AnyObject>(), afterDelay: 0.05_f64];
     }
 }
 
@@ -197,6 +222,12 @@ pub fn install_class_hooks() {
                 winit_class,
                 sel!(neovideLayoutNativeTabs),
                 (deferred_layout as unsafe extern "C-unwind" fn(_, _)).__imp(),
+                c"v@:",
+            );
+            add_method(
+                winit_class,
+                sel!(neovideUpdateTabAppearance),
+                (deferred_appearance as unsafe extern "C-unwind" fn(_, _)).__imp(),
                 c"v@:",
             );
         }

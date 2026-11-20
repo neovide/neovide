@@ -8,6 +8,7 @@ use objc2_app_kit::NSWindow;
 struct WindowRegistration {
     title_hidden: bool,
     toolbar_enabled: bool,
+    translucent_background: bool,
     pending_content_height: Option<f64>,
 }
 
@@ -24,7 +25,12 @@ fn key<T>(object: &T) -> usize { object as *const T as usize }
 pub fn register(window: &NSWindow, title_hidden: bool, pending_content_height: Option<f64>) {
     let previous = WINDOWS.lock().unwrap().insert(
         key(window),
-        WindowRegistration { title_hidden, toolbar_enabled: true, pending_content_height },
+        WindowRegistration {
+            title_hidden,
+            toolbar_enabled: true,
+            translucent_background: false,
+            pending_content_height,
+        },
     );
     assert!(previous.is_none(), "inline system tabs already registered for this window");
 }
@@ -52,6 +58,16 @@ pub fn set_toolbar_enabled(window: &NSWindow, enabled: bool) {
     let mut windows = WINDOWS.lock().unwrap();
     windows.get_mut(&key(window)).expect("system tabs must be registered").toolbar_enabled =
         enabled;
+}
+
+pub fn translucent_background(window: &NSWindow) -> Option<bool> {
+    WINDOWS.lock().unwrap().get(&key(window)).map(|entry| entry.translucent_background)
+}
+
+pub fn set_translucent_background(window: &NSWindow, translucent: bool) -> bool {
+    let mut windows = WINDOWS.lock().unwrap();
+    let entry = windows.get_mut(&key(window)).expect("system tabs must be registered");
+    std::mem::replace(&mut entry.translucent_background, translucent)
 }
 
 pub fn pending_content_height(window: &NSWindow) -> Option<f64> {

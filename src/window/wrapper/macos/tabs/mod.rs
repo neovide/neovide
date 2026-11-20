@@ -20,6 +20,7 @@
 //! updates title visibility and schedules only the later layout pass, while size,
 //! focus, and appearance changes call `WindowSystemTabs::refresh` to retry both.
 
+mod appearance;
 mod hooks;
 mod layout;
 mod registry;
@@ -38,6 +39,7 @@ use objc2_foundation::ns_string;
 use super::MacosWindowFeature;
 use crate::cmd_line::CmdLineSettings;
 use crate::frame::Frame;
+use crate::window::WindowSettings;
 
 /// Owns inline AppKit tab placement for one OS window.
 ///
@@ -73,6 +75,13 @@ impl WindowSystemTabs {
     }
 
     pub fn refresh(&self) { hooks::refresh(&self.window); }
+
+    pub fn set_translucent_background(&self, translucent: bool) {
+        let was_translucent = registry::set_translucent_background(&self.window, translucent);
+        if translucent || was_translucent {
+            appearance::update(&self.window, translucent);
+        }
+    }
 
     pub fn set_toolbar_enabled(&self, enabled: bool) {
         registry::set_toolbar_enabled(&self.window, enabled);
@@ -262,12 +271,14 @@ impl MacosWindowFeature {
             return;
         }
 
+        let title_hidden = settings.title_hidden;
+        let window_settings = self.settings.get::<WindowSettings>();
+        let translucent = window_settings.opacity.min(window_settings.normal_opacity) < 1.0;
+
         let mtm = MainThreadMarker::new().expect("inline tabs require the main thread");
-        self.system_tabs = Some(WindowSystemTabs::install(
-            self.ns_window.clone(),
-            mtm,
-            settings.title_hidden,
-            None,
-        ));
+        let tabs = WindowSystemTabs::install(self.ns_window.clone(), mtm, title_hidden, None);
+        tabs.set_translucent_background(translucent);
+
+        self.system_tabs = Some(tabs);
     }
 }
