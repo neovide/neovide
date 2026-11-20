@@ -25,24 +25,37 @@ pub struct ScrollbarColors {
 impl ScrollbarColors {
     /// Builds a small contrast, preserving scrollbar palette from neovim colors.
     ///
-    /// The track stays close to the default background, but is nudged toward
-    /// the foreground so the reserved lane reads as scrollbar space. The border
-    /// uses a slightly stronger blend to define the curved edge, while the thumb
-    /// uses the strongest blend without introducing a separate scrollbar theme
-    /// setting.
+    /// The opaque track stays close to the default background, while the thumb
+    /// uses a stronger blend. A translucent background leaves the track clear
+    /// and softens the thumb so the Metal background remains visible beneath it.
     pub fn from_default_colors(
         foreground: Option<Color4f>,
         background: Option<Color4f>,
+        background_alpha: u8,
     ) -> Option<Self> {
         let background = background?;
         let foreground = foreground.unwrap_or_else(|| contrasting_color_for(background));
 
-        Some(Self {
+        let mut colors = Self {
             track: ScrollbarColor::from_color(blend(background, foreground, 0.06)),
             track_border: ScrollbarColor::from_color(blend(background, foreground, 0.14)),
             thumb: ScrollbarColor::from_color(blend(background, foreground, 0.34)),
             active_thumb: ScrollbarColor::from_color(blend(background, foreground, 0.48)),
-        })
+        };
+
+        if background_alpha < 255 {
+            // Metal already paints the transparent background behind this lane.
+            // A second track fill would darken it, so only the edge is tinted.
+            colors.track.alpha = 0.0;
+            colors.track_border.alpha = 0.25;
+        }
+
+        // We keep the thumb visible as the background clears, even while dragging.
+        let opacity = f64::from(background_alpha) / 255.0;
+        colors.thumb.alpha = 0.5 + 0.5 * opacity;
+        colors.active_thumb.alpha = 0.7 + 0.3 * opacity;
+
+        Some(colors)
     }
 }
 
@@ -90,7 +103,9 @@ pub fn sync_scrollbar_appearance(scroller: &NSScroller, window: &NSWindow) {
 
 pub fn draw_scrollbar_track(rect: NSRect, colors: ScrollbarColors) {
     let rect = extend_rect_vertically(rect, rect.size.width + 1.0);
-    fill_rounded_rect(rect, colors.track);
+    if colors.track.alpha > 0.0 {
+        fill_rounded_rect(rect, colors.track);
+    }
     stroke_rounded_rect(inset_rect(rect, 0.5, 0.5), colors.track_border, 1.0);
 }
 
