@@ -41,7 +41,7 @@ pub fn find_descendant(view: &NSView, name: &str) -> Option<Retained<NSView>> {
 /// outside that subtree, so layout and tab inset measurement start their search
 /// at the topmost ancestor. Missing views leave layout for a later pass, while
 /// inset measurement reads the window content layout rectangle as a fallback.
-fn titlebar_view(window: &NSWindow) -> Option<Retained<NSView>> {
+pub fn titlebar_view(window: &NSWindow) -> Option<Retained<NSView>> {
     let mut root = window.contentView()?;
     while let Some(parent) = unsafe { root.superview() } {
         root = parent;

@@ -591,6 +591,7 @@ impl MacosWindowFeature {
         if let Some(tabs) = &self.system_tabs {
             tabs.set_toolbar_enabled(true);
         }
+
         if allow_system_tab {
             Self::configure_system_tabbing(&self.ns_window);
         } else {
@@ -888,6 +889,9 @@ impl MacosWindowFeature {
             self.settings.get::<WindowSettings>();
         let opaque = opacity.min(normal_opacity) >= 1.0;
         self.update_ns_background(opaque, show_border);
+        if let Some(tabs) = &self.system_tabs {
+            tabs.set_translucent_background(!opaque);
+        }
     }
 
     pub fn set_document_state(&self, path: &str, modified: bool) {
