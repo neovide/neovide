@@ -282,15 +282,19 @@ impl Renderer {
 
     pub fn prepare_frame(&mut self) -> ShouldRender { self.cursor_renderer.prepare_frame() }
 
+    fn background_opacity(&self) -> f32 {
+        let settings = self.settings.get::<WindowSettings>();
+        if settings.normal_opacity < 1.0 { settings.normal_opacity } else { settings.opacity }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn default_background_alpha(&self) -> u8 {
+        self.grid_renderer.get_default_background(self.background_opacity()).a()
+    }
+
     pub fn draw_frame(&mut self, root_canvas: &Canvas, content_region: &PixelRect<f32>, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let window_settings = self.settings.get::<WindowSettings>();
-        let opacity = if window_settings.normal_opacity < 1.0 {
-            window_settings.normal_opacity
-        } else {
-            window_settings.opacity
-        };
-        let default_background = self.grid_renderer.get_default_background(opacity);
+        let background = self.grid_renderer.get_default_background(self.background_opacity());
         let grid_scale = self.grid_renderer.grid_scale;
 
         let settings = self.settings.get::<RendererSettings>();
@@ -302,7 +306,7 @@ impl Renderer {
         // the setting is off or the main grid is not available yet.
         let bottom_fill_y = self.bottom_fill_y(settings.fill_bottom_background, grid_scale);
 
-        root_canvas.clear(default_background);
+        root_canvas.clear(background);
         root_canvas.save();
         root_canvas.reset_matrix();
         root_canvas.clip_rect(to_skia_rect(content_region), None, Some(false));
@@ -389,7 +393,7 @@ impl Renderer {
                 // only the paint would leave an invisible hit area.
                 window.draw(
                     root_canvas,
-                    default_background,
+                    background,
                     grid_scale,
                     Some(*content_region),
                     rightmost_root_window,
@@ -404,7 +408,7 @@ impl Renderer {
                 layer.draw(
                     root_canvas,
                     &settings,
-                    default_background,
+                    background,
                     grid_scale,
                     Some(*content_region),
                     bottom_fill_y,
@@ -1242,5 +1246,29 @@ mod tests {
                 startup_message("message 5")
             ]
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn default_background_alpha_follows_opacity_and_blend() {
+        let mut renderer = create_renderer();
+        assert_eq!(renderer.default_background_alpha(), 255);
+
+        let mut settings = renderer.settings.get::<WindowSettings>();
+        settings.opacity = 0.6;
+        renderer.settings.set(&settings);
+        assert!(renderer.default_background_alpha() < 255);
+
+        settings.opacity = 1.0;
+        settings.normal_opacity = 0.8;
+        renderer.settings.set(&settings);
+        assert!(renderer.default_background_alpha() < 255);
+
+        settings.normal_opacity = 1.0;
+        renderer.settings.set(&settings);
+        let mut style = (*renderer.grid_renderer.default_style).clone();
+        style.blend = 20;
+        renderer.grid_renderer.default_style = Arc::new(style);
+        assert!(renderer.default_background_alpha() < 255);
     }
 }

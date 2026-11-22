@@ -179,6 +179,16 @@ impl WinitWindowWrapper {
                     }
                 }
             }
+            WindowSettingsChanged::Opacity(_) | WindowSettingsChanged::NormalOpacity(_) => {
+                for window_id in window_ids {
+                    if let Some(route) = self.routes.get(window_id) {
+                        let renderer = route.window.renderer.borrow();
+                        route.window.with_macos_feature_mut(|feature| {
+                            feature.refresh_scrollbar_colors(&renderer);
+                        });
+                    }
+                }
+            }
             _ => {}
         }
 

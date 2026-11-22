@@ -46,7 +46,6 @@ use std::cell::Cell;
 use std::collections::HashMap;
 
 use objc2_app_kit::NSWindow;
-use skia_safe::Color4f;
 
 use self::appearance::ScrollbarColors;
 use self::entry::ScrollbarControlKey;
@@ -98,6 +97,10 @@ impl MacosWindowFeature {
             renderer,
             scrollbar_enabled(&self.settings),
         );
+    }
+
+    pub fn refresh_scrollbar_colors(&mut self, renderer: &Renderer) {
+        self.scrollbars.set_colors(renderer);
     }
 
     pub fn scrollbar_left_reserved_width_in_pixels(&self) -> u32 {
@@ -153,9 +156,10 @@ impl WindowScrollbars {
         enabled: bool,
     ) {
         let ownership_changed = self.sync_snapshot(renderer.scrollbar_snapshot.as_ref(), enabled);
-        let colors = &renderer.grid_renderer.default_style.colors;
-        self.set_colors(colors.foreground, colors.background);
+
+        self.set_colors(renderer);
         self.update_states(handler, None, enabled, None);
+
         if ownership_changed {
             self.reconcile_controls(window, enabled);
         }
@@ -184,11 +188,18 @@ impl WindowScrollbars {
         layout_changed || targets_changed
     }
 
-    fn set_colors(&mut self, foreground: Option<Color4f>, background: Option<Color4f>) {
-        let colors = ScrollbarColors::from_default_colors(foreground, background);
+    fn set_colors(&mut self, renderer: &Renderer) {
+        let default = &renderer.grid_renderer.default_style.colors;
+        let colors = ScrollbarColors::from_default_colors(
+            default.foreground,
+            default.background,
+            renderer.default_background_alpha(),
+        );
+
         if self.colors == colors {
             return;
         }
+
         self.colors = colors;
         for entry in self.controls.values().chain(self.tracks.values()) {
             entry.set_colors(colors);
