@@ -26,6 +26,7 @@ use super::close_editor_switcher;
 use super::handle_editor_switcher_command_selector;
 use super::handle_editor_switcher_key;
 use super::handle_editor_switcher_toggle_key;
+use super::material;
 use super::update_editor_switcher_query_from_search_field;
 
 define_class!(
@@ -35,6 +36,13 @@ define_class!(
     pub struct EditorSwitcherWindow;
 
     impl EditorSwitcherWindow {
+        #[unsafe(method(editorSwitcherAccessibilityChanged:))]
+        fn accessibility_changed(&self, _notification: &NSNotification) {
+            if let Some(glass) = material::window_glass_view(self) {
+                material::update_clear_appearance(&glass);
+            }
+        }
+
         #[unsafe(method(sendEvent:))]
         fn send_event(&self, event: &NSEvent) {
             if event.r#type() == NSEventType::KeyDown && handle_editor_switcher_toggle_key(event) {
