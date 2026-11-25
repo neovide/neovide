@@ -10,23 +10,18 @@
 
 use objc2_app_kit::NSView;
 use objc2_app_kit::NSWindow;
-use objc2_foundation::NSOperatingSystemVersion;
-use objc2_foundation::NSProcessInfo;
 use objc2_quartz_core::CALayer;
 use objc2_quartz_core::CATransaction;
 
 use super::layout::class_name;
 use super::layout::find_descendant;
 use super::layout::titlebar_view;
+use crate::window::macos::version::at_least;
 
 const TRANSLUCENT_ALPHA: f64 = 0.5;
 
 pub fn update(window: &NSWindow, translucent: bool) {
-    if !NSProcessInfo::processInfo().isOperatingSystemAtLeastVersion(NSOperatingSystemVersion {
-        majorVersion: 27,
-        minorVersion: 0,
-        patchVersion: 0,
-    }) {
+    if !at_least(27, 0, 0) {
         return;
     }
 

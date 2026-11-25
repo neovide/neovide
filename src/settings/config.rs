@@ -98,6 +98,8 @@ pub struct Config {
     pub system_pinned_hotkey: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
     pub system_switcher_hotkey: Option<String>,
+    pub system_switcher_glass_style: Option<String>,
+    pub system_switcher_glass_dimming: Option<f64>,
     #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
     pub system_new_window_hotkey: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_hotkey")]
@@ -228,6 +230,14 @@ impl Config {
         }
         if let Some(switcher_hotkey) = &self.system_switcher_hotkey {
             unsafe { env::set_var("NEOVIDE_SYSTEM_SWITCHER_HOTKEY", switcher_hotkey) };
+        }
+        if let Some(glass_style) = &self.system_switcher_glass_style {
+            unsafe { env::set_var("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", glass_style) };
+        }
+        if let Some(glass_dimming) = self.system_switcher_glass_dimming {
+            unsafe {
+                env::set_var("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING", glass_dimming.to_string())
+            };
         }
         if let Some(new_window_hotkey) = &self.system_new_window_hotkey {
             unsafe { env::set_var("NEOVIDE_SYSTEM_NEW_WINDOW_HOTKEY", new_window_hotkey) };
@@ -436,6 +446,77 @@ mod tests {
     use notify_debouncer_full::notify::event::Flag;
 
     use super::*;
+
+    #[test]
+    fn parses_system_switcher_glass_options() {
+        for (style, dimming) in [("regular", "0"), ("clear", "0.3"), ("clear", "1")] {
+            let config: Config = toml::from_str(&format!(
+                "system-switcher-glass-style = \"{style}\"\nsystem-switcher-glass-dimming = {dimming}"
+            ))
+            .unwrap();
+
+            assert_eq!(config.system_switcher_glass_style.as_deref(), Some(style));
+            assert_eq!(config.system_switcher_glass_dimming, Some(dimming.parse::<f64>().unwrap()));
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn system_switcher_glass_options_override_environment_only_when_set() {
+        let _style = scoped_env::ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", "regular");
+        let _dimming = scoped_env::ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING", "0.2");
+        let config: Config = toml::from_str("").unwrap();
+        config.write_to_env();
+
+        assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE").unwrap(), "regular");
+        assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING").unwrap(), "0.2");
+
+        let config: Config = toml::from_str(
+            "system-switcher-glass-style = \"clear\"\nsystem-switcher-glass-dimming = 0.30",
+        )
+        .unwrap();
+        config.write_to_env();
+
+        assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE").unwrap(), "clear");
+        assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING").unwrap(), "0.3");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    #[serial_test::serial]
+    fn system_switcher_glass_flags_override_config() {
+        use crate::cmd_line::CmdLineSettings;
+        use crate::cmd_line::handle_command_line_arguments;
+        use crate::settings::Settings;
+
+        let _style = scoped_env::ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", "regular");
+        let _dimming = scoped_env::ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING", "0.75");
+        let config: Config = toml::from_str(
+            "system-switcher-glass-style = \"clear\"\nsystem-switcher-glass-dimming = 0.30",
+        )
+        .unwrap();
+        config.write_to_env();
+
+        let settings = Settings::new();
+        handle_command_line_arguments(vec!["neovide".into()], &settings).unwrap();
+        let cmdline = settings.get::<CmdLineSettings>();
+        assert_eq!(cmdline.system_switcher_glass_style, "clear");
+        assert_eq!(cmdline.system_switcher_glass_dimming, "0.3");
+
+        let args = [
+            "neovide",
+            "--system-switcher-glass-style=regular",
+            "--system-switcher-glass-dimming=0",
+        ]
+        .map(String::from)
+        .to_vec();
+        handle_command_line_arguments(args, &settings).unwrap();
+        let cmdline = settings.get::<CmdLineSettings>();
+        assert_eq!(cmdline.system_switcher_glass_style, "regular");
+        assert_eq!(cmdline.system_switcher_glass_dimming, "0");
+        assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE").unwrap(), "clear");
+        assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING").unwrap(), "0.3");
+    }
 
     fn event_with_paths(paths: &[&str]) -> DebouncedEvent {
         let event = paths

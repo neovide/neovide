@@ -14,6 +14,7 @@ use objc2_app_kit::NSFloatingWindowLevel;
 use objc2_app_kit::NSFocusRingType;
 use objc2_app_kit::NSFont;
 use objc2_app_kit::NSFontWeight;
+use objc2_app_kit::NSFontWeightSemibold;
 use objc2_app_kit::NSImage;
 use objc2_app_kit::NSImageScaling;
 use objc2_app_kit::NSImageView;
@@ -52,7 +53,9 @@ use super::layout::Panel;
 use super::layout::Results;
 use super::layout::Row;
 use super::layout::Search;
+use super::material;
 use super::row::EditorSwitcherRow;
+use crate::cmd_line::CmdLineSettings;
 use crate::window::application::platform::icon::load_neovide_icon;
 
 const SEARCH_PLACEHOLDER: &str = "Search...";
@@ -63,8 +66,8 @@ const FOOTER_CLOSE_SHORTCUTS: &[&str] = &["esc"];
 const FOOTER_OPEN_SELECTED_SHORTCUTS: &[&str] = &["↩"];
 
 const SELECTED_ROW_ALPHA: f64 = 0.10;
-const BOTTOM_BAR_ALPHA: f64 = 0.10;
 const SHORTCUT_CHIP_ALPHA: f64 = 0.05;
+const CLEAR_SHORTCUT_CHIP_ALPHA: f64 = 0.16;
 
 struct FooterShortcutChip {
     view: Retained<NSView>,
@@ -101,7 +104,7 @@ enum EditorSwitcherLabelStyle {
     Shortcut,
 }
 
-pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, custom_icon_path: Option<&String>) {
+pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, settings: &CmdLineSettings) {
     let Some(mtm) = MainThreadMarker::new() else {
         log::warn!("Editor switcher requested off the main thread");
         return;
@@ -109,7 +112,13 @@ pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, custom_icon_path
 
     close_editor_switcher();
 
-    let background = NSColor::controlBackgroundColor();
+    let glass = material::glass_view(
+        mtm,
+        editor_switcher_panel_frame(),
+        &settings.system_switcher_glass_style,
+    );
+    let clear_glass = material::is_clear(glass.as_deref());
+    let background = material::background_color(glass.is_some());
     let window = editor_switcher_window(mtm, background.as_ref());
     let EditorSwitcherPanelShell { container_view, root_view } =
         editor_switcher_panel_shell(mtm, background.as_ref());
@@ -125,12 +134,14 @@ pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, custom_icon_path
     root_ns_view.addSubview(scroll_view.as_ref());
 
     let row_action_handler = EditorSwitcherActionHandler::new(mtm);
-    let bottom_bar_background = editor_switcher_bottom_bar_background();
+    let bottom_bar_background = material::bottom_bar_background_color(glass.is_some());
+
     root_ns_view.addSubview(
         editor_switcher_bottom_bar(
             mtm,
             row_action_handler.as_ref(),
             bottom_bar_background.as_ref(),
+            clear_glass,
         )
         .as_ref(),
     );
@@ -138,14 +149,22 @@ pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, custom_icon_path
     container_view.addSubview(
         editor_switcher_bottom_bar_gap_fill(mtm, bottom_bar_background.as_ref()).as_ref(),
     );
+
     root_ns_view.setFrame(NSRect::new(
         NSPoint::new(0.0, Panel::TITLE_ADJUSTMENT),
         NSSize::new(Panel::WIDTH, Panel::CONTENT_HEIGHT),
     ));
-    container_view.addSubview(root_ns_view);
-    window.setContentView(Some(container_view.as_ref()));
 
-    let icon = load_neovide_icon(custom_icon_path);
+    container_view.addSubview(root_ns_view);
+
+    material::install_content_view(
+        window.as_ref(),
+        container_view.as_ref(),
+        glass,
+        &settings.system_switcher_glass_dimming,
+    );
+
+    let icon = load_neovide_icon(settings.icon.as_ref());
     let state = EditorSwitcherState::new(EditorSwitcherStateParts {
         window,
         search_field,
@@ -155,6 +174,7 @@ pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, custom_icon_path
         rows,
         icon,
         toggle_shortcut: editor_switcher_toggle_shortcut(),
+        clear_glass,
     });
 
     present_editor_switcher(mtm, state);
@@ -175,7 +195,8 @@ pub fn rebuild_editor_switcher_rows(state: &EditorSwitcherState) {
 
     if state.filtered_indices.is_empty() {
         container.setFrameSize(NSSize::new(visible_width, scroll_view_height));
-        let empty_label = editor_switcher_empty_results_label(mtm, visible_width);
+        let empty_label =
+            editor_switcher_empty_results_label(mtm, visible_width, state.clear_glass);
         container.addSubview(empty_label.as_ref());
         return;
     }
@@ -196,6 +217,7 @@ pub fn rebuild_editor_switcher_rows(state: &EditorSwitcherState) {
             selected,
             state.icon.as_deref(),
             state.row_action_handler.as_ref(),
+            state.clear_glass,
         );
         let row_ns_view: &NSView = row_view.as_ref();
         row_ns_view.setFrame(NSRect::new(
@@ -345,6 +367,7 @@ fn editor_switcher_bottom_bar(
     mtm: MainThreadMarker,
     row_action_handler: &EditorSwitcherActionHandler,
     background: &NSColor,
+    clear_glass: bool,
 ) -> Retained<NSView> {
     let bottom_bar_height = editor_switcher_bottom_bar_height();
     let bottom_bar = NSView::initWithFrame(
@@ -358,7 +381,13 @@ fn editor_switcher_bottom_bar(
 
     let mut trailing_edge = Panel::WIDTH - BottomBar::HORIZONTAL_PADDING;
     for spec in editor_switcher_footer_buttons_from_trailing_edge() {
-        let button = editor_switcher_bottom_bar_button(mtm, spec.text, spec.shortcuts, spec.action);
+        let button = editor_switcher_bottom_bar_button(
+            mtm,
+            spec.text,
+            spec.shortcuts,
+            spec.action,
+            clear_glass,
+        );
         let button_view: &NSView = button.as_ref();
         let button_size = button_view.frame().size;
 
@@ -375,10 +404,6 @@ fn editor_switcher_bottom_bar(
     }
 
     bottom_bar
-}
-
-fn editor_switcher_bottom_bar_background() -> Retained<NSColor> {
-    NSColor::blackColor().colorWithAlphaComponent(BOTTOM_BAR_ALPHA)
 }
 
 fn editor_switcher_footer_buttons_from_trailing_edge() -> [FooterButtonSpec; 2] {
@@ -428,12 +453,14 @@ fn editor_switcher_bottom_bar_height() -> f64 {
 fn editor_switcher_empty_results_label(
     mtm: MainThreadMarker,
     visible_width: f64,
+    clear_glass: bool,
 ) -> Retained<NSTextField> {
     let empty_label = editor_switcher_label(
         mtm,
         EMPTY_RESULTS_TEXT,
         Results::EMPTY_LABEL_FONT_SIZE,
         EditorSwitcherLabelStyle::Secondary,
+        clear_glass,
     );
     let empty_label_view: &NSView = empty_label.as_ref();
     empty_label_view.setFrame(NSRect::new(
@@ -498,6 +525,7 @@ fn editor_switcher_row_button(
     selected: bool,
     icon: Option<&NSImage>,
     row_action_handler: &EditorSwitcherActionHandler,
+    clear_glass: bool,
 ) -> Retained<NSButton> {
     let row_width = Panel::WIDTH - Results::OUTER_PADDING * 2.0;
     let row_height = Row::BUTTON_HEIGHT;
@@ -534,6 +562,7 @@ fn editor_switcher_row_button(
         &row.title,
         Row::TITLE_FONT_SIZE,
         EditorSwitcherLabelStyle::Primary,
+        clear_glass,
     );
     let title_label_view: &NSView = title_label.as_ref();
     title_label_view.setFrame(editor_switcher_row_title_frame(row_width, row_height));
@@ -547,9 +576,15 @@ fn editor_switcher_bottom_bar_button(
     text: &str,
     shortcuts: &[&str],
     action: Sel,
+    clear_glass: bool,
 ) -> Retained<NSButton> {
-    let text_label =
-        editor_switcher_label(mtm, text, BottomBar::FONT_SIZE, EditorSwitcherLabelStyle::Footer);
+    let text_label = editor_switcher_label(
+        mtm,
+        text,
+        BottomBar::FONT_SIZE,
+        EditorSwitcherLabelStyle::Footer,
+        clear_glass,
+    );
     let text_size = editor_switcher_fit_label(text_label.as_ref());
     let text_width = text_size.width.ceil();
     let text_height = text_size.height.ceil();
@@ -557,7 +592,12 @@ fn editor_switcher_bottom_bar_button(
     let shortcut_chips: Vec<FooterShortcutChip> = shortcuts
         .iter()
         .map(|shortcut| {
-            editor_switcher_footer_shortcut_chip(mtm, shortcut, BottomBar::SHORTCUT_FONT_SIZE)
+            editor_switcher_footer_shortcut_chip(
+                mtm,
+                shortcut,
+                BottomBar::SHORTCUT_FONT_SIZE,
+                clear_glass,
+            )
         })
         .collect();
     let shortcuts_width = shortcut_chips.iter().map(|chip| chip.width).sum::<f64>()
@@ -614,8 +654,10 @@ fn editor_switcher_footer_shortcut_chip(
     mtm: MainThreadMarker,
     text: &str,
     size: f64,
+    clear_glass: bool,
 ) -> FooterShortcutChip {
-    let label = editor_switcher_label(mtm, text, size, EditorSwitcherLabelStyle::Shortcut);
+    let label =
+        editor_switcher_label(mtm, text, size, EditorSwitcherLabelStyle::Shortcut, clear_glass);
     let label_size = editor_switcher_fit_label(label.as_ref());
     let label_width = label_size.width.ceil();
     let label_height = label_size.height.ceil();
@@ -626,9 +668,14 @@ fn editor_switcher_footer_shortcut_chip(
         NSView::alloc(mtm),
         NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, height)),
     );
+
     set_editor_switcher_view_background(
         chip.as_ref(),
-        &NSColor::whiteColor().colorWithAlphaComponent(SHORTCUT_CHIP_ALPHA),
+        &NSColor::whiteColor().colorWithAlphaComponent(if clear_glass {
+            CLEAR_SHORTCUT_CHIP_ALPHA
+        } else {
+            SHORTCUT_CHIP_ALPHA
+        }),
         BottomBar::SHORTCUT_CHIP_CORNER_RADIUS,
     );
 
@@ -671,13 +718,16 @@ fn editor_switcher_label(
     text: &str,
     size: f64,
     style: EditorSwitcherLabelStyle,
+    clear_glass: bool,
 ) -> Retained<NSTextField> {
     let label = NSTextField::labelWithString(&NSString::from_str(text), mtm);
     let control: &NSControl = label.as_ref();
+    let weight = if clear_glass { unsafe { NSFontWeightSemibold } } else { NSFontWeight::from(0) };
     let font = match style {
         EditorSwitcherLabelStyle::Shortcut => {
-            NSFont::monospacedSystemFontOfSize_weight(size, NSFontWeight::from(0))
+            NSFont::monospacedSystemFontOfSize_weight(size, weight)
         }
+        _ if clear_glass => NSFont::systemFontOfSize_weight(size, weight),
         _ => NSFont::systemFontOfSize(size),
     };
     control.setFont(Some(font.as_ref()));
@@ -687,10 +737,11 @@ fn editor_switcher_label(
     control.setLineBreakMode(NSLineBreakMode::ByTruncatingTail);
     control.setUsesSingleLineMode(true);
     let text_color = match style {
+        _ if clear_glass => NSColor::labelColor(),
         EditorSwitcherLabelStyle::Primary => NSColor::labelColor(),
         EditorSwitcherLabelStyle::Secondary => NSColor::secondaryLabelColor(),
         EditorSwitcherLabelStyle::Footer | EditorSwitcherLabelStyle::Shortcut => {
-            NSColor::systemGrayColor()
+            NSColor::secondaryLabelColor()
         }
     };
     label.setTextColor(Some(text_color.as_ref()));

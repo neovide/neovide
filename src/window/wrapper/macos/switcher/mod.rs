@@ -27,6 +27,7 @@ use crate::window::macos::shortcut::KeyCombo;
 mod appkit;
 mod hotkey;
 mod layout;
+mod material;
 mod row;
 mod ui;
 
@@ -57,6 +58,7 @@ struct EditorSwitcherState {
     selected_index: usize,
     query: String,
     toggle_shortcut: Option<KeyCombo>,
+    clear_glass: bool,
 }
 
 struct EditorSwitcherStateParts {
@@ -68,6 +70,7 @@ struct EditorSwitcherStateParts {
     rows: Vec<EditorSwitcherRow>,
     icon: Option<Retained<NSImage>>,
     toggle_shortcut: Option<KeyCombo>,
+    clear_glass: bool,
 }
 
 impl EditorSwitcherState {
@@ -81,6 +84,7 @@ impl EditorSwitcherState {
             rows,
             icon,
             toggle_shortcut,
+            clear_glass,
         } = parts;
 
         let mut state = Self {
@@ -95,6 +99,7 @@ impl EditorSwitcherState {
             selected_index: 0,
             query: String::new(),
             toggle_shortcut,
+            clear_glass,
         };
         state.refresh_filter();
         state.selected_index = state

@@ -2,6 +2,7 @@ pub struct Panel;
 impl Panel {
     pub const WIDTH: f64 = 600.0;
     pub const HEIGHT: f64 = 620.0;
+    pub const GLASS_CORNER_RADIUS: f64 = 20.0;
     pub const TITLE_ORIGINAL_HEIGHT: f64 = 28.0;
     pub const HORIZONTAL_PADDING: f64 = 20.0;
     pub const TITLE_ADJUSTMENT: f64 = Self::TITLE_ORIGINAL_HEIGHT - Search::VERTICAL_PADDING;

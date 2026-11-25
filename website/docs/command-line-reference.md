@@ -278,6 +278,25 @@ windows. System tabs are available with `--frame full` or `--frame transparent` 
 
 ![Neovide windows with macOS system tabs](assets/system-tabs.png)
 
+### Editors Switcher Glass (macOS Only)
+
+```sh
+--system-switcher-glass-style <style> or $NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE
+--system-switcher-glass-dimming <opacity> or $NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING
+```
+
+Sets the native Liquid Glass material for the Editors switcher on macOS 26 and later.
+Style can be `regular` (default) or `clear`. Older macOS versions keep the opaque switcher.
+
+Dimming sets the opacity of the black backing beneath Clear controls from `0` to `1`
+(default `0.30`). It only affects Clear. Unknown styles use Regular, and invalid dimming
+values use the default.
+
+Command line arguments override the matching `system-switcher-glass-style` and
+`system-switcher-glass-dimming` entries in `config.toml`, which override the environment variables.
+These settings are read at startup. Restart Neovide to change them.
+See [Editors switcher](configuration.md#macos-multi-window-editors) for material details.
+
 ### Menu Shortcuts
 
 ```sh

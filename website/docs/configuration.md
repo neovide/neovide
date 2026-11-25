@@ -996,6 +996,20 @@ The Window menu includes an Editors entry that opens Neovide's editor switcher f
 windows or native tabs. If you use native tabs, you can also remap the in-app tab cycling
 shortcuts.
 
+On macOS 26+ Editors uses the regular native liquid glass material. To compare the
+experimental clear material, launch Neovide with:
+
+```bash
+neovide --system-switcher-glass-style clear --system-switcher-glass-dimming 0.30
+```
+
+You can also set the material in `config.toml`:
+
+```toml
+system-switcher-glass-style = "clear"
+system-switcher-glass-dimming = 0.30
+```
+
 #### macOS Global Activation Shortcuts
 
 Neovide registers system-wide shortcuts on macOS:

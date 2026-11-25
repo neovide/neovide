@@ -460,8 +460,8 @@ impl WinitWindowWrapper {
         }
 
         let rows = self.editor_switcher_rows();
-        let icon = self.settings.get::<CmdLineSettings>().icon;
-        show_editor_switcher_panel(rows, icon.as_ref());
+        let settings = self.settings.get::<CmdLineSettings>();
+        show_editor_switcher_panel(rows, &settings);
     }
 }
 
