@@ -160,6 +160,15 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: seanmiddleditch/gha-setup-ninja@v6
 
+      - name: Setup LLVM (Windows)
+        if: runner.os == 'Windows'
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "22.1.8"
+          directory: ${{ runner.temp }}/llvm-22.1.8
+          # LLVM 22 is not yet in the action download catalog.
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-win64.exe
+
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -194,7 +203,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         env:
           RUSTFLAGS: "-Ctarget-feature=+crt-static"
+          LLVM_HOME: ${{ env.LLVM_PATH }}
+          LIBCLANG_PATH: ${{ env.LLVM_PATH }}/bin
         run: |
+          clang-cl --version
           cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
       - name: Build (macOS)
