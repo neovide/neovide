@@ -1087,6 +1087,14 @@ native tabs are enabled, new windows become tabs in the host window.</p>
 <p>The Window menu includes an Editors entry that opens Neovide's editor switcher for both separate
 windows or native tabs. If you use native tabs, you can also remap the in-app tab cycling
 shortcuts.</p>
+<p>On macOS 26+ Editors uses the regular native liquid glass material. To compare the
+experimental clear material, launch Neovide with:</p>
+<pre><code class="language-bash">neovide --system-switcher-glass-style clear --system-switcher-glass-dimming 0.30
+</code></pre>
+<p>You can also set the material in <code>config.toml</code>:</p>
+<pre><code class="language-toml">system-switcher-glass-style = &quot;clear&quot;
+system-switcher-glass-dimming = 0.30
+</code></pre>
 <h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
 <p>Neovide registers system-wide shortcuts on macOS:</p>
 <ul>
@@ -1611,6 +1619,19 @@ as with <code>--reuse-instance</code> works.</p>
 bar visible when multiple Neovide windows are grouped as tabs or leave it disabled to keep separate
 windows. System tabs are available with <code>--frame full</code> or <code>--frame transparent</code> only.</p>
 <p><img src="assets/system-tabs.png" alt="Neovide windows with macOS system tabs" /></p>
+<h3 id="editors-switcher-glass-macos-only"><a class="header" href="#editors-switcher-glass-macos-only">Editors Switcher Glass (macOS Only)</a></h3>
+<pre><code class="language-sh">--system-switcher-glass-style &lt;style&gt; or $NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE
+--system-switcher-glass-dimming &lt;opacity&gt; or $NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING
+</code></pre>
+<p>Sets the native Liquid Glass material for the Editors switcher on macOS 26 and later.
+Style can be <code>regular</code> (default) or <code>clear</code>. Older macOS versions keep the opaque switcher.</p>
+<p>Dimming sets the opacity of the black backing beneath Clear controls from <code>0</code> to <code>1</code>
+(default <code>0.30</code>). It only affects Clear. Unknown styles use Regular, and invalid dimming
+values use the default.</p>
+<p>Command line arguments override the matching <code>system-switcher-glass-style</code> and
+<code>system-switcher-glass-dimming</code> entries in <code>config.toml</code>, which override the environment variables.
+These settings are read at startup. Restart Neovide to change them.
+See <a href="configuration.html#macos-multi-window-editors">Editors switcher</a> for material details.</p>
 <h3 id="menu-shortcuts"><a class="header" href="#menu-shortcuts">Menu Shortcuts</a></h3>
 <pre><code class="language-sh">--system-hide-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_HIDE_HOTKEY
 --system-hide-others-hotkey &lt;combo&gt; or $NEOVIDE_SYSTEM_HIDE_OTHERS_HOTKEY
@@ -1717,6 +1738,8 @@ tabs = true
 system-native-tabs = false # macOS only
 system-pinned-hotkey = &quot;cmd+ctrl+z&quot; # macOS only
 system-switcher-hotkey = &quot;cmd+ctrl+n&quot; # macOS only
+system-switcher-glass-style = &quot;regular&quot; # macOS 26+ &quot;regular&quot; or &quot;clear&quot;
+system-switcher-glass-dimming = 0.30 # macOS 26+ clear only, from 0 to 1
 system-new-window-hotkey = &quot;cmd+n&quot; # macOS only
 system-hide-hotkey = &quot;cmd+h&quot; # macOS only
 system-hide-others-hotkey = &quot;cmd+alt+h&quot; # macOS only

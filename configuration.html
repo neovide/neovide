@@ -766,6 +766,14 @@ native tabs are enabled, new windows become tabs in the host window.</p>
 <p>The Window menu includes an Editors entry that opens Neovide's editor switcher for both separate
 windows or native tabs. If you use native tabs, you can also remap the in-app tab cycling
 shortcuts.</p>
+<p>On macOS 26+ Editors uses the regular native liquid glass material. To compare the
+experimental clear material, launch Neovide with:</p>
+<pre><code class="language-bash">neovide --system-switcher-glass-style clear --system-switcher-glass-dimming 0.30
+</code></pre>
+<p>You can also set the material in <code>config.toml</code>:</p>
+<pre><code class="language-toml">system-switcher-glass-style = &quot;clear&quot;
+system-switcher-glass-dimming = 0.30
+</code></pre>
 <h4 id="macos-global-activation-shortcuts"><a class="header" href="#macos-global-activation-shortcuts">macOS Global Activation Shortcuts</a></h4>
 <p>Neovide registers system-wide shortcuts on macOS:</p>
 <ul>
