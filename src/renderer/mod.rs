@@ -223,6 +223,8 @@ pub struct Renderer {
 pub struct DrawCommandResult {
     #[cfg(target_os = "macos")]
     pub scrollbar_changed: bool,
+    #[cfg(target_os = "macos")]
+    pub default_style_changed: bool,
     pub font_changed: bool,
     pub should_show: bool,
     pub startup_message_flush: Option<StartupMessageFlush>,
@@ -568,6 +570,8 @@ impl Renderer {
         let mut result = DrawCommandResult {
             #[cfg(target_os = "macos")]
             scrollbar_changed: false,
+            #[cfg(target_os = "macos")]
+            default_style_changed: false,
             font_changed: false,
             should_show: false,
             startup_message_flush: None,
@@ -667,6 +671,10 @@ impl Renderer {
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.grid_renderer.default_style = Arc::new(new_style);
+                #[cfg(target_os = "macos")]
+                {
+                    result.default_style_changed = true;
+                }
             }
             DrawCommand::ModeChanged(new_mode) => {
                 self.current_mode = new_mode;

@@ -4,11 +4,13 @@ use std::sync::Mutex;
 
 use objc2::runtime::AnyObject;
 use objc2_app_kit::NSWindow;
+use skia_safe::Color;
 
 struct WindowRegistration {
     title_hidden: bool,
     toolbar_enabled: bool,
     translucent_background: bool,
+    background_color: Option<Color>,
     pending_content_height: Option<f64>,
 }
 
@@ -29,6 +31,7 @@ pub fn register(window: &NSWindow, title_hidden: bool, pending_content_height: O
             title_hidden,
             toolbar_enabled: true,
             translucent_background: false,
+            background_color: None,
             pending_content_height,
         },
     );
@@ -68,6 +71,21 @@ pub fn set_translucent_background(window: &NSWindow, translucent: bool) -> bool 
     let mut windows = WINDOWS.lock().unwrap();
     let entry = windows.get_mut(&key(window)).expect("system tabs must be registered");
     std::mem::replace(&mut entry.translucent_background, translucent)
+}
+
+pub fn background_color(window: &NSWindow) -> Option<Color> {
+    WINDOWS.lock().unwrap().get(&key(window)).and_then(|entry| entry.background_color)
+}
+
+pub fn set_background_color(window: &NSWindow, color: Color) -> bool {
+    let mut windows = WINDOWS.lock().unwrap();
+    let entry = windows.get_mut(&key(window)).expect("system tabs must be registered");
+    if entry.background_color == Some(color) {
+        return false;
+    }
+
+    entry.background_color = Some(color);
+    true
 }
 
 pub fn pending_content_height(window: &NSWindow) -> Option<f64> {

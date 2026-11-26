@@ -38,6 +38,7 @@ use crate::CmdLineSettings;
 use crate::bridge::NeovimHandler;
 use crate::bridge::OpenArgs;
 use crate::error_msg;
+use crate::renderer::DrawCommandResult;
 use crate::renderer::Renderer;
 use crate::renderer::rendered_window::BASE_GRID_ID;
 use crate::renderer::rendered_window::NO_MULTIGRID_GRID_ID;
@@ -120,6 +121,7 @@ pub fn create_window_feature(
     host_tab: Option<HostTab>,
 ) -> MacosWindowFeature {
     let mut feat = MacosWindowFeature::from_winit_window(window, settings, handler, host_tab);
+    feat.set_tab_background_color(renderer.borrow().grid_renderer.get_default_background_color());
     feat.apply_scrollbar_snapshot(&renderer.borrow());
     if creating_initial_window {
         feat.activate_and_focus();
@@ -491,6 +493,22 @@ impl RouteLaunchConfig {
 }
 
 impl RouteWindow {
+    pub fn apply_draw_command_result(&self, renderer: &Renderer, result: &DrawCommandResult) {
+        if result.default_style_changed {
+            self.with_macos_feature_mut(|feature| {
+                feature.set_tab_background_color(
+                    renderer.grid_renderer.get_default_background_color(),
+                );
+            });
+        }
+
+        if result.scrollbar_changed {
+            self.with_macos_feature_mut(|feature| {
+                feature.apply_scrollbar_snapshot(renderer);
+            });
+        }
+    }
+
     pub fn handle_touchpad_pressure(&self, stage: i64) {
         if let Some(feature) = &self.macos_feature {
             match TouchpadStage::from_stage(stage) {
