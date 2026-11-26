@@ -46,6 +46,7 @@ use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
 use objc2_foundation::NSURL;
 use objc2_foundation::ns_string;
+use skia_safe::Color;
 use winit::window::Window;
 
 use self::scrollbar::WindowScrollbars;
@@ -208,6 +209,7 @@ pub struct MacosWindowFeature {
     neovim_handler: NeovimHandler,
     simple_fullscreen: bool,
     has_transparent_titlebar: bool,
+    tab_background_color: Option<Color>,
     system_tabs: Option<WindowSystemTabs>,
     scrollbars: WindowScrollbars,
 }
@@ -308,6 +310,7 @@ impl MacosWindowFeature {
             neovim_handler,
             simple_fullscreen,
             has_transparent_titlebar,
+            tab_background_color: None,
             system_tabs,
             scrollbars: WindowScrollbars::default(),
         };
@@ -891,6 +894,17 @@ impl MacosWindowFeature {
         self.update_ns_background(opaque, show_border);
         if let Some(tabs) = &self.system_tabs {
             tabs.set_translucent_background(!opaque);
+        }
+    }
+
+    pub fn set_tab_background_color(&mut self, color: Color) {
+        if self.tab_background_color == Some(color) {
+            return;
+        }
+
+        self.tab_background_color = Some(color);
+        if let Some(tabs) = &self.system_tabs {
+            tabs.set_background_color(color);
         }
     }
 

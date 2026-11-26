@@ -35,6 +35,7 @@ use objc2_app_kit::NSWindowToolbarStyle;
 use objc2_foundation::MainThreadMarker;
 use objc2_foundation::NSPoint;
 use objc2_foundation::ns_string;
+use skia_safe::Color;
 
 use super::MacosWindowFeature;
 use crate::cmd_line::CmdLineSettings;
@@ -79,7 +80,13 @@ impl WindowSystemTabs {
     pub fn set_translucent_background(&self, translucent: bool) {
         let was_translucent = registry::set_translucent_background(&self.window, translucent);
         if translucent || was_translucent {
-            appearance::update(&self.window, translucent);
+            appearance::update(&self.window);
+        }
+    }
+
+    pub fn set_background_color(&self, color: Color) {
+        if registry::set_background_color(&self.window, color) {
+            appearance::update(&self.window);
         }
     }
 
@@ -278,6 +285,9 @@ impl MacosWindowFeature {
         let mtm = MainThreadMarker::new().expect("inline tabs require the main thread");
         let tabs = WindowSystemTabs::install(self.ns_window.clone(), mtm, title_hidden, None);
         tabs.set_translucent_background(translucent);
+        if let Some(color) = self.tab_background_color {
+            tabs.set_background_color(color);
+        }
 
         self.system_tabs = Some(tabs);
     }

@@ -66,9 +66,7 @@ pub fn update_titlebar_visibility(window: &NSWindow) {
         NSWindowTitleVisibility::Visible
     });
 
-    if registry::translucent_background(window).unwrap_or(false) {
-        appearance::update(window, true);
-    }
+    appearance::update(window);
 }
 
 unsafe extern "C-unwind" fn add_accessory(
@@ -141,9 +139,7 @@ unsafe extern "C-unwind" fn deferred_layout(this: &AnyObject, _sel: Sel) {
         update_titlebar_visibility(window);
         layout(window);
         restore_group_height(window);
-        if registry::translucent_background(window).unwrap_or(false) {
-            appearance::update(window, true);
-        }
+        appearance::update(window);
         // tab attachment can change the content inset without resizing the
         // window. Redraw so the wrapper can update the grid padding.
         if let Some(content) = window.contentView() {
@@ -153,8 +149,8 @@ unsafe extern "C-unwind" fn deferred_layout(this: &AnyObject, _sel: Sel) {
 }
 
 unsafe extern "C-unwind" fn deferred_appearance(this: &AnyObject, _sel: Sel) {
-    if let Some(translucent) = registry::translucent_background(unsafe { as_window(this) }) {
-        appearance::update(unsafe { as_window(this) }, translucent);
+    if registry::is_registered(this) {
+        appearance::update(unsafe { as_window(this) });
     }
 }
 

@@ -1516,11 +1516,7 @@ impl WinitWindowWrapper {
             let mut renderer = route.window.renderer.borrow_mut();
             let result = renderer.handle_draw_commands(batch);
             #[cfg(target_os = "macos")]
-            if result.scrollbar_changed {
-                route.window.with_macos_feature_mut(|feature| {
-                    feature.apply_scrollbar_snapshot(&renderer);
-                });
-            }
+            route.window.apply_draw_command_result(&renderer, &result);
 
             result
         };
