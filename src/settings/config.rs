@@ -500,7 +500,7 @@ mod tests {
         let settings = Settings::new();
         handle_command_line_arguments(vec!["neovide".into()], &settings).unwrap();
         let cmdline = settings.get::<CmdLineSettings>();
-        assert_eq!(cmdline.system_switcher_glass_style, "clear");
+        assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("clear"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "0.3");
 
         let args = [
@@ -512,7 +512,7 @@ mod tests {
         .to_vec();
         handle_command_line_arguments(args, &settings).unwrap();
         let cmdline = settings.get::<CmdLineSettings>();
-        assert_eq!(cmdline.system_switcher_glass_style, "regular");
+        assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("regular"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "0");
         assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE").unwrap(), "clear");
         assert_eq!(env::var("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING").unwrap(), "0.3");
