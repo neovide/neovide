@@ -112,11 +112,10 @@ pub fn show_editor_switcher_panel(rows: Vec<EditorSwitcherRow>, settings: &CmdLi
 
     close_editor_switcher();
 
-    let glass = material::glass_view(
-        mtm,
-        editor_switcher_panel_frame(),
-        &settings.system_switcher_glass_style,
-    );
+    let glass = settings
+        .system_switcher_glass_style
+        .as_deref()
+        .and_then(|style| material::glass_view(mtm, editor_switcher_panel_frame(), style));
     let clear_glass = material::is_clear(glass.as_deref());
     let background = material::background_color(glass.is_some());
     let window = editor_switcher_window(mtm, background.as_ref());

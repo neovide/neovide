@@ -1,3 +1,5 @@
+#[cfg(target_os = "macos")]
+use std::convert::Infallible;
 use std::iter;
 use std::process::ExitStatus;
 
@@ -189,14 +191,25 @@ pub struct CmdLineSettings {
     pub system_show_all_tabs_hotkey: String,
 
     /// Set the Editors switcher glass style to regular or clear on macOS 26+
+    //
+    /// NOTE: the intention is to require the right value without adding any
+    /// hack and without blocking the launcher in case of a non accepted value
+    /// using the value_parser, but just `Option` makes clap expect a String,
+    /// with absence handled by them. Surprisingly, using std::option::Option
+    /// makes clap store the whole Option<String> returned by our custom
+    /// parser, including None for an invalid type.
+    ///
+    /// See https://github.com/clap-rs/clap/issues/4626
     #[cfg(target_os = "macos")]
     #[arg(
         long = "system-switcher-glass-style",
         env = "NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE",
-        default_value = "regular",
+        value_parser = parse_system_switcher_glass_style,
+        default_value = "",
+        hide_default_value = true,
         value_name = "STYLE"
     )]
-    pub system_switcher_glass_style: String,
+    pub system_switcher_glass_style: std::option::Option<String>,
 
     /// Set the Clear switcher backing opacity from 0 to 1 on macOS 26+
     #[cfg(target_os = "macos")]
@@ -388,6 +401,11 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
 
     settings.set::<CmdLineSettings>(&cmdline);
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn parse_system_switcher_glass_style(value: &str) -> Result<Option<String>, Infallible> {
+    Ok(matches!(value, "regular" | "clear").then(|| value.to_owned()))
 }
 
 #[cfg(target_os = "macos")]
@@ -651,8 +669,24 @@ mod tests {
         let _dimming = ScopedEnv::remove("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING");
         let cmdline = CmdLineSettings::try_parse_from(["neovide"]).unwrap();
 
-        assert_eq!(cmdline.system_switcher_glass_style, "regular");
+        assert_eq!(cmdline.system_switcher_glass_style, None);
         assert_eq!(cmdline.system_switcher_glass_dimming, "0.30");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_system_switcher_glass_environment_requires_style() {
+        let _style = ScopedEnv::remove("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE");
+        let _dimming = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING", "0.75");
+        let settings = Settings::new();
+        handle_command_line_arguments(vec!["neovide".into()], &settings).unwrap();
+        assert_eq!(settings.get::<CmdLineSettings>().system_switcher_glass_style, None);
+
+        let _style = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", "regular");
+        handle_command_line_arguments(vec!["neovide".into()], &settings).unwrap();
+        let cmdline = settings.get::<CmdLineSettings>();
+        assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("regular"));
+        assert_eq!(cmdline.system_switcher_glass_dimming, "0.75");
     }
 
     #[test]
@@ -661,7 +695,7 @@ mod tests {
         let _style = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", "clear");
         let _dimming = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING", "0.75");
         let cmdline = CmdLineSettings::try_parse_from(["neovide"]).unwrap();
-        assert_eq!(cmdline.system_switcher_glass_style, "clear");
+        assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("clear"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "0.75");
 
         let cmdline = CmdLineSettings::try_parse_from([
@@ -670,7 +704,7 @@ mod tests {
             "regular",
         ])
         .unwrap();
-        assert_eq!(cmdline.system_switcher_glass_style, "regular");
+        assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("regular"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "0.75");
 
         for dimming in ["0", "1"] {
@@ -680,29 +714,61 @@ mod tests {
                 dimming,
             ])
             .unwrap();
-            assert_eq!(cmdline.system_switcher_glass_style, "clear");
+            assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("clear"));
             assert_eq!(cmdline.system_switcher_glass_dimming, dimming);
         }
     }
 
     #[test]
     #[cfg(target_os = "macos")]
-    fn test_system_switcher_glass_values_reach_material_validation() {
-        let _style = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", "unknown");
+    fn test_system_switcher_glass_invalid_environment_is_ignored() {
+        let _dimming = ScopedEnv::remove("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING");
+        for value in ["", " ", "unknown", "opaque", "Clear", "CLEAR", "clear "] {
+            let _style = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", value);
+            let cmdline = CmdLineSettings::try_parse_from(["neovide"]).unwrap();
+            assert_eq!(cmdline.system_switcher_glass_style, None, "{value:?}");
+            assert_eq!(cmdline.system_switcher_glass_dimming, "0.30");
+
+            for style in ["regular", "clear"] {
+                let args = vec!["neovide".into(), format!("--system-switcher-glass-style={style}")];
+                let cmdline = CmdLineSettings::try_parse_from(args).unwrap();
+                assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some(style));
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_system_switcher_glass_missing_value_is_an_error() {
+        let _style = ScopedEnv::remove("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE");
+        let _dimming = ScopedEnv::remove("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING");
+        let settings = Settings::new();
+        let args = vec!["neovide".into(), "--system-switcher-glass-style".into()];
+
+        let error = handle_command_line_arguments(args, &settings).unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<clap::Error>().unwrap().kind(),
+            clap::error::ErrorKind::InvalidValue
+        );
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_system_switcher_glass_dimming_reaches_material_validation() {
+        let _style = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_STYLE", "clear");
         let _dimming = ScopedEnv::set("NEOVIDE_SYSTEM_SWITCHER_GLASS_DIMMING", "NaN");
         let cmdline = CmdLineSettings::try_parse_from(["neovide"]).unwrap();
-        assert_eq!(cmdline.system_switcher_glass_style, "unknown");
+        assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("clear"));
         assert_eq!(cmdline.system_switcher_glass_dimming, "NaN");
 
         for dimming in ["1.1", "-0.1"] {
             let cmdline = CmdLineSettings::try_parse_from([
                 "neovide",
-                "--system-switcher-glass-style=invalid",
                 "--system-switcher-glass-dimming",
                 dimming,
             ])
             .unwrap();
-            assert_eq!(cmdline.system_switcher_glass_style, "invalid");
+            assert_eq!(cmdline.system_switcher_glass_style.as_deref(), Some("clear"));
             assert_eq!(cmdline.system_switcher_glass_dimming, dimming);
         }
     }
