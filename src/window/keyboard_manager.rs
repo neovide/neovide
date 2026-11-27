@@ -84,6 +84,17 @@ impl KeyboardManager {
                     neovim_handler,
                 );
             }
+            // winit may disable the IME without sending an empty preedit first, and asks the app
+            // to clear pending preedit text here. A stale preedit would drop all KeyboardInput.
+            // https://github.com/rust-windowing/winit/blob/e9809ef54b18499bb4f2cac945719ecc2a61061b/src/event.rs#L796-L802
+            WindowEvent::Ime(Ime::Disabled) if !self.ime_preedit.0.is_empty() => {
+                log::trace!("Ime disabled with a pending preedit, clearing it");
+                self.ime_preedit = (String::new(), None);
+                send_ui(
+                    SerialCommand::KeyboardImePreedit { raw: String::new(), cursor_offset: None },
+                    neovim_handler,
+                );
+            }
             WindowEvent::ModifiersChanged(modifiers) => {
                 // Record the modifier states so that we can properly add them to the keybinding text
                 log::trace!("{:?}", *modifiers);
