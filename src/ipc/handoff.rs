@@ -40,7 +40,7 @@ pub struct HandoffRequest {
     pub tabs: bool,
     pub new_window: bool,
     #[serde(default)]
-    pub neovim_bin: Option<String>,
+    pub neovim_bin: Option<Vec<String>>,
     #[serde(default)]
     pub neovim_args: Option<Vec<String>>,
 }

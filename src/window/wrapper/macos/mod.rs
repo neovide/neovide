@@ -469,7 +469,7 @@ impl WinitWindowWrapper {
 
 #[derive(Default)]
 pub struct RouteLaunchConfig {
-    neovim_bin: Option<String>,
+    neovim_bin: Option<Vec<String>>,
     neovim_args: Option<Vec<String>>,
 }
 
