@@ -13,6 +13,7 @@ pub mod session;
 mod setup;
 mod transition;
 mod ui_commands;
+mod url_allowlist;
 
 use std::io::Error;
 use std::ops::Add;
@@ -459,6 +460,7 @@ impl NeovimRuntime {
             running_tracker,
             settings.clone(),
             self.clipboard.clone(),
+            config.remote.allowed_url_patterns.clone(),
         );
         let initial_background =
             self.runtime().block_on(initial_background_from_stream(&mut colorscheme_stream));

@@ -25,6 +25,13 @@ use crate::renderer::box_drawing::BoxDrawingSettings;
 use crate::window::EventPayload;
 use crate::window::UserEvent;
 
+#[derive(Debug, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct RemoteConfig {
+    #[serde(default)]
+    pub allowed_url_patterns: Vec<String>,
+}
+
 const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
@@ -124,6 +131,8 @@ pub struct Config {
     pub wayland_app_id: Option<String>,
     pub x11_wm_class: Option<String>,
     pub x11_wm_class_instance: Option<String>,
+    #[serde(default)]
+    pub remote: RemoteConfig,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -137,6 +146,7 @@ pub enum HotReloadConfigs {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppHotReloadConfigs {
     Idle(bool),
+    AllowedUrlPatterns(Vec<String>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -425,6 +435,15 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                     error_msg!("While reloading config file: invalid geometry: {err}");
                 }
             }
+        }
+        if config.remote.allowed_url_patterns != previous_config.remote.allowed_url_patterns {
+            event_loop_proxy
+                .send_event(EventPayload::all(UserEvent::ConfigsChanged(Box::new(
+                    HotReloadConfigs::App(AppHotReloadConfigs::AllowedUrlPatterns(
+                        config.remote.allowed_url_patterns.clone(),
+                    )),
+                ))))
+                .unwrap();
         }
         previous_config = config;
     }
